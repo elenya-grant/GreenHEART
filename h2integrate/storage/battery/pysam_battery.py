@@ -1,5 +1,5 @@
-from collections.abc import Sequence
 from dataclasses import asdict, dataclass
+from collections.abc import Sequence
 
 import PySAM.BatteryStateful as BatteryStateful
 from attrs import field, define
@@ -253,7 +253,7 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
         :rtype: dict
         """
         # calculate size
-        if not isinstance(self.system_model,BatteryStateful.BatteryStateful):
+        if not isinstance(self.system_model, BatteryStateful.BatteryStateful):
             raise TypeError
 
         original_capacity = self.system_model.ParamsPack.nominal_energy
