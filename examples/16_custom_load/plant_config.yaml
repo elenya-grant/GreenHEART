@@ -34,7 +34,7 @@ plant:
 
 technology_interconnections: [
   ["wind","electrical_load_demand","electricity","cable"], #would subtract wind from load demand
-  ["electrical_load_demand", "natural_gas_plant", "electricity", "cable"], #give load demand to natural gas plant
+  ["electrical_load_demand", "natural_gas_plant", "electricity", "cable"], #give remaining load demand to natural gas plant
   # etc
 ]
 
