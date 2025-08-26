@@ -320,10 +320,8 @@ class H2IntegrateModel:
                 commodity_types.append("co2")
             if "oae" in tech_configs:
                 commodity_types.append("co2")
-            for tech in electricity_producing_techs:
-                if tech in tech_configs:
-                    commodity_types.append("electricity")
-                    continue
+            if any(tech in tech_configs for tech in electricity_producing_techs):
+                commodity_types.append("electricity")
 
             # Steel, methanol provides their own financials
             if any(c in commodity_types for c in ("steel", "methanol")):
@@ -461,6 +459,11 @@ class H2IntegrateModel:
                         f"{source_tech}.{transport_item}_out",
                         f"{connection_name}.{transport_item}_in",
                     )
+                elif "demand" in source_tech:
+                    self.plant.connect(
+                        f"{source_tech}.{transport_item}_demand",
+                        f"{connection_name}.{transport_item}_in",
+                    )
                 else:
                     # Connect the source technology to the connection component
                     self.plant.connect(
@@ -488,6 +491,13 @@ class H2IntegrateModel:
                     self.plant.connect(
                         f"{connection_name}.{transport_item}_out",
                         f"{dest_tech}.{transport_item}_in",
+                    )
+
+                elif "demand" in dest_tech:
+                    # Connect the connection component to the destination technology
+                    self.plant.connect(
+                        f"{connection_name}.{transport_item}_out",
+                        f"{dest_tech}.{transport_item}_supplied",
                     )
 
                 else:

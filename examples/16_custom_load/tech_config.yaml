@@ -1,0 +1,74 @@
+name: "plant_config"
+description: "This plant is located in MN, USA..."
+
+
+technologies:
+  wind:
+    performance_model:
+      model: "wind_plant_performance"
+    cost_model:
+      model: "wind_plant_cost"
+    financial_model:
+      group: default
+    resource:
+      type: "pysam_wind"
+      wind_speed: 9.
+    model_inputs:
+      shared_parameters:
+        num_turbines: 1
+        turbine_rating_kw: 8300
+      performance_parameters:
+        rotor_diameter: 170
+        hub_height: 115.
+        layout_mode: "basicgrid"
+        model_name: "pysam"
+        model_input_file: null
+        layout_params:
+          row_D_spacing: 5.
+          turbine_D_spacing: 5.
+        rating_range_kw: [1000, 9000]
+        floris_config: null
+        operational_losses: 10.0
+        timestep: [1, 60]
+        fin_model: "default"
+        name: "UtilityScaleWindPlant"
+        turbine_name: "2023NREL_Bespoke_6MW_170" #turbine model to use
+        turbine_group: "onshore"
+        override_wind_resource_height: False
+        adjust_air_density_for_elevation: True
+      cost_parameters:
+        cost_per_kw: 1500.0
+        cost_year: 2019
+  natural_gas_plant:
+    performance_model:
+      model: ng_performance
+      model_class_name: NaturalGasPerformanceModel
+      model_location: my_model/natural_gas_converter.py
+    cost_model:
+      model: ng_cost
+      model_class_name: NaturalGasCost
+      model_location: my_model/natural_gas_converter.py
+    financial_model:
+      group: default
+    # financial_model:
+    #   model: paper_mill_finance
+    #   model_class_name: PaperMillFinance
+    #   model_location: user_defined_model/paper_mill.py
+    model_inputs:
+      shared_parameters:
+        rated_capacity_MW: 10
+      performance_parameters:
+        heat_rate_mmbtu_per_mwh: 12
+        ng_avail_mmbtu: 0. #have below 120 to limit availability, set to zero to do it based on demand.
+      cost_parameters:
+        capex_per_kW: 40.0
+        opex_per_kW: 20.0
+        cost_year: 2024
+  electrical_load_demand:
+    performance_model:
+      model: load_demand
+    model_inputs:
+      performance_parameters:
+        demand: 20
+        units: "MW"
+        resource_type: "electricity"

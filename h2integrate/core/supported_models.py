@@ -1,4 +1,5 @@
 from h2integrate.resource.river import RiverResource
+from h2integrate.core.load_demand import DemandPerformanceModelComponent
 from h2integrate.transporters.pipe import PipePerformanceModel
 from h2integrate.transporters.cable import CablePerformanceModel
 from h2integrate.converters.steel.steel import SteelPerformanceModel, SteelCostAndFinancialModel
@@ -130,6 +131,8 @@ supported_models = {
     # Storage
     "hydrogen_tank_performance": HydrogenTankPerformanceModel,
     "hydrogen_tank_cost": HydrogenTankCostModel,
+    # Generic Demand
+    "load_demand": DemandPerformanceModelComponent,
 }
 
-electricity_producing_techs = ["wind", "solar", "pv", "river", "hopp"]
+electricity_producing_techs = ["wind", "solar", "pv", "river", "hopp", "natural_gas_plant"]
