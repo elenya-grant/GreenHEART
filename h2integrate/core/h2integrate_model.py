@@ -9,9 +9,15 @@ from h2integrate.core.finances import AdjustedCapexOpexComp
 from h2integrate.core.utilities import create_xdsm_from_config
 from h2integrate.core.feedstocks import FeedstockComponent
 from h2integrate.core.resource_summer import ElectricitySumComp
-from h2integrate.core.supported_models import supported_models, electricity_producing_techs
+from h2integrate.core.supported_models import (
+    supported_models,
+    electricity_producing_techs,
+    independent_financial_models,
+    combined_performance_and_cost_models,
+)
 from h2integrate.core.inputs.validation import load_tech_yaml, load_plant_yaml, load_driver_yaml
 from h2integrate.core.pose_optimization import PoseOptimization
+from h2integrate.core.model_mapping_tools import get_commodities_for_tech_keywords
 
 
 try:
@@ -185,7 +191,7 @@ class H2IntegrateModel:
         self.cost_models = []
         self.financial_models = []
 
-        combined_performance_and_cost_models = ["hopp", "h2_storage", "wombat"]
+        # combined_performance_and_cost_models = ["hopp", "h2_storage", "wombat"]
 
         # Create a technology group for each technology
         for tech_name, individual_tech_config in self.technology_config["technologies"].items():
@@ -303,36 +309,20 @@ class H2IntegrateModel:
 
         # Add each financial group to the plant
         for group_id, tech_configs in financial_groups.items():
+            coupled_cost_finance = any(
+                tech_info.get("cost_model", {}).get("model", False) in independent_financial_models
+                for tech, tech_info in tech_configs.items()
+            )
+            individual_finance = any(
+                tech_info.get("financial_model", {}).get("model", False)
+                in independent_financial_models
+                for tech, tech_info in tech_configs.items()
+            )
             commodity_types = []
-            if "steel" in tech_configs:
-                commodity_types.append("steel")
-            if "electrolyzer" in tech_configs:
-                commodity_types.append("hydrogen")
-            if "methanol" in tech_configs:
-                commodity_types.append("methanol")
-            if "ammonia" in tech_configs:
-                commodity_types.append("ammonia")
-            if "air_separator" in tech_configs:
-                commodity_types.append("nitrogen")
-            if "geoh2" in tech_configs:
-                commodity_types.append("hydrogen")
-            if "doc" in tech_configs:
-                commodity_types.append("co2")
-            if "oae" in tech_configs:
-                commodity_types.append("co2")
-            for tech in electricity_producing_techs:
-                if tech in tech_configs:
-                    commodity_types.append("electricity")
-                    continue
+            commodity_types = get_commodities_for_tech_keywords(tech_configs)
 
-            # Steel, methanol provides their own financials
-            if any(c in commodity_types for c in ("steel", "methanol")):
+            if coupled_cost_finance or individual_finance:
                 continue
-
-            # GeoH2 provides own financials
-            if "geoh2" in tech_configs:
-                continue
-
             if commodity_types == []:
                 continue
 
@@ -342,7 +332,7 @@ class H2IntegrateModel:
             # commodity types for this group
             all_included_techs = set()
             for commodity_type in commodity_types:
-                if commodity_type not in ["steel", "methanol"]:  # These handle their own financials
+                if not coupled_cost_finance or not individual_finance:
                     included_techs = self.get_included_technologies(
                         tech_configs, commodity_type, self.plant_config
                     )
@@ -538,42 +528,34 @@ class H2IntegrateModel:
         if "finance_parameters" in self.plant_config:
             # Connect the outputs of the technology models to the appropriate financial groups
             for group_id, tech_configs in self.financial_groups.items():
-                # Skip steel financials; it provides its own financials
-                if any(c in tech_configs for c in ("steel", "methanol", "geoh2")):
+                # Skip financials if model provides its own financials
+                coupled_cost_finance = any(
+                    tech_info.get("cost_model", {}).get("model", False)
+                    in independent_financial_models
+                    for tech, tech_info in tech_configs.items()
+                )
+                individual_finance = any(
+                    tech_info.get("financial_model", {}).get("model", False)
+                    in independent_financial_models
+                    for tech, tech_info in tech_configs.items()
+                )
+                if coupled_cost_finance or individual_finance:
                     continue
 
                 plant_producing_electricity = False
 
                 # Determine which commodity types this financial group handles
-                commodity_types = []
-                if "steel" in tech_configs:
-                    commodity_types.append("steel")
-                if "electrolyzer" in tech_configs:
-                    commodity_types.append("hydrogen")
-                if "methanol" in tech_configs:
-                    commodity_types.append("methanol")
-                if "ammonia" in tech_configs:
-                    commodity_types.append("ammonia")
-                if "geoh2" in tech_configs:
-                    commodity_types.append("hydrogen")
-                if "doc" in tech_configs:
-                    commodity_types.append("co2")
-                if "air_separator" in tech_configs:
-                    commodity_types.append("nitrogen")
-                if "oae" in tech_configs:
-                    commodity_types.append("co2")
-                for tech in electricity_producing_techs:
-                    if tech in tech_configs:
-                        commodity_types.append("electricity")
-                        break
+                # commodity_types = set()
+                commodity_types = get_commodities_for_tech_keywords(tech_configs)
+                if commodity_types == []:
+                    commodity_types = get_commodities_for_tech_keywords(
+                        tech_configs, "performance_model", "model"
+                    )
 
                 # Get all included technologies for all commodity types in this group
                 all_included_techs = set()
                 for commodity_type in commodity_types:
-                    if commodity_type not in [
-                        "steel",
-                        "methanol",
-                    ]:  # These handle their own financials
+                    if not individual_finance or not coupled_cost_finance:
                         included_techs = self.get_included_technologies(
                             tech_configs, commodity_type, self.plant_config
                         )

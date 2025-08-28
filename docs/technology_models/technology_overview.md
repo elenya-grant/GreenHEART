@@ -129,8 +129,8 @@ Below summarizes the available performance, cost, and financial models for each 
         + `'natural_geoh2_cost'`
         + `'stimulated_geoh2_cost'`
     - finance models:
-        + `'natural_geoh2'`
-        + `'stimulated_geoh2'`
+        + `'natural_geoh2_financial'`
+        + `'stimulated_geoh2_financial'`
 - `steel`: steel production
     - performance models:
         + `'steel_performance'`

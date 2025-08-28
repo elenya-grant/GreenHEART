@@ -8,7 +8,7 @@ technologies:
     cost_model:
       model: "natural_geoh2_cost"
     financial_model:
-      model: "natural_geoh2"
+      model: "natural_geoh2_financial"
     model_inputs:
       shared_parameters:
         well_lifetime: 20
