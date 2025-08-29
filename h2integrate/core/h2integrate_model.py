@@ -8,10 +8,10 @@ import openmdao.api as om
 from h2integrate.core.finances import AdjustedCapexOpexComp
 from h2integrate.core.utilities import create_xdsm_from_config
 from h2integrate.core.feedstocks import FeedstockComponent
-from h2integrate.core.resource_summer import ElectricitySumComp
+from h2integrate.core.resource_summer import GenericSumComp
 from h2integrate.core.supported_models import (
     supported_models,
-    electricity_producing_techs,
+    commodity_to_model_kwargs,
     independent_financial_models,
     combined_performance_and_cost_models,
 )
@@ -345,7 +345,10 @@ class H2IntegrateModel:
 
             # Add the ExecComp to the plant model
             financial_group.add_subsystem(
-                "electricity_sum", ElectricitySumComp(tech_configs=filtered_tech_configs_for_capex)
+                "electricity_sum",
+                GenericSumComp(
+                    tech_configs=filtered_tech_configs_for_capex, commodity="electricity"
+                ),
             )
 
             # Add adjusted capex component
@@ -565,7 +568,10 @@ class H2IntegrateModel:
                 # Only connect if the technology is included in at least one commodity's stackup
                 # and in this financial group
                 for tech_name in tech_configs.keys():
-                    if tech_name in electricity_producing_techs and tech_name in all_included_techs:
+                    if (
+                        tech_name in commodity_to_model_kwargs["electricity"]
+                        and tech_name in all_included_techs
+                    ):
                         self.plant.connect(
                             f"{tech_name}.electricity_out",
                             f"financials_group_{group_id}.electricity_sum.electricity_{tech_name}",
