@@ -156,7 +156,7 @@ commodity_to_common_units = {
     "ammonia": "kg",
     "nitrogen": "kg",
     "carbon": "kg",
-    "electricity": "kW*h",
+    "electricity": "kW",
     "water": "kg",
 }
 
