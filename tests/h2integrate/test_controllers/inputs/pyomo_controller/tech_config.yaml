@@ -37,7 +37,7 @@ technologies:
         adjust_air_density_for_elevation: True
       cost_parameters:
         cost_per_kw: 1500.0
-        cost_year: 2024
+        cost_year: 2024 # 2019?
       dispatch_rule_parameters:
         resource_name: "electricity"
         resource_storage_units: "kW"
@@ -67,21 +67,25 @@ technologies:
       dispatch_rule_parameters:
         resource_name: "hydrogen"
         resource_storage_units: "kg"
+      cost_parameters:
+        cost_year: 2021
       financial_parameters:
-        replacement_cost_percent: 0.15 # percent of capex - H2A default case
+        capital_items:
+          replacement_cost_percent: 0.15 # percent of capex - H2A default case
+          depr_period: 7 # based on PEM Electrolysis H2A Production Case Study Documentation estimate of 7 years. also see https://www.irs.gov/publications/p946#en_US_2020_publink1000107507
+
   h2_storage:
     performance_model:
       model: "h2_storage"
     cost_model:
       model: "h2_storage"
     control_strategy:
-      model: "pyomo_open_loop_controller"
+      model: "pyomo_open_loop_controller_h2_storage"
     dispatch_rule_set:
       model: "pyomo_dispatch_h2_storage"
     model_inputs:
       shared_parameters:
         resource_name: "hydrogen"
-        resource_rate_units: "kg/h"
       performance_parameters:
         rating: 720. # electrolyzer rating for sizing
         size_capacity_from_demand:
@@ -89,8 +93,10 @@ technologies:
         capacity_from_max_on_turbine_storage: False # if True, then days of storage is ignored and storage capacity is based on how much h2 storage fits on the turbines in the plant using Kottenstete 2003.
         type: "lined_rock_cavern" # can be one of ["none", "pipe", "turbine", "pressure_vessel", "salt_cavern", "lined_rock_cavern"]
         days: 10 #how many days worth of production we should be able to store (this is ignored if `capacity_from_max_on_turbine_storage` is set to True)
+      cost_parameters:
+        cost_year: 2018
       control_parameters:
-        time_steps: 8760
+        n_timesteps: 8760
         max_capacity: 60000.0  # kg
         max_charge_percent: 1.0  # percent as decimal
         min_charge_percent: 0.1  # percent as decimal
@@ -100,6 +106,11 @@ technologies:
         charge_efficiency: 1.0 # percent as decimal
         discharge_efficiency: 1.0 # percent as decimal
         demand_profile: 5000  # Example: 10 time steps with 50 kg/time step demand. Scalar indicates constant demand, array-like indicates dynamic demand
+        dt: 1.0
+        n_control_window: 24
+        n_horizon_window: 48
+        tech_name: "h2_storage"
+        resource_storage_units: "kg"
       dispatch_rule_parameters:
         resource_name: "hydrogen"
         resource_storage_units: "kg"

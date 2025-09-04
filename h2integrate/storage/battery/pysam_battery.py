@@ -6,12 +6,13 @@ from attrs import field, define
 from hopp.utilities.validators import gt_zero, contains, range_val
 
 from h2integrate.core.utilities import BaseConfig, merge_shared_inputs
+from h2integrate.core.model_baseclasses import CostModelBaseClass
 from h2integrate.storage.battery.battery_baseclass import BatteryPerformanceBaseClass
 
 
 @dataclass
 class BatteryOutputs:
-    I: Sequence
+    # I: Sequence #TODO rename, remove, or otherwise figure out how to get this pass the liner
     P: Sequence
     Q: Sequence
     SOC: Sequence
@@ -66,7 +67,7 @@ class PySAMBatteryPerformanceModelConfig(BaseConfig):
 
     Args:
         tracking: default True -> `Battery`
-        system_capacity_kwh: Battery energy capacity [kWh]
+        max_capacity: Battery energy capacity [kWh]
         system_capacity_kw: Battery rated power capacity [kW]
         system_model_source: software source for the system model, can by 'pysam' or 'hopp'
         chemistry: Battery chemistry option
@@ -85,17 +86,18 @@ class PySAMBatteryPerformanceModelConfig(BaseConfig):
         ref_module_surface_area: reference module surface area in m^2
     """
 
-    system_capacity_kwh: float = field(validator=gt_zero)
+    max_capacity: float = field(validator=gt_zero)
     system_capacity_kw: float = field(validator=gt_zero)
+    cost_year: int = field()
     system_model_source: str = field(default="pysam", validator=contains(["pysam", "hopp"]))
     chemistry: str = field(
         default="LFPGraphite",
         validator=contains(["LFPGraphite", "LMOLTO", "LeadAcid", "NMCGraphite", "LDES"]),
     )
     tracking: bool = field(default=True)
-    minimum_SOC: float = field(default=10, validator=range_val(0, 100))
-    maximum_SOC: float = field(default=90, validator=range_val(0, 100))
-    initial_SOC: float = field(default=50, validator=range_val(0, 100))
+    min_charge_percent: float = field(default=0.1, validator=range_val(0, 1))
+    max_charge_percent: float = field(default=0.9, validator=range_val(0, 1))
+    init_charge_percent: float = field(default=0.5, validator=range_val(0, 1))
     n_timesteps: int = field(default=8760)
     dt: float = field(default=1.0)
     n_control_window: int = field(default=24)
@@ -105,17 +107,17 @@ class PySAMBatteryPerformanceModelConfig(BaseConfig):
     ref_module_surface_area: int | float = field(default=30)
 
 
-class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
+class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass, CostModelBaseClass):
     """
     An OpenMDAO component that wraps a WindPlant model.
     It takes wind parameters as input and outputs power generation data.
     """
 
     def setup(self):
-        super().setup()
         self.config = PySAMBatteryPerformanceModelConfig.from_dict(
             merge_shared_inputs(self.options["tech_config"]["model_inputs"], "performance")
         )
+
         self.add_input(
             "charge_rate",
             val=self.config.system_capacity_kw,
@@ -125,18 +127,13 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
 
         self.add_input(
             "storage_capacity",
-            val=self.config.system_capacity_kwh,
+            val=self.config.max_capacity,
             units="kW*h",
             desc="Battery storage capacity",
         )
 
-        self.add_input(
-            "time_step_duration",
-            val=0.0,
-            shape_by_conn=True,
-            units="h",
-            desc="The amount of power dispatched to/from the battery",
-        )
+        BatteryPerformanceBaseClass.setup(self)
+        CostModelBaseClass.setup(self)
 
         self.add_discrete_input(
             "control_variable",
@@ -161,6 +158,18 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
         # Setup outputs for the battery model to be stored during the compute method
         self.outputs = BatteryOutputs(n_timesteps=n_timesteps, n_control_window=n_control_window)
 
+        # create inputs for pyomo control model
+        if "tech_to_dispatch_connections" in self.options["plant_config"]:
+            # get technology group name
+            # TODO: The split below seems brittle
+            self.tech_group_name = self.pathname.split(".")
+            for _source_tech, intended_dispatch_tech in self.options["plant_config"][
+                "tech_to_dispatch_connections"
+            ]:
+                if any(intended_dispatch_tech in name for name in self.tech_group_name):
+                    self.add_discrete_input("pyomo_dispatch_solver", val=dummy_function)
+                    break
+
     def compute(self, inputs, outputs, discrete_inputs, discrete_outputs):
         # Size the battery based on inputs -> method brought from HOPP
         module_specs = {
@@ -177,39 +186,48 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
         self.system_model.ParamsPack.Cp = 900
         self.system_model.ParamsCell.resistance = 0.001
         self.system_model.ParamsCell.C_rate = (
-            inputs["charge_rate"][0] / inputs["storage_capacity"][0],
+            inputs["charge_rate"][0] / inputs["storage_capacity"][0]
         )
 
         # Minimum set of parameters to set to get statefulBattery to work
-        self.system_model.value("control_mode", 1.0)  # 0.0 for current, 1.0 for power
-        self.system_model.value("input_power", 0.0)  # just an initial value
-        self.system_model.value("input_current", 0.0)  # just an initial value
+        self._set_control_mode()
 
         self.system_model.value("dt_hr", self.config.dt)
-        self.system_model.value("minimum_SOC", self.config.minimum_SOC)
-        self.system_model.value("maximum_SOC", self.config.maximum_SOC)
-        self.system_model.value("initial_SOC", self.config.initial_SOC)
+        # TODO: Make sure this should be multiplied by 100
+        self.system_model.value("minimum_SOC", self.config.min_charge_percent * 100)
+        self.system_model.value("maximum_SOC", self.config.max_charge_percent * 100)
+        self.system_model.value("initial_SOC", self.config.init_charge_percent * 100)
 
         # Setup PySAM battery model using PySAM method
         self.system_model.setup()
 
-        # Simulate the battery with provide dispatch inputs
-        self.battery_simulate_with_dispatch(
-            electricity_in=inputs["electricity_in"],
-            time_step_duration=inputs["time_step_duration"],
-            control_variable=discrete_inputs["control_variable"],
-        )
+        if "pyomo_dispatch_solver" in discrete_inputs:
+            # Simulate the battery with provided dispatch inputs
+            dispatch = discrete_inputs["pyomo_dispatch_solver"]
+            kwargs = {
+                "time_step_duration": self.config.dt,
+                "control_variable": discrete_inputs["control_variable"],
+            }
+            dispatch(self.simulate, kwargs, inputs)
+        else:
+            # Simulate the battery with provided inputs
+            self.simulate(
+                electricity_in=inputs["electricity_in"],
+                time_step_duration=self.config.dt,
+                control_variable=discrete_inputs["control_variable"],
+            )
 
         # Store outputs from the battery model
         outputs["electricity_out"] = self.outputs.P
         outputs["SOC"] = self.outputs.SOC
         outputs["P_chargeable"] = self.outputs.P_chargeable
 
-    def battery_simulate_with_dispatch(
+    def simulate(
         self,
         electricity_in: list,
         time_step_duration: list,
         control_variable: str,
+        sim_start_index: int = 0,
     ):
         """Simulates the battery with the provided dispatch inputs.
 
@@ -221,8 +239,8 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
                 either current values or power values.
         """
         # Loop through the provided input power/current (decided by control_variable)
+        self.system_model.value("dt_hr", time_step_duration)
         for t in range(len(electricity_in)):
-            self.system_model.value("dt_hr", time_step_duration[t])
             self.system_model.value(control_variable, electricity_in[t])
 
             self.system_model.execute(0)
@@ -233,7 +251,7 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
                 if hasattr(self.system_model.StatePack, attr) or hasattr(
                     self.system_model.StateCell, attr
                 ):
-                    getattr(self.outputs, attr)[t] = self.system_model.value(attr)
+                    getattr(self.outputs, attr)[sim_start_index + t] = self.system_model.value(attr)
 
     def size_batterystateful(self, desired_capacity, desired_voltage, module_specs=None):
         """Helper function for ``battery_model_sizing()``. Modifies BatteryStateful model with new
@@ -331,3 +349,25 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
             output_dict["surface_area"] = module_surface_area * desired_capacity / module_capacity
 
         return output_dict
+
+    def _set_control_mode(
+        self,
+        control_mode: float = 1.0,
+        input_power: float = 0.0,
+        input_current: float = 0.0,
+        control_variable: str = "input_power",
+    ):
+        """Sets control mode."""
+        if isinstance(self.system_model, BatteryStateful.BatteryStateful):
+            # Power control = 1.0, current control = 0.0
+            self.system_model.value("control_mode", control_mode)
+            # Need initial values
+            self.system_model.value("input_power", input_power)
+            self.system_model.value("input_current", input_current)
+            # Either `input_power` or `input_current`; need to adjust `control_mode` above
+            self.control_variable = control_variable
+
+
+def dummy_function():
+    # this function is required for initialzing the pyomo control input and nothing else
+    pass

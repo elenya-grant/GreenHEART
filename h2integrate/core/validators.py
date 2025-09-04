@@ -9,6 +9,12 @@ def gt_zero(instance, attribute, value):
         raise ValueError(f"{attribute} must be greater than zero")
 
 
+def gte_zero(instance, attribute, value):
+    """Validates that an attribute's value is greater than or equal to zero."""
+    if value < 0:
+        raise ValueError(f"{attribute} must be greater than or equal to zero")
+
+
 def range_val(min_val, max_val):
     """Validates that an attribute's value is between two values, inclusive ([min_val, max_val])."""
 
@@ -47,7 +53,7 @@ def must_equal(required_value):
     def validator(instance, attribute, value):
         if value != required_value:
             msg = (
-                f"{attribute} cannot be {value}, {attribute} "
+                f"{attribute.name} cannot be {value}, {attribute.name} "
                 f"must have value of {required_value}"
             )
             raise ValueError(msg)

@@ -2,11 +2,12 @@ from h2integrate.resource.river import RiverResource
 from h2integrate.transporters.pipe import PipePerformanceModel
 from h2integrate.transporters.cable import CablePerformanceModel
 from h2integrate.converters.steel.steel import SteelPerformanceModel, SteelCostAndFinancialModel
+from h2integrate.core.profast_financial import ProFastComp
 from h2integrate.converters.wind.wind_plant import WindPlantCostModel, WindPlantPerformanceModel
-from h2integrate.transporters.power_combiner import CombinerPerformanceModel
 from h2integrate.converters.hopp.hopp_wrapper import HOPPComponent
 from h2integrate.converters.solar.solar_pysam import PYSAMSolarPlantPerformanceModel
 from h2integrate.storage.hydrogen.eco_storage import H2Storage
+from h2integrate.storage.battery.pysam_battery import PySAMBatteryPerformanceModel
 from h2integrate.converters.nitrogen.simple_ASU import SimpleASUCostModel, SimpleASUPerformanceModel
 from h2integrate.storage.hydrogen.tank_baseclass import (
     HydrogenTankCostModel,
@@ -15,6 +16,8 @@ from h2integrate.storage.hydrogen.tank_baseclass import (
 from h2integrate.converters.hydrogen.wombat_model import WOMBATElectrolyzerModel
 from h2integrate.converters.wind.wind_plant_pysam import PYSAMWindPlantPerformanceModel
 from h2integrate.storage.battery.atb_battery_cost import ATBBatteryCostModel
+from h2integrate.transporters.electricity_combiner import CombinerPerformanceModel
+from h2integrate.transporters.electricity_splitter import SplitterPerformanceModel
 from h2integrate.converters.ammonia.ammonia_synloop import (
     AmmoniaSynLoopCostModel,
     AmmoniaSynLoopPerformanceModel,
@@ -31,6 +34,7 @@ from h2integrate.converters.hydrogen.pem_electrolyzer import (
 from h2integrate.converters.solar.atb_res_com_pv_cost import ATBResComPVCostModel
 from h2integrate.converters.solar.atb_utility_pv_cost import ATBUtilityPVCostModel
 from h2integrate.control.control_rules.converters.wind import PyomoDispatchWind
+from h2integrate.control.control_rules.storage.battery import PyomoDispatchBattery
 from h2integrate.converters.methanol.smr_methanol_plant import (
     SMRMethanolPlantCostModel,
     SMRMethanolPlantFinanceModel,
@@ -48,7 +52,10 @@ from h2integrate.converters.methanol.co2h_methanol_plant import (
 from h2integrate.control.control_rules.storage.h2_storage import PyomoDispatchH2Storage
 from h2integrate.converters.hydrogen.singlitico_cost_model import SingliticoCostModel
 from h2integrate.converters.co2.marine.direct_ocean_capture import DOCCostModel, DOCPerformanceModel
-from h2integrate.control.control_strategies.pyomo_controllers import PyomoControllerBaseClass
+from h2integrate.control.control_strategies.pyomo_controllers import (
+    PyomoControllerH2Storage,
+    HeuristicLoadFollowingController,
+)
 from h2integrate.control.control_rules.converters.electrolyzer import PyomoDispatchElectrolyzer
 from h2integrate.converters.hydrogen.eco_tools_pem_electrolyzer import (
     ECOElectrolyzerPerformanceModel,
@@ -65,6 +72,11 @@ from h2integrate.converters.hydrogen.geologic.natural_geoh2_plant import (
     NaturalGeoH2CostModel,
     NaturalGeoH2FinanceModel,
     NaturalGeoH2PerformanceModel,
+)
+from h2integrate.converters.co2.marine.ocean_alkalinity_enhancement import (
+    OAECostModel,
+    OAEPerformanceModel,
+    OAECostAndFinancialModel,
 )
 from h2integrate.converters.hydrogen.geologic.stimulated_geoh2_plant import (
     StimulatedGeoH2CostModel,
@@ -110,6 +122,9 @@ supported_models = {
     "co2h_methanol_plant_financial": CO2HMethanolPlantFinanceModel,
     "direct_ocean_capture_performance": DOCPerformanceModel,
     "direct_ocean_capture_cost": DOCCostModel,
+    "ocean_alkalinity_enhancement_performance": OAEPerformanceModel,
+    "ocean_alkalinity_enhancement_cost": OAECostModel,
+    "ocean_alkalinity_enhancement_cost_financial": OAECostAndFinancialModel,
     "natural_geoh2_performance": NaturalGeoH2PerformanceModel,
     "natural_geoh2_cost": NaturalGeoH2CostModel,
     "natural_geoh2": NaturalGeoH2FinanceModel,
@@ -120,7 +135,9 @@ supported_models = {
     "cable": CablePerformanceModel,
     "pipe": PipePerformanceModel,
     "combiner_performance": CombinerPerformanceModel,
+    "splitter_performance": SplitterPerformanceModel,
     # Storage
+    "pysam_battery": PySAMBatteryPerformanceModel,
     "h2_storage": H2Storage,
     "hydrogen_tank_performance": HydrogenTankPerformanceModel,
     "hydrogen_tank_cost": HydrogenTankCostModel,
@@ -128,11 +145,15 @@ supported_models = {
     # Control
     "pass_through_controller": PassThroughOpenLoopController,
     "demand_open_loop_controller": DemandOpenLoopController,
-    "pyomo_open_loop_controller": PyomoControllerBaseClass,
+    "pyomo_open_loop_controller_h2_storage": PyomoControllerH2Storage,
+    "heuristic_load_following_controller": HeuristicLoadFollowingController,
     # Dispatch
     "pyomo_dispatch_wind": PyomoDispatchWind,
     "pyomo_dispatch_electrolyzer": PyomoDispatchElectrolyzer,
     "pyomo_dispatch_h2_storage": PyomoDispatchH2Storage,
+    "pyomo_dispatch_battery": PyomoDispatchBattery,
+    # Finance
+    "ProFastComp": ProFastComp,
 }
 
 electricity_producing_techs = ["wind", "solar", "pv", "river", "hopp"]
