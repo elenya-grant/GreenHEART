@@ -28,6 +28,22 @@ class ATBBatteryCostConfig(CostModelBaseConfig):
 
 
 class ATBBatteryCostModel(CostModelBaseClass):
+    """This cost model is based on the equations in the "Utility-Scale Battery Storage"
+    sheet in the ATB 2024 workbook.
+
+    - Cell E29 has the equation for CapEx. Also found in the cells for the CapEx section.
+    - Cell G121 (all the cells in the Fixed Operation and Maintenance Expenses
+        section) include the equation to calculate fixed o&m costs.
+
+    Total_CapEx = Energy_CapEx * Storage_Hours + Power_CapEx
+
+    - Total_CapEx: Total System Cost (USD/kW)
+    - Storage_Hours: Storage Duration (hr)
+    - Energy_CapEx: Battery Energy Cost (USD/kWh)
+    - Power_CapEx: Battery Power Cost (USD/kW)
+
+    """
+
     def setup(self):
         self.config = ATBBatteryCostConfig.from_dict(
             merge_shared_inputs(self.options["tech_config"]["model_inputs"], "cost")
@@ -41,10 +57,12 @@ class ATBBatteryCostModel(CostModelBaseClass):
     def compute(self, inputs, outputs, discrete_inputs, discrete_outputs):
         storage_duration_hrs = inputs["storage_capacity"][0] / inputs["charge_rate"][0]
 
+        # CapEx equation from Cell E29
         total_system_cost = (
             storage_duration_hrs * self.config.energy_capex
         ) + self.config.power_capex
         capex = total_system_cost * inputs["charge_rate"][0]
+        # OpEx equation from cells in the Fixed Operation and Maintenance Expenses section
         opex = self.config.opex_fraction * capex
         outputs["CapEx"] = capex
         outputs["OpEx"] = opex
