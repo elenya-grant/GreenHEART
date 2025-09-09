@@ -222,8 +222,6 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass, CostModelBaseCla
         self.unmet_demand = 0.0
         self.excess_resource = 0.0
 
-        # TODO: should this be made configurable by users?
-
     def compute(self, inputs, outputs, discrete_inputs, discrete_outputs):
         # Size the battery based on inputs -> method brought from HOPP
         module_specs = {
