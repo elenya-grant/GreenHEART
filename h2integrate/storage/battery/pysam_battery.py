@@ -318,6 +318,7 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass, CostModelBaseCla
                 if (self.system_model.value("SOC") - self.system_model.value("minimum_SOC")) < 0.05:
                     # Avoid trickle power by setting to 0.0
                     electricity_in[t] = 0.0
+
             # If charging...
             elif electricity_in[t] < 0.0:
                 # If the input electricity magnitude is greater than the battery chargeable capacity
