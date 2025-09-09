@@ -105,10 +105,12 @@ def test_heuristic_load_following_battery_dispatch(subtests):
     # the second tweleve hours, and repeat that daily cycle over a year.
     n_look_ahead_half = int(24 / 2)
 
-    grid_limit = np.concatenate(
+    electricity_in = np.concatenate(
         (np.ones(n_look_ahead_half) * 0, np.ones(n_look_ahead_half) * 10000)
     )
-    grid_limit = np.tile(grid_limit, 365)
+    electricity_in = np.tile(electricity_in, 365)
+
+    demand_in = np.ones(8760) * 6000.0
 
     # Setup the OpenMDAO problem and add subsystems
     prob = om.Problem()
@@ -140,27 +142,33 @@ def test_heuristic_load_following_battery_dispatch(subtests):
     # Setup the system and required values
     prob.setup()
     prob.set_val("battery.control_variable", "input_power")
-    prob.set_val("battery.electricity_in", grid_limit)
+    prob.set_val("battery.electricity_in", electricity_in)
+    prob.set_val("battery.demand_in", demand_in)
 
     # Run the model
     prob.run_model()
 
+    # Test the case where the charging/discharging cycle remains within the max and min SOC limits
     # Check the expected outputs to actual outputs
     expected_electricity_out = [
-        4.99999998e+03,  4.99246204e+03,  4.99196917e+03,  4.99163634e+03,
-        4.99126979e+03,  4.99086267e+03,  4.99041021e+03,  4.98990645e+03,
-        4.98934385e+03,  4.98871283e+03,  4.98800137e+03,  4.98719445e+03,
-        -3.99028109e+03, -3.99074342e+03, -3.99115649e+03, -3.99153813e+03,
-        -3.99189067e+03, -3.99221661e+03, -3.99251838e+03, -3.99279825e+03,
-        -3.99305834e+03, -3.99330052e+03, -3.99352651e+03, -3.99373781e+03,
+        4999.9999773,   4992.25494845,  4991.96052468,  4991.63342844,
+        4991.26824326,  4990.86174197,  4990.40961474,  4989.9060779,
+        4989.34362595,  4988.7127164,   4988.00134222,  4987.19448497,
+        -3990.28117657, -3990.74350753, -3991.15657479, -3991.53821247,
+        -3991.89075935, -3992.21669848, -3992.51846132, -3992.7983355,
+        -3993.05841673, -3993.3006006,  -3993.52658454, -3993.73788495,
     ]
 
     expected_SOC = [
-        49.80897816, 47.49611312, 45.12415453, 42.74694762, 40.36471502, 37.97666855,
-        35.58187831, 33.17931145, 30.76778337, 28.34588133, 25.9118617,  23.463506,
-        25.41518112, 27.36005981, 29.29758781, 31.22866815, 33.15405158, 35.07436754,
-        36.99014816, 38.9018471,  40.80985428, 42.71450741, 44.61610126, 46.51489486,
+        49.87479765, 47.50390223, 45.12932011, 42.75108798, 40.3682277,  37.9797332,
+        35.58459541, 33.18174418, 30.76997461, 28.34786178, 25.91365422, 23.4651282,
+        25.4168656,  27.36180226, 29.29938411, 31.23051435, 33.15594392, 35.07630244,
+        36.99212221, 38.90385706, 40.81189705, 42.71658006, 44.61820098, 46.517019,
     ]
+
+    expected_unmet_demand_out = np.zeros(len(expected_SOC))
+
+    expected_excess_resource_out = np.zeros(len(expected_SOC))
 
     with subtests.test("Check electricity_out"):
         assert pytest.approx(expected_electricity_out) == prob.get_val(
@@ -169,3 +177,84 @@ def test_heuristic_load_following_battery_dispatch(subtests):
 
     with subtests.test("Check SOC"):
         assert pytest.approx(expected_SOC) == prob.get_val("battery.SOC")[0:24]
+
+    with subtests.test("Check unmet_demand"):
+        assert pytest.approx(expected_unmet_demand_out) == prob.get_val("battery.unmet_demand_out")[0:24]
+
+    with subtests.test("Check excess_resource_out"):
+        assert pytest.approx(expected_excess_resource_out) == prob.get_val(
+            "battery.excess_resource_out"
+        )[0:24]
+
+    # Test the case where the battery is discharged to its lower SOC limit
+    electricity_in = np.zeros(8760)
+
+    # Setup the system and required values
+    prob.setup()
+    prob.set_val("battery.control_variable", "input_power")
+    prob.set_val("battery.electricity_in", electricity_in)
+    prob.set_val("battery.demand_in", demand_in)
+
+    # Run the model
+    prob.run_model()
+
+    expected_electricity_out = np.zeros(24)
+    expected_SOC = np.ones(24) * 10.00158898
+    expected_unmet_demand_out = np.ones(24) * 6000.0
+    expected_excess_resource_out = np.zeros(24)
+
+    with subtests.test("Check electricity_out"):
+        assert pytest.approx(expected_electricity_out) == prob.get_val(
+            "battery.electricity_out"
+        )[-24:]
+
+    with subtests.test("Check SOC"):
+        assert pytest.approx(expected_SOC) == prob.get_val("battery.SOC")[-24:]
+
+    with subtests.test("Check unmet_demand"):
+        assert pytest.approx(expected_unmet_demand_out) == prob.get_val("battery.unmet_demand_out")[-24:]
+
+    with subtests.test("Check excess_resource_out"):
+        assert pytest.approx(expected_excess_resource_out) == prob.get_val(
+            "battery.excess_resource_out"
+        )[-24:]
+
+    # Test the case where the battery is charged to its upper SOC limit
+    electricity_in = np.ones(8760) * 10000.0
+
+    # Setup the system and required values
+    prob.setup()
+    prob.set_val("battery.control_variable", "input_power")
+    prob.set_val("battery.electricity_in", electricity_in)
+    prob.set_val("battery.demand_in", demand_in)
+
+    # Run the model
+    prob.run_model()
+
+    expected_electricity_out = np.zeros(24)
+    expected_SOC = [
+        90.65332934, 90.65361024, 90.65389112, 90.654172,   90.65445286, 90.65473371,
+        90.65501454, 90.65529537, 90.65557618, 90.65585698, 90.65613777, 90.65641854,
+        90.6566993,  90.65698005, 90.65726079, 90.65754151, 90.65782223, 90.65810293,
+        90.65838361, 90.65866429, 90.65894495, 90.6592256,  90.65950624, 90.65978686,
+    ]
+    expected_unmet_demand_out = np.zeros(24)
+    expected_excess_resource_out = np.ones(24) * 4000.0
+
+    with subtests.test("Check electricity_out"):
+        assert pytest.approx(expected_electricity_out) == prob.get_val(
+            "battery.electricity_out"
+        )[-24:]
+
+    with subtests.test("Check SOC"):
+        assert pytest.approx(expected_SOC) == prob.get_val("battery.SOC")[-24:]
+
+    with subtests.test("Check unmet_demand"):
+        assert pytest.approx(expected_unmet_demand_out) == prob.get_val("battery.unmet_demand_out")[-24:]
+
+    with subtests.test("Check excess_resource_out"):
+        assert pytest.approx(expected_excess_resource_out) == prob.get_val(
+            "battery.excess_resource_out"
+        )[-24:]
+
+
