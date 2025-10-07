@@ -1,7 +1,7 @@
 from attrs import field, define
 
 from h2integrate.core.utilities import CostModelBaseConfig, merge_shared_inputs
-from h2integrate.core.validators import gt_zero, range_val
+from h2integrate.core.validators import gt_zero, gte_zero, range_val
 from h2integrate.core.model_baseclasses import CostModelBaseClass
 
 
@@ -22,8 +22,8 @@ class ATBBatteryCostConfig(CostModelBaseConfig):
         cost_year (int): dollar year corresponding to input costs
     """
 
-    energy_capex: float | int = field(validator=gt_zero)
-    power_capex: float | int = field(validator=gt_zero)
+    energy_capex: float | int = field(validator=gte_zero)
+    power_capex: float | int = field(validator=gte_zero)
     opex_fraction: float = field(validator=range_val(0, 1))
     max_charge_rate: float = field(validator=gt_zero)
     max_capacity: float = field(validator=gt_zero)
