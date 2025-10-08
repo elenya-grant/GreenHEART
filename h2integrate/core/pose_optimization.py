@@ -440,7 +440,7 @@ class PoseOptimization:
             folder_output = self.config["general"]["folder_output"]
 
             if not Path(folder_output).exists():
-                Path.mkdir(folder_output, parents=True)
+                Path.mkdir(folder_output, parents=True, exist_ok=True)
 
             recorder = om.SqliteRecorder(Path(folder_output) / self.config["recorder"]["file"])
             opt_prob.model.add_recorder(recorder)
