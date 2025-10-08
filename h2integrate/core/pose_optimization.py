@@ -432,14 +432,16 @@ class PoseOptimization:
             opt_prob (openmdao problem instance): openmdao problem instance for
                 current optimization problem edited to include a set up recorder
         """
-        folder_output = self.config["general"]["folder_output"]
 
-        if not Path(folder_output).exists():
-            Path.mkdir(folder_output, parents=True)
         # Set recorder on the OpenMDAO driver level using the `optimization_log`
 
         # filename supplied in the optimization yaml
         if self.config["recorder"].get("flag", False):
+            folder_output = self.config["general"]["folder_output"]
+
+            if not Path(folder_output).exists():
+                Path.mkdir(folder_output, parents=True)
+
             recorder = om.SqliteRecorder(Path(folder_output) / self.config["recorder"]["file"])
             opt_prob.model.add_recorder(recorder)
 
