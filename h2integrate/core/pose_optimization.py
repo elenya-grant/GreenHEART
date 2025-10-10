@@ -326,6 +326,10 @@ class PoseOptimization:
                         criterion=doe_options["criterion"],
                         seed=doe_options["seed"],
                     )
+                elif doe_options["generator"].lower() == "csvgen":
+                    generator = om.CSVGenerator(
+                        filename=doe_options["filename"],
+                    )
                 else:
                     raise Exception(
                         "The generator type {} is unsupported.".format(doe_options["generator"])
