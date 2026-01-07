@@ -52,9 +52,9 @@ class DispatchProblemState:
         # solver_results.solution.Gap not define
         upper_bound = solver_problem_dict["upper_bound"]
         lower_bound = solver_problem_dict["lower_bound"]
-        if solver_results.problem.upper_bound != 0.0:
+        if upper_bound != 0.0:
             gap = abs(upper_bound - lower_bound) / abs(upper_bound)
-        elif solver_results.problem.lower_bound == 0.0:
+        elif lower_bound == 0.0:
             gap = 0.0
         else:
             gap = float("inf")
