@@ -1,5 +1,4 @@
 import pyomo.environ as pyo
-from attrs import field
 from pyomo.network import Port
 
 
@@ -9,12 +8,12 @@ from pyomo.network import Port
 #     Configuration class for the PyomoDispatchGenericConverterMinOperatingCostsConfig.
 
 #     This class defines the parameters required to configure the `PyomoRuleBaseConfig`.
-"""
-Attributes:
-    commodity_cost_per_production (float): cost of the commodity per production (in $/kWh).
-"""
+# """
+# Attributes:
+#     commodity_cost_per_production (float): cost of the commodity per production (in $/kWh).
+# """
 
-commodity_cost_per_production: float = field()
+# commodity_cost_per_production: float = field()
 
 
 class PyomoDispatchGenericConverterMinOperatingCosts:
@@ -32,9 +31,8 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
         self.commodity_storage_units = commodity_info["commodity_storage_units"]
         print(self.commodity_name, self.commodity_storage_units)
 
-        self._model = pyomo_model
-        self._blocks = pyo.Block(index_set, rule=self.dispatch_block_rule_function)
-        # setattr(self.model, self.block_set_name, self.blocks)
+        self.model = pyomo_model
+        self.blocks = pyo.Block(index_set, rule=self.dispatch_block_rule_function)
 
         self.model.__setattr__(self.block_set_name, self.blocks)
         self.time_duration = [1.0] * len(self.blocks.index_set())
@@ -127,25 +125,25 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
         # Parameters                     #
         ##################################
         pyomo_model.time_duration = pyo.Param(
-            doc=pyomo_model.name + " time step [hour]",
+            doc=f"{pyomo_model.name} time step [hour]",
             default=1.0,
             within=pyo.NonNegativeReals,
             mutable=True,
             units=pyo.units.hr,
         )
         pyomo_model.cost_per_production = pyo.Param(
-            doc="Production cost for generator [$/" + self.commodity_storage_units + "]",
+            doc=f"Production cost for generator [$/{self.commodity_storage_units}]",
             default=0.0,
             within=pyo.NonNegativeReals,
             mutable=True,
-            units=eval("pyo.units.USD / pyo.units." + self.commodity_storage_units + "h"),
+            units=eval(f"pyo.units.USD / pyo.units.{self.commodity_storage_units}h"),
         )
         pyomo_model.available_production = pyo.Param(
-            doc="Available production for the generator [" + self.commodity_storage_units + "]",
+            doc=f"Available production for the generator [{self.commodity_storage_units}]",
             default=0.0,
             within=pyo.Reals,
             mutable=True,
-            units=eval("pyo.units." + self.commodity_storage_units),
+            units=eval(f"pyo.units.{self.commodity_storage_units}"),
         )
 
     def _create_constraints(self, pyomo_model: pyo.ConcreteModel):
@@ -206,7 +204,7 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
             * self.blocks[t].time_duration
             * self.blocks[t].cost_per_production
             # * commodity_set[t].value
-            * getattr(hybrid_blocks[t], f"{tech_name}_{self.commodity_name}")
+            * hybrid_blocks[t].__getattribute__(f"{tech_name}_{self.commodity_name}")
             for t in hybrid_blocks.index_set()
         )
         # print(self.obj.get_units())
@@ -297,11 +295,3 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
             raise ValueError(
                 self.time_duration.__name__ + " list must be the same length as time horizon"
             )
-
-    @property
-    def blocks(self) -> pyo.Block:
-        return self._blocks
-
-    @property
-    def model(self) -> pyo.ConcreteModel:
-        return self._model
