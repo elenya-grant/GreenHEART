@@ -24,8 +24,9 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
         pyomo_model: pyo.ConcreteModel,
         index_set: pyo.Set,
         block_set_name: str = "converter",
+        round_digits: int = 4,
     ):
-        self.round_digits = 4
+        self.round_digits = round_digits
         self.block_set_name = block_set_name
         self.commodity_name = commodity_info["commodity_name"]
         self.commodity_storage_units = commodity_info["commodity_storage_units"]
@@ -33,7 +34,9 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
 
         self._model = pyomo_model
         self._blocks = pyo.Block(index_set, rule=self.dispatch_block_rule_function)
-        setattr(self.model, self.block_set_name, self.blocks)
+        # setattr(self.model, self.block_set_name, self.blocks)
+
+        self.model.__setattr__(self.block_set_name, self.blocks)
         self.time_duration = [1.0] * len(self.blocks.index_set())
 
         print("HEYYYY")
@@ -78,17 +81,18 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
             variables are created.
 
         """
-        setattr(
-            pyomo_model,
-            f"{self.block_set_name}_{self.commodity_name}",
-            pyo.Var(
-                doc=f"{self.commodity_name} production \
+        tech_var = pyo.Var(
+            doc=f"{self.commodity_name} production \
                     from {self.block_set_name} [{self.commodity_storage_units}]",
-                domain=pyo.NonNegativeReals,
-                bounds=(0, pyomo_model.available_production),
-                units=eval("pyo.units." + self.commodity_storage_units),
-                initialize=0.0,
-            ),
+            domain=pyo.NonNegativeReals,
+            bounds=(0, pyomo_model.available_production),
+            units=eval("pyo.units." + self.commodity_storage_units),
+            initialize=0.0,
+        )
+
+        pyomo_model.__setattr__(
+            f"{self.block_set_name}_{self.commodity_name}",
+            tech_var,
         )
 
     def _create_ports(self, pyomo_model: pyo.ConcreteModel):
@@ -100,10 +104,12 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
             ports are created.
 
         """
+        # create port
         pyomo_model.port = Port()
-        pyomo_model.port.add(
-            getattr(pyomo_model, f"{self.block_set_name}_{self.commodity_name}"),
-        )
+        # do something
+        tech_port = pyomo_model.__getattribute__(f"{self.block_set_name}_{self.commodity_name}")
+        # add port to pyomo_model
+        pyomo_model.port.add(tech_port)
 
     def _create_parameters(self, pyomo_model: pyo.ConcreteModel):
         """Create technology Pyomo parameters to add to the Pyomo model instance.
@@ -141,8 +147,6 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
             mutable=True,
             units=eval("pyo.units." + self.commodity_storage_units),
         )
-
-        pass
 
     def _create_constraints(self, pyomo_model: pyo.ConcreteModel):
         """Create technology Pyomo parameters to add to the Pyomo model instance.
@@ -190,7 +194,7 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
         #     f"{tech_name}_{self.commodity_name}",
         # )
         commodity_set = [
-            getattr(hybrid_blocks[t], f"{tech_name}_{self.commodity_name}")
+            hybrid_blocks[t].__getattribute__(f"{tech_name}_{self.commodity_name}")
             for t in self.blocks.index_set()
         ]
         i = hybrid_blocks.index_set()[1]
@@ -217,21 +221,11 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
             tech_name (str): The name or key identifying the technology for which
             ports are created.
         """
-        setattr(
-            hybrid_model,
-            f"{tech_name}_port",
-            Port(
-                initialize={
-                    f"{tech_name}_{self.commodity_name}": getattr(
-                        hybrid_model, f"{tech_name}_{self.commodity_name}"
-                    )
-                }
-            ),
-        )
-        return getattr(
-            hybrid_model,
-            f"{tech_name}_port",
-        )
+        hybrid_model_tech = hybrid_model.__getattribute__(f"{tech_name}_{self.commodity_name}")
+        tech_port = Port(initialize={f"{tech_name}_{self.commodity_name}": hybrid_model_tech})
+        hybrid_model.__setattr__(f"{tech_name}_port", tech_port)
+
+        return hybrid_model.__getattribute__(f"{tech_name}_port")
 
     def _create_hybrid_variables(self, hybrid_model: pyo.ConcreteModel, tech_name: str):
         """Create hybrid variables for generic converter technology to add to pyomo model instance.
@@ -241,21 +235,18 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
             tech_name (str): The name or key identifying the technology for which
             variables are created.
         """
-        setattr(
-            hybrid_model,
-            f"{tech_name}_{self.commodity_name}",
-            pyo.Var(
-                doc=f"{self.commodity_name} production \
+        tech_var = pyo.Var(
+            doc=f"{self.commodity_name} production \
                     from {tech_name} [{self.commodity_storage_units}]",
-                domain=pyo.NonNegativeReals,
-                units=eval("pyo.units." + self.commodity_storage_units),
-                initialize=0.0,
-            ),
+            domain=pyo.NonNegativeReals,
+            units=eval("pyo.units." + self.commodity_storage_units),
+            initialize=0.0,
         )
-        return getattr(
-            hybrid_model,
-            f"{tech_name}_{self.commodity_name}",
-        ), 0.0  # load var is zero for converters
+
+        hybrid_model.__setattr__(f"{tech_name}_{self.commodity_name}", tech_var)
+
+        # load var is zero for converters
+        return hybrid_model.__getattribute__(f"{tech_name}_{self.commodity_name}"), 0
 
     # Property getters and setters for time series parameters
     @property
