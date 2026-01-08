@@ -357,9 +357,9 @@ class PyomoControllerBaseClass(ControllerBaseClass):
     def blocks(self) -> pyomo.Block:
         return getattr(self.pyomo_model, self.config.tech_name)
 
-    @property
-    def model(self) -> pyomo.ConcreteModel:
-        return self._model
+    # @property
+    # def model(self) -> pyomo.ConcreteModel:
+    #     return self._model
 
 
 class SimpleBatteryControllerHeuristic(PyomoControllerBaseClass):
@@ -890,8 +890,8 @@ class OptimizedDispatchController(SimpleBatteryControllerHeuristic):
 
         self.dispatch_inputs = self.config.make_dispatch_inputs()
 
-        self.n_control_window = self.config.n_control_window
-        self.n_horizon_window = self.config.n_control_window
+        # self.n_control_window = self.config.n_control_window
+        # self.n_horizon_window = self.config.n_control_window
 
     # Initialize parameters for optimization model
     def initialize_parameters(self, commodity_in, commodity_demand):
@@ -957,7 +957,7 @@ class OptimizedDispatchController(SimpleBatteryControllerHeuristic):
         #################################
         model.forecast_horizon = pyomo.Set(
             doc="Set of time periods in time horizon",
-            initialize=range(self.n_horizon_window),
+            initialize=range(self.config.n_control_window),
         )
         for tech in self.source_techs:
             if tech == self.dispatch_tech[0]:
