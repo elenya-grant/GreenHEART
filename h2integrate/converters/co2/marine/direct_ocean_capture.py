@@ -51,6 +51,8 @@ class DOCPerformanceConfig(MarineCarbonCapturePerformanceConfig):
         dic_i (float): Initial dissolved inorganic carbon (mol/L).
         pH_i (float): Initial pH of seawater.
         initial_tank_volume_m3 (float): Initial volume of the tank (m³).
+        save_outputs (bool, optional): If true, save results to .csv files. Defaults to False.
+        save_plots (bool, optioanl): If true, save plots of results. Defaults to False.
     """
 
     power_single_ed_w: float = field()
@@ -66,6 +68,8 @@ class DOCPerformanceConfig(MarineCarbonCapturePerformanceConfig):
     dic_i: float = field()
     pH_i: float = field()
     initial_tank_volume_m3: float = field()
+    save_outputs: bool = field(default=False)
+    save_plots: bool = field(default=False)
 
 
 class DOCPerformanceModel(MarineCarbonCapturePerformanceBaseClass):
@@ -123,8 +127,8 @@ class DOCPerformanceModel(MarineCarbonCapturePerformanceBaseClass):
                 dic_i=self.config.dic_i,
                 pH_i=self.config.pH_i,
             ),
-            save_outputs=True,
-            save_plots=True,
+            save_outputs=self.config.save_outputs,
+            save_plots=self.config.save_plots,
             output_dir=self.options["driver_config"]["general"]["folder_output"],
             plot_range=[3910, 4030],
         )
