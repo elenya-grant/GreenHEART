@@ -52,7 +52,7 @@ class DOCPerformanceConfig(MarineCarbonCapturePerformanceConfig):
         pH_i (float): Initial pH of seawater.
         initial_tank_volume_m3 (float): Initial volume of the tank (m³).
         save_outputs (bool, optional): If true, save results to .csv files. Defaults to False.
-        save_plots (bool, optioanl): If true, save plots of results. Defaults to False.
+        save_plots (bool, optional): If true, save plots of results. Defaults to False.
     """
 
     power_single_ed_w: float = field()

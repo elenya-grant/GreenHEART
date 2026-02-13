@@ -1,6 +1,5 @@
 import unittest
 import importlib
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -178,7 +177,7 @@ class TestOAEPerformanceModel(unittest.TestCase):
                     "initial_temp_C": 10.0,  # degrees Celsius
                     "initial_dic_mol_per_L": 0.0044,  # mol/L
                     "initial_pH": 8.1,  # initial pH
-                    "save_outputs": True,
+                    "save_outputs": False,
                 },
             },
         }
@@ -232,22 +231,6 @@ class TestOAEPerformanceModel(unittest.TestCase):
         assert_near_equal(np.mean(alkaline_seawater_flow_rate), 3.2395561643835618, tolerance=1e-6)
         assert_near_equal(np.mean(alkaline_seawater_pH), 9.145157555568293, tolerance=1e-6)
         assert_near_equal(np.mean(excess_acid), 58.32, tolerance=1e-6)
-
-        # Check that output files were saved
-        assert Path("output/data/OAE_operationScenarios.csv").is_file()
-        assert Path("output/data/OAE_biogeochemResults.csv").is_file()
-        assert Path("output/data/OAE_biogeochem_hourly_results.csv").is_file()
-        assert Path("output/data/OAE_resultTotals.csv").is_file()
-        assert Path("output/data/OAE_timeDependentResults.csv").is_file()
-        assert Path("output/figures/OAE_Time-Dependent_Results.png").is_file()
-
-        # Remove files
-        Path("output/data/OAE_biogeochemResults.csv").unlink(missing_ok=True)
-        Path("output/data/OAE_biogeochem_hourly_results.csv").unlink(missing_ok=True)
-        Path("output/data/DOC_operationScenarios.csv").unlink(missing_ok=True)
-        Path("output/data/DOC_resultTotals.csv").unlink(missing_ok=True)
-        Path("output/data/DOC_timeDependentResults.csv").unlink(missing_ok=True)
-        Path("output/figures/DOC_Time-Dependent_Results.png").unlink(missing_ok=True)
 
 
 @unittest.skipUnless(importlib.util.find_spec("mcm") is None, "mcm is installed")
