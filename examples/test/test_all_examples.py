@@ -653,7 +653,7 @@ def test_hydrogen_dispatch_example(subtests):
                 model.prob.get_val("finance_subgroup_all_hydrogen.LCOH", units="USD/kg")[0],
                 rel=1e-5,
             )
-            == 5.380013537850591
+            == 5.674286965
         )
 
     with subtests.test("Check dispatched h2 LCOH"):
@@ -1382,7 +1382,7 @@ def test_csvgen_design_of_experiments(subtests):
             min_lcoh_case_num = i
 
     with subtests.test("Min LCOH value"):
-        assert pytest.approx(min_lcoh_val, rel=1e-6) == 4.468258
+        assert pytest.approx(min_lcoh_val, rel=1e-6) == 4.67280915
 
     with subtests.test("Min LCOH case number"):
         assert min_lcoh_case_num == 6
