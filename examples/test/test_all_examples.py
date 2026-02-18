@@ -626,7 +626,7 @@ def test_hydrogen_dispatch_example(subtests):
                 )[0],
                 rel=1e-5,
             )
-            == model.prob.get_val("electrolyzer.hydrogen_out", units="kg/h").sum()
+            == model.prob.get_val("electrolyzer.annual_hydrogen_produced", units="kg/year")[0]
         )
 
     with subtests.test("Check total_hydrogen_produced"):
