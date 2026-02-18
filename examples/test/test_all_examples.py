@@ -1017,7 +1017,7 @@ def test_pyomo_heuristic_dispatch_example(subtests):
     # Subtest for total electricity produced
     with subtests.test("Check total electricity produced"):
         total_electricity = model.prob.get_val(
-            name="finance_subgroup_all_electricity.electricity_sum.total_electricity_produced",
+            name="finance_subgroup_all_electricity.total_electricity_produced",
             units="MW*h/year",
         )[0]
         assert total_electricity == pytest.approx(3125443.1089529935, rel=1e-6)
@@ -1132,7 +1132,7 @@ def test_simple_dispatch_example(subtests):
     # electricity produced from finance_subgroup_electricity
     with subtests.test("Check total electricity produced from wind"):
         wind_electricity_finance = model.prob.get_val(
-            "finance_subgroup_wind.electricity_sum.total_electricity_produced", units="kW*h/year"
+            "finance_subgroup_wind.total_electricity_produced", units="kW*h/year"
         )[0]
         assert pytest.approx(wind_electricity_finance, rel=1e-6) == total_electricity
 
@@ -1146,7 +1146,7 @@ def test_simple_dispatch_example(subtests):
     # to sum of "battery.electricity_out"
     with subtests.test("Check total electricity produced from battery"):
         battery_electricity_finance = model.prob.get_val(
-            "finance_subgroup_battery.electricity_sum.total_electricity_produced", units="MW*h/year"
+            "finance_subgroup_battery.total_electricity_produced", units="MW*h/year"
         )[0]
         battery_electricity_performance = np.sum(
             model.prob.get_val("battery.electricity_out", units="MW")
