@@ -618,6 +618,35 @@ def test_hydrogen_dispatch_example(subtests):
             == 59.0962072084844
         )
 
+    with subtests.test("Check all h2 total_hydrogen_produced"):
+        assert (
+            pytest.approx(
+                model.prob.get_val(
+                    "finance_subgroup_all_hydrogen.total_hydrogen_produced", units="kg/year"
+                )[0],
+                rel=1e-5,
+            )
+            == model.prob.get_val("electrolyzer.hydrogen_out", units="kg/h").sum()
+        )
+
+    with subtests.test("Check total_hydrogen_produced"):
+        assert (
+            pytest.approx(
+                model.prob.get_val("electrolyzer.total_hydrogen_produced", units="kg")[0],
+                rel=1e-5,
+            )
+            == 61656526.36295184
+        )
+
+    with subtests.test("Check annual hydrogen production"):
+        assert (
+            pytest.approx(
+                model.prob.get_val("electrolyzer.annual_hydrogen_produced", units="kg/year")[0],
+                rel=1e-5,
+            )
+            == 58458965.601815335
+        )
+
     with subtests.test("Check all h2 LCOH"):
         assert (
             pytest.approx(
