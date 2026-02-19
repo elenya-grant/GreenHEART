@@ -735,11 +735,11 @@ class H2IntegrateModel:
             )
             finance_subgroup = om.Group()
 
-            # if commodity stream is specified, then create use the "summer" model
-            # to sum the commodity production profile from the commodity stream
-
-            # ESG NOTE: BELOW IS NEW BUT TEMPORARY
+            # NOTE: Below logic on handling combiner and splitter is temporary
             if commodity_stream is not None:
+                # If commodity stream is specified and is a combiner, then create use
+                # the "summer" model  to sum the commodity production profile from the
+                # commodity stream
                 if "combiner" in commodity_stream or "splitter" in commodity_stream:
                     # get the generic summer model
                     commodity_summer_model = self.supported_models.get(
@@ -756,39 +756,6 @@ class H2IntegrateModel:
                     )
                     # add the production summer as a subsystem
                     finance_subgroup.add_subsystem(f"{commodity}_sum", commodity_summer)
-
-            # ESG NOTE: REMOVED THE BELOW CODE (741 - 771)
-            # if commodity_stream is not None:
-            #     # get the generic summer model
-            #     cmd_str = "GenericSummerPerformanceModel"
-            #     commodity_summer_model = self.supported_models.get(cmd_str)
-            #     if "combiner" in commodity_stream or "splitter" in commodity_stream:
-            #         # combiners and splitters have the same tech config as the production summer,
-            #         # so just use their config if the commodity stream is a combiner or splitter
-            #         commodity_summer_config = self.technology_config["technologies"][
-            #             commodity_stream
-            #         ]
-            #     else:
-            #         # create the input dictionary for the production summer based
-            #         # on the commodity type
-            #         commodity_summer_config = {
-            #             "model_inputs": {
-            #                 "performance_parameters": {
-            #                     "commodity": commodity,
-            #                     "commodity_rate_units": "kW"
-            #                     if commodity == "electricity"
-            #                     else "kg/h",
-            #                 }
-            #             }
-            #         }
-            #     # create the commodity production summer model
-            #     commodity_summer = commodity_summer_model(
-            #         driver_config=self.driver_config,
-            #         plant_config=self.plant_config,
-            #         tech_config=commodity_summer_config,
-            #     )
-            #     # add the production summer as a subsystem
-            #     finance_subgroup.add_subsystem(f"{commodity}_sum", commodity_summer)
 
             # Default logic for handling cases without specified commodity streams
             if commodity_stream is None:
@@ -843,6 +810,7 @@ class H2IntegrateModel:
                     )
 
                 else:
+                    # Default logic for tech-names and the primary commodity streams
                     default_techs_to_commodities = {
                         "electrolyzer": "hydrogen",
                         "geoh2": "hydrogen",
@@ -1169,33 +1137,26 @@ class H2IntegrateModel:
                             f"finance_subgroup_{group_id}.co2_capture_kgpy",
                         )
 
+                    # NOTE: below logic on special handling for commodity stream of
+                    # combiner or splitter is temporary
                     elif "combiner" in commodity_stream or "splitter" in commodity_stream:
-                        # Connect total commodity produced to the finance group
-                        # ESG: NOTE: THIS IS TEMPORARY
+                        # Connect the commodity out of the commodity combiner to the input
+                        # of the commodity summer
                         self.plant.connect(
                             f"{commodity_stream}.{primary_commodity_type}_out",
                             f"finance_subgroup_{group_id}.{primary_commodity_type}_sum.{primary_commodity_type}_in",
                         )
+                        # Connect total commodity produced to the finance group
                         self.plant.connect(
                             f"finance_subgroup_{group_id}.{primary_commodity_type}_sum.total_{primary_commodity_type}_produced",
                             f"finance_subgroup_{group_id}.total_{primary_commodity_type}_produced",
                         )
                     else:
-                        # connect commodity stream output to summer input
+                        # connect commodity stream technology output to the finance group
                         self.plant.connect(
                             f"{commodity_stream}.annual_{primary_commodity_type}_produced",
                             f"finance_subgroup_{group_id}.total_{primary_commodity_type}_produced",
                         )
-
-                    # NOTE: this wont be compatible with co2 in the finance models
-                    # because its expected to have a different name
-                    # connect summer output to finance model
-                    # starting_pt = f("finance_subgroup_{group_id}."
-                    # "{primary_commodity_type}_sum.total_{primary_commodity_type}_produced")
-                    # self.plant.connect(
-                    #     starting_pt,
-                    #     f"finance_subgroup_{group_id}.total_{primary_commodity_type}_produced",
-                    # )
 
                 # if commodity stream was not specified, follow existing logic
                 else:
@@ -1257,47 +1218,6 @@ class H2IntegrateModel:
                             f"{tech_name}.time_until_replacement",
                             f"finance_subgroup_{group_id}.{tech_name}_time_until_replacement",
                         )
-
-                    # if commodity_stream is None:
-                    #     if "electrolyzer" in tech_name:
-                    #         if primary_commodity_type == "hydrogen":
-                    #             self.plant.connect(
-                    #                 f"{tech_name}.annual_hydrogen_produced",
-                    #                 f"finance_subgroup_{group_id}.total_hydrogen_produced",
-                    #             )
-
-                    #     if "geoh2" in tech_name:
-                    #         if primary_commodity_type == "hydrogen":
-                    #             self.plant.connect(
-                    #                 f"{tech_name}.annual_hydrogen_produced",
-                    #                 f"finance_subgroup_{group_id}.total_hydrogen_produced",
-                    #             )
-
-                    #     if "ammonia" in tech_name and primary_commodity_type == "ammonia":
-                    #         self.plant.connect(
-                    #             f"{tech_name}.annual_ammonia_produced",
-                    #             f"finance_subgroup_{group_id}.total_ammonia_produced",
-                    #         )
-
-                    #     if (
-                    #         "doc" in tech_name or "oae" in tech_name
-                    #     ) and primary_commodity_type == "co2":
-                    #         self.plant.connect(
-                    #             f"{tech_name}.co2_capture_mtpy",
-                    #             f"finance_subgroup_{group_id}.co2_capture_kgpy",
-                    #         )
-
-                    # if "methanol" in tech_name and primary_commodity_type == "methanol":
-                    #     self.plant.connect(
-                    #         f"{tech_name}.annual_methanol_produced",
-                    #         f"finance_subgroup_{group_id}.total_methanol_produced",
-                    #     )
-
-                    # if "air_separator" in tech_name and primary_commodity_type == "nitrogen":
-                    #     self.plant.connect(
-                    #         f"{tech_name}.annual_nitrogen_produced",
-                    #         f"finance_subgroup_{group_id}.total_nitrogen_produced",
-                    # )
 
         self.plant.options["auto_order"] = True
 
