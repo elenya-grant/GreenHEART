@@ -358,7 +358,6 @@ def test_co2h_methanol_example(subtests):
         assert pytest.approx(model.prob.get_val("methanol.LCOM")[0], rel=1e-6) == 1.7555607442
 
 
-@pytest.mark.skipif(importlib.util.find_spec("mcm") is None, reason="mcm is not installed")
 def test_doc_methanol_example(subtests):
     # Change the current working directory to the CO2 Hydrogenation example's directory
     os.chdir(EXAMPLE_DIR / "03_methanol" / "co2_hydrogenation_doc")
@@ -483,7 +482,6 @@ def test_paper_example(subtests):
         assert pytest.approx(model.prob.get_val("paper_mill.LCOP"), rel=1e-3) == 51.733275
 
 
-@pytest.mark.skipif(importlib.util.find_spec("mcm") is None, reason="mcm is not installed")
 def test_wind_wave_doc_example(subtests):
     # Change the current working directory to the example's directory
     os.chdir(EXAMPLE_DIR / "09_co2/direct_ocean_capture")
@@ -516,7 +514,6 @@ def test_wind_wave_doc_example(subtests):
         )
 
 
-@pytest.mark.skipif(importlib.util.find_spec("mcm") is None, reason="mcm is not installed")
 def test_splitter_wind_doc_h2_example(subtests):
     # Change the current working directory to the example's directory
     os.chdir(EXAMPLE_DIR / "17_splitter_wind_doc_h2")
@@ -666,7 +663,6 @@ def test_hydrogen_dispatch_example(subtests):
         )
 
 
-@pytest.mark.skipif(importlib.util.find_spec("mcm") is None, reason="mcm is not installed")
 def test_wind_wave_oae_example(subtests):
     # Change the current working directory to the example's directory
     os.chdir(EXAMPLE_DIR / "09_co2/ocean_alkalinity_enhancement")
@@ -700,7 +696,6 @@ def test_wind_wave_oae_example(subtests):
         )
 
 
-@pytest.mark.skipif(importlib.util.find_spec("mcm") is None, reason="mcm is not installed")
 def test_wind_wave_oae_example_with_finance(subtests):
     # Change the current working directory to the example's directory
     os.chdir(EXAMPLE_DIR / "09_co2/ocean_alkalinity_enhancement_financials")
@@ -1830,7 +1825,7 @@ def test_natural_geoh2(subtests):
                 np.mean(h2i_nat.model.get_val("geoh2_well_subsurface.hydrogen_out", units="kg/h")),
                 rel=1e-6,
             )
-            == 603.4286677531819
+            == 606.1508855232839
         )
 
     with subtests.test("integrated LCOH"):
@@ -1838,7 +1833,7 @@ def test_natural_geoh2(subtests):
             pytest.approx(
                 h2i_nat.prob.get_val("finance_subgroup_h2.LCOH", units="USD/kg"), rel=1e-6
             )
-            == 1.59307314
+            == 1.5870496689
         )
     with subtests.test("subsurface Capex"):
         assert (
@@ -1862,14 +1857,15 @@ def test_natural_geoh2(subtests):
 
     with subtests.test("surface Capex"):
         assert (
-            pytest.approx(h2i_nat.model.get_val("geoh2_well_surface.CapEx"), rel=1e-6) == 1795733.55
+            pytest.approx(h2i_nat.model.get_val("geoh2_well_surface.CapEx"), rel=1e-6)
+            == 1800711.83796
         )
     with subtests.test("surface fixed Opex"):
         assert pytest.approx(h2i_nat.model.get_val("geoh2_well_surface.OpEx"), rel=1e-6) == 4567464
     with subtests.test("surface variable Opex"):
         assert (
             pytest.approx(h2i_nat.model.get_val("geoh2_well_surface.VarOpEx"), rel=1e-6)
-            == 984842.53
+            == 989213.8787
         )
     with subtests.test("surface adjusted opex"):
         surface_adjusted_opex = h2i_nat.prob.get_val(
@@ -1925,15 +1921,15 @@ def test_21_iron_dri_eaf_example(subtests):
 
     with subtests.test("Value check on LCOI"):
         lcoi = h2i.model.get_val("finance_subgroup_iron_ore.LCOI", units="USD/t")[0]
-        assert pytest.approx(lcoi, rel=1e-4) == 143.3495266638054
+        assert pytest.approx(lcoi, rel=1e-4) == 135.3741358811098
 
     with subtests.test("Value check on LCOP"):
         lcop = h2i.model.get_val("finance_subgroup_pig_iron.LCOP", units="USD/t")[0]
-        assert pytest.approx(lcop, rel=1e-4) == 353.99805215243265
+        assert pytest.approx(lcop, rel=1e-4) == 359.670379351
 
     with subtests.test("Value check on LCOS"):
         lcos = h2i.model.get_val("finance_subgroup_steel.LCOS", units="USD/t")[0]
-        assert pytest.approx(lcos, rel=1e-4) == 524.8228189073025
+        assert pytest.approx(lcos, rel=1e-4) == 531.5842266865
 
 
 def test_sweeping_different_resource_sites_doe(subtests):

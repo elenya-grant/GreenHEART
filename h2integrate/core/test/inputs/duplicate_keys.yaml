@@ -1,3 +1,4 @@
+# Test YAML to identify a duplicate key at line 12
 name: "technology_config"
 description: "This plant has offshore wind and battery connected to a ocean alkalinity enhancement device"
 
@@ -91,7 +92,8 @@ technologies:
         initial_temp_C: 10.0 # degrees Celsius
         initial_dic_mol_per_L: 0.0044 # mol/L
         initial_pH: 8.1 # initial pH
-        save_outputs: True
 
       cost_parameters:
         mass_product_tonne_yr: 100000.0
+      performance_parameters:
+        save_outputs: True
