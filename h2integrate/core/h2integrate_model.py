@@ -735,7 +735,12 @@ class H2IntegrateModel:
             )
             finance_subgroup = om.Group()
 
-            # NOTE: Below logic on handling combiner and splitter is temporary
+            # NOTE: Below logic on handling combiner and splitter is temporary. The combiner does
+            # not output the combiner annual_commodity_produced, it only outputs the combined
+            # capacity factor, rated capacity, and commodity profile. In the future, the
+            # capacity_factor and rated_commodity_production will be passed to the finance models
+            # instead of the annual_commodity_production. At that point, the temporary logic
+            # for handling combiners will be removed
             if commodity_stream is not None:
                 # If commodity stream is specified and is a combiner, then create use
                 # the "summer" model  to sum the commodity production profile from the
