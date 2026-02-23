@@ -95,23 +95,20 @@ class NumpyFinancialNPV(om.ExplicitComponent):
 
         self.add_output(self.NPV_str, val=0.0, units="USD")
 
-        if self.options["commodity_type"] == "co2":
-            self.add_input("co2_capture_kgpy", val=0.0, units="kg/year")
-        else:
-            self.add_input(
-                f"rated_{self.options['commodity_type']}_production",
-                val=0.0,
-                units=commodity_rate_units,
-                shape=1,
-                require_connection=True,
-            )
-            self.add_input(
-                "capacity_factor",
-                val=0.0,
-                units="unitless",
-                shape=plant_life,
-                require_connection=True,
-            )
+        self.add_input(
+            f"rated_{self.options['commodity_type']}_production",
+            val=0.0,
+            units=commodity_rate_units,
+            shape=1,
+            require_connection=True,
+        )
+        self.add_input(
+            "capacity_factor",
+            val=0.0,
+            units="unitless",
+            shape=plant_life,
+            require_connection=True,
+        )
 
         plant_config = self.options["plant_config"]
         finance_params = plant_config["finance_parameters"]["model_inputs"]
@@ -185,16 +182,11 @@ class NumpyFinancialNPV(om.ExplicitComponent):
         sign_of_costs = -1
 
         # Extract annual production based on commodity type
-        # CO2 uses different input naming convention than other commodities
-        # TODO: update below for standardized naming and also variable simulation lengths
-        if self.options["commodity_type"] != "co2":
-            annual_production = (
-                inputs["capacity_factor"]
-                * inputs[f"rated_{self.options['commodity_type']}_production"]
-                * 8760
-            )
-        else:
-            annual_production = float(inputs["co2_capture_kgpy"])
+        annual_production = (
+            inputs["capacity_factor"]
+            * inputs[f"rated_{self.options['commodity_type']}_production"]
+            * 8760
+        )
 
         # Calculate revenue from selling the commodity at the specified price
         # Revenue is only generated during operational years (not during construction year 0)

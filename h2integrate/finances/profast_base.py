@@ -459,8 +459,8 @@ class ProFastBase(om.ExplicitComponent):
             financial calculation.
         plant_config (dict): Plant configuration and financial parameter settings.
         driver_config (dict): Driver configuration parameters (not directly used in calculations).
-        commodity_type (str): Type of commodity analyzed. Supported: 'hydrogen', 'electricity',
-            'ammonia', 'nitrogen', and 'co2'.
+        commodity_type (str): Type of commodity analyzed. Supports electricity and mass-based
+            commodities.
         params (BasicProFASTParameterConfig): Financial parameters used in the ProFAST analysis.
         capital_item_settings (ProFASTDefaultCapitalItem): Default capital cost parameters.
         fixed_cost_settings (ProFASTDefaultFixedCost): Default fixed operating cost parameters.
@@ -477,8 +477,7 @@ class ProFastBase(om.ExplicitComponent):
             (units depend on commodity type).
         {tech}_time_until_replacement (float): Time until technology is replaced, in hours
             (currently only supported if "electrolyzer" is in tech_config).
-        co2_capture_kgpy (float): Total annual CO2 captured, in kg/year
-            (only for commodity_type "co2").
+
 
     Methods:
         initialize(): Declares component options.
@@ -505,9 +504,11 @@ class ProFastBase(om.ExplicitComponent):
         if self.options["commodity_type"] == "electricity":
             self.price_units = "USD/(kW*h)"
             commodity_rate_units = "kW"
+            self.commodity_amount_units = "kW*h"
         else:
             self.price_units = "USD/kg"
             commodity_rate_units = "kg/h"
+            self.commodity_amount_units = "kg"
 
         # Construct output name based on commodity and optional description
         # this is necessary to allow for financial subgroups
@@ -523,24 +524,21 @@ class ProFastBase(om.ExplicitComponent):
 
         plant_life = int(self.options["plant_config"]["plant"]["plant_life"])
 
-        # Add production input (CO2 capture or total commodity produced)
-        if self.options["commodity_type"] == "co2":
-            self.add_input("co2_capture_kgpy", val=0.0, units="kg/year", require_connection=True)
-        else:
-            self.add_input(
-                f"rated_{self.options['commodity_type']}_production",
-                val=0.0,
-                units=commodity_rate_units,
-                shape=1,
-                require_connection=True,
-            )
-            self.add_input(
-                "capacity_factor",
-                val=0.0,
-                units="unitless",
-                shape=plant_life,
-                require_connection=True,
-            )
+        # Add rated capacity and capacity factor inputs
+        self.add_input(
+            f"rated_{self.options['commodity_type']}_production",
+            val=0.0,
+            units=commodity_rate_units,
+            shape=1,
+            require_connection=True,
+        )
+        self.add_input(
+            "capacity_factor",
+            val=0.0,
+            units="unitless",
+            shape=plant_life,
+            require_connection=True,
+        )
 
         # Add inputs for CapEx, OpEx, and variable OpEx for each technology
 
@@ -612,16 +610,6 @@ class ProFastBase(om.ExplicitComponent):
         Returns:
             ProFAST: A fully configured ProFAST financial model object ready for execution.
         """
-        # determine commodity units
-        mass_commodities = [
-            "hydrogen",
-            "ammonia",
-            "co2",
-            "nitrogen",
-            "methanol",
-            "iron_ore",
-            "pig_iron",
-        ]
 
         # create years of operation list
         years_of_operation = create_years_of_operation(
@@ -633,24 +621,16 @@ class ProFastBase(om.ExplicitComponent):
         # update parameters with commodity, capacity, and utilization
         profast_params = self.params.as_dict()
         profast_params["commodity"].update({"name": self.options["commodity_type"]})
-        profast_params["commodity"].update(
-            {"unit": "kg" if self.options["commodity_type"] in mass_commodities else "kWh"}
-        )
+        profast_params["commodity"].update({"unit": self.commodity_amount_units})
 
         # calculate capacity and total production based on commodity type
-        if self.options["commodity_type"] != "co2":
-            capacity = inputs[f"rated_{self.options['commodity_type']}_production"][0] * 24
-            utilization = dict(zip(years_of_operation, inputs["capacity_factor"]))
-            total_production = (
-                inputs["capacity_factor"]
-                * inputs[f"rated_{self.options['commodity_type']}_production"]
-                * 8760
-            )
-
-        else:
-            capacity = inputs["co2_capture_kgpy"][0] / 365.0
-            total_production = inputs["co2_capture_kgpy"][0]
-            utilization = 1
+        capacity = inputs[f"rated_{self.options['commodity_type']}_production"][0] * 24
+        utilization = dict(zip(years_of_operation, inputs["capacity_factor"]))
+        total_production = (
+            inputs["capacity_factor"]
+            * inputs[f"rated_{self.options['commodity_type']}_production"]
+            * 8760
+        )
 
         # define profast parameters for capacity and utilization
         profast_params["capacity"] = capacity
