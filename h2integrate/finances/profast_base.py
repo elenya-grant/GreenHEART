@@ -504,7 +504,7 @@ class ProFastBase(om.ExplicitComponent):
         if self.options["commodity_type"] == "electricity":
             self.price_units = "USD/(kW*h)"
             commodity_rate_units = "kW"
-            self.commodity_amount_units = "kW*h"
+            self.commodity_amount_units = "kWh"
         else:
             self.price_units = "USD/kg"
             commodity_rate_units = "kg/h"
