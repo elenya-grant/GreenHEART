@@ -1086,16 +1086,11 @@ class H2IntegrateModel:
                             f"{commodity_stream}.rated_{primary_commodity_type}_production",
                             f"finance_subgroup_{group_id}.rated_{primary_commodity_type}_production",
                         )
-                        if "combiner" in commodity_stream:
-                            self.plant.connect(
-                                f"{commodity_stream}.{primary_commodity_type}_capacity_factor",
-                                f"finance_subgroup_{group_id}.capacity_factor",
-                            )
-                        else:
-                            self.plant.connect(
-                                f"{commodity_stream}.capacity_factor",
-                                f"finance_subgroup_{group_id}.capacity_factor",
-                            )
+
+                        self.plant.connect(
+                            f"{commodity_stream}.capacity_factor",
+                            f"finance_subgroup_{group_id}.capacity_factor",
+                        )
 
                 # Only connect technologies that are included in the finance stackup
                 for tech_name in tech_configs.keys():

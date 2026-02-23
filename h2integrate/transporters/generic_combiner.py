@@ -81,7 +81,7 @@ class GenericCombinerPerformanceModel(om.ExplicitComponent):
             units=self.config.commodity_rate_units,
         )
         self.add_output(
-            f"{self.config.commodity}_capacity_factor",
+            "capacity_factor",
             val=0.0,
             shape=plant_life,
             units="unitless",
@@ -116,6 +116,6 @@ class GenericCombinerPerformanceModel(om.ExplicitComponent):
             # weighted CF = (CF1*S1 + CF2*S2)/(S1 + S2)
             # Where S is the rated commodity production of input stream i
             # and CF is the capacity factor of input stream i
-            outputs[f"{self.config.commodity}_capacity_factor"] = weighted_cf / total_rated
+            outputs["capacity_factor"] = weighted_cf / total_rated
         else:
-            outputs[f"{self.config.commodity}_capacity_factor"] = 0.0
+            outputs["capacity_factor"] = 0.0

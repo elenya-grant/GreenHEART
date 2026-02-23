@@ -345,7 +345,7 @@ def test_co2h_methanol_example(subtests):
         combined_cf = (wind_weighted_cf + solar_weighted_cf) / combined_rated_input
         assert (
             pytest.approx(
-                model.prob.get_val("combiner.electricity_capacity_factor", units="unitless"),
+                model.prob.get_val("combiner.capacity_factor", units="unitless"),
                 rel=1e-6,
             )
             == combined_cf
