@@ -1994,6 +1994,49 @@ def test_21_iron_dri_eaf_example(subtests):
         assert pytest.approx(lcos, rel=1e-4) == 531.5842266865
 
 
+def test_31_iron_electrowinning_example(subtests):
+    os.chdir(EXAMPLE_DIR / "31_iron_electrowinning")
+
+    model = H2IntegrateModel("31_iron_electrowinning.yaml")
+
+    with subtests.test("Value check on AHE"):
+        model.technology_config["technologies"]["iron_plant"]["model_inputs"]["shared_parameters"][
+            "electrolysis_type"
+        ] = "ahe"
+        model.setup()
+        model.run()
+        lcoi = model.model.get_val("finance_subgroup_sponge_iron.LCOS", units="USD/kg")[0]
+        assert pytest.approx(lcoi, rel=1e-4) == 2.187185703820872
+
+    with subtests.test("Value check on MSE"):
+        model.technology_config["technologies"]["iron_plant"]["model_inputs"]["shared_parameters"][
+            "electrolysis_type"
+        ] = "mse"
+        model.technology_config["technologies"]["ewin_NaOH_feedstock"]["model_inputs"][
+            "performance_parameters"
+        ]["rated_capacity"] = 0
+        model.technology_config["technologies"]["ewin_CaCl2_feedstock"]["model_inputs"][
+            "performance_parameters"
+        ]["rated_capacity"] = 179.0
+
+        model.setup()
+        model.run()
+        lcoi = model.model.get_val("finance_subgroup_sponge_iron.LCOS", units="USD/kg")[0]
+        assert pytest.approx(lcoi, rel=1e-4) == 3.3399342887615115
+
+    with subtests.test("Value check on MOE"):
+        model.technology_config["technologies"]["iron_plant"]["model_inputs"]["shared_parameters"][
+            "electrolysis_type"
+        ] = "moe"
+        model.technology_config["technologies"]["ewin_NaOH_feedstock"]["model_inputs"][
+            "performance_parameters"
+        ]["rated_capacity"] = 0
+        model.setup()
+        model.run()
+        lcoi = model.model.get_val("finance_subgroup_sponge_iron.LCOS", units="USD/kg")[0]
+        assert pytest.approx(lcoi, rel=1e-4) == 2.2802793527655987
+
+
 def test_sweeping_different_resource_sites_doe(subtests):
     os.chdir(EXAMPLE_DIR / "27_site_doe_diff")
     import pandas as pd
