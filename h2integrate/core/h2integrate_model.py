@@ -776,6 +776,16 @@ class H2IntegrateModel:
                                 {"commodity_stream": commodity_stream_tech_name[0]}
                             )
 
+                # Check if a default commodity_stream was found, throw error if not
+                if finance_subgroups[subgroup_name].get("commodity_stream", None) is None:
+                    msg = (
+                        "Could not find a default technology to use as the commodity stream "
+                        f"for commodity {finance_subgroups[subgroup_name]['commodity']}. "
+                        "Please specify the `commodity_stream` for finance subgroup "
+                        f"{subgroup_name}."
+                    )
+                    raise ValueError(msg)
+
             # Add adjusted capex/opex
             adjusted_capex_opex_comp = AdjustedCapexOpexComp(
                 driver_config=self.driver_config,
