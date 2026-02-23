@@ -777,7 +777,10 @@ class H2IntegrateModel:
                             )
 
                 # Check if a default commodity_stream was found, throw error if not
-                if finance_subgroups[subgroup_name].get("commodity_stream", None) is None:
+                missing_commodity_stream = (
+                    finance_subgroups[subgroup_name].get("commodity_stream", None) is None
+                )
+                if missing_commodity_stream and len(tech_names) > 1:
                     msg = (
                         "Could not find a default technology to use as the commodity stream "
                         f"for commodity {finance_subgroups[subgroup_name]['commodity']}. "
