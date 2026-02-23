@@ -503,11 +503,11 @@ class ProFastBase(om.ExplicitComponent):
         """Set up component inputs and outputs based on plant and technology configurations."""
         # Determine commodity units
         if self.options["commodity_type"] == "electricity":
-            commodity_units = "kW*h/year"
             self.price_units = "USD/(kW*h)"
+            commodity_rate_units = "kW"
         else:
-            commodity_units = "kg/year"
             self.price_units = "USD/kg"
+            commodity_rate_units = "kg/h"
 
         # Construct output name based on commodity and optional description
         # this is necessary to allow for financial subgroups
@@ -528,9 +528,16 @@ class ProFastBase(om.ExplicitComponent):
             self.add_input("co2_capture_kgpy", val=0.0, units="kg/year", require_connection=True)
         else:
             self.add_input(
-                f"total_{self.options['commodity_type']}_produced",
-                val=-1.0,
-                units=commodity_units,
+                f"rated_{self.options['commodity_type']}_production",
+                val=0.0,
+                units=commodity_rate_units,
+                shape=1,
+                require_connection=True,
+            )
+            self.add_input(
+                "capacity_factor",
+                val=0.0,
+                units="unitless",
                 shape=plant_life,
                 require_connection=True,
             )
@@ -632,15 +639,22 @@ class ProFastBase(om.ExplicitComponent):
 
         # calculate capacity and total production based on commodity type
         if self.options["commodity_type"] != "co2":
-            capacity = inputs[f"total_{self.options['commodity_type']}_produced"][0] / 365.0
-            total_production = inputs[f"total_{self.options['commodity_type']}_produced"][0]
+            capacity = inputs[f"rated_{self.options['commodity_type']}_production"][0] * 24
+            utilization = dict(zip(years_of_operation, inputs["capacity_factor"]))
+            total_production = (
+                inputs["capacity_factor"]
+                * inputs[f"rated_{self.options['commodity_type']}_production"]
+                * 8760
+            )
+
         else:
             capacity = inputs["co2_capture_kgpy"][0] / 365.0
             total_production = inputs["co2_capture_kgpy"][0]
+            utilization = 1
 
         # define profast parameters for capacity and utilization
-        profast_params["capacity"] = capacity  # TODO: update to actual daily capacity
-        profast_params["long term utilization"] = 1  # TODO: update to capacity factor
+        profast_params["capacity"] = capacity
+        profast_params["long term utilization"] = utilization
 
         # initialize profast dictionary
         pf_dict = {"params": profast_params, "capital_items": {}, "fixed_costs": {}}

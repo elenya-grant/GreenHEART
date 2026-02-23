@@ -87,11 +87,11 @@ class NumpyFinancialNPV(om.ExplicitComponent):
 
         # TODO: update below with standardized naming
         if self.options["commodity_type"] == "electricity":
-            commodity_units = "kW*h/year"
             commodity_price_units = "USD/(kW*h)"
+            commodity_rate_units = "kW"
         else:
-            commodity_units = "kg/year"
             commodity_price_units = "USD/kg"
+            commodity_rate_units = "kg/h"
 
         self.add_output(self.NPV_str, val=0.0, units="USD")
 
@@ -99,10 +99,18 @@ class NumpyFinancialNPV(om.ExplicitComponent):
             self.add_input("co2_capture_kgpy", val=0.0, units="kg/year")
         else:
             self.add_input(
-                f"total_{self.options['commodity_type']}_produced",
+                f"rated_{self.options['commodity_type']}_production",
                 val=0.0,
+                units=commodity_rate_units,
+                shape=1,
+                require_connection=True,
+            )
+            self.add_input(
+                "capacity_factor",
+                val=0.0,
+                units="unitless",
                 shape=plant_life,
-                units=commodity_units,
+                require_connection=True,
             )
 
         plant_config = self.options["plant_config"]
@@ -180,7 +188,11 @@ class NumpyFinancialNPV(om.ExplicitComponent):
         # CO2 uses different input naming convention than other commodities
         # TODO: update below for standardized naming and also variable simulation lengths
         if self.options["commodity_type"] != "co2":
-            annual_production = float(inputs[f"total_{self.options['commodity_type']}_produced"][0])
+            annual_production = (
+                inputs["capacity_factor"]
+                * inputs[f"rated_{self.options['commodity_type']}_production"]
+                * 8760
+            )
         else:
             annual_production = float(inputs["co2_capture_kgpy"])
 
@@ -255,8 +267,8 @@ class NumpyFinancialNPV(om.ExplicitComponent):
                 cost_breakdown[f"{tech}: replacement cost"] = refurb_cost
 
         # Convert cost breakdown to list of arrays for aggregation (currently unused)
-        total_costs = [np.array(v) for k, v in cost_breakdown.items()]
-        np.array(total_costs).sum(axis=0)
+        [np.array(v) for k, v in cost_breakdown.items()]
+        # np.array(total_costs).sum(axis=0)
 
         # Calculate NPV for each cost category and sum to get total NPV
         # This iterative approach also builds npv_cost_breakdown for optional reporting
