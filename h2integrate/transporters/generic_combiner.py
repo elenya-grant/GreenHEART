@@ -116,6 +116,7 @@ class GenericCombinerPerformanceModel(om.ExplicitComponent):
             # weighted CF = (CF1*S1 + CF2*S2)/(S1 + S2) = combined production/combined capacity
             # Where S is the rated commodity production of input stream i
             # and CF is the capacity factor of input stream i
-            outputs["capacity_factor"] = combined_production / total_rated
+            weighted_cf = combined_production / total_rated
+            outputs["capacity_factor"] = weighted_cf
         else:
             outputs["capacity_factor"] = 0.0
