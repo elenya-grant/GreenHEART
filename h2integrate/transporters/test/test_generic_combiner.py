@@ -238,7 +238,7 @@ def test_generic_consumption_summer_performance_electricity(
     prob.set_val("electricity_in", electricity_input, units="kW")
     prob.run_model()
 
-    assert prob.get_val("total_electricity_consumed") == approx(
+    assert prob.get_val("total_electricity_consumed", units="kW*h/year") == approx(
         total_electricity_consumed, rel=1e-5
     )
 
@@ -265,7 +265,9 @@ def test_generic_consumption_summer_performance_hydrogen(
     prob.set_val("hydrogen_in", hydrogen_input, units="kg")
     prob.run_model()
 
-    assert prob.get_val("total_hydrogen_consumed") == approx(total_hydrogen_consumed, rel=1e-5)
+    assert prob.get_val("total_hydrogen_consumed", units="kg*h/year") == approx(
+        total_hydrogen_consumed, rel=1e-5
+    )
 
 
 def test_generic_production_summer_performance_electricity(
@@ -290,7 +292,7 @@ def test_generic_production_summer_performance_electricity(
     prob.set_val("electricity_in", electricity_input, units="kW")
     prob.run_model()
 
-    assert prob.get_val("total_electricity_produced") == approx(
+    assert prob.get_val("total_electricity_produced", units="kW*h/year") == approx(
         total_electricity_produced, rel=1e-5
     )
 
@@ -317,7 +319,9 @@ def test_generic_production_summer_performance_hydrogen(
     prob.set_val("hydrogen_in", hydrogen_input, units="kg")
     prob.run_model()
 
-    assert prob.get_val("total_hydrogen_produced") == approx(total_hydrogen_produced, rel=1e-5)
+    assert prob.get_val("total_hydrogen_produced", units="kg*h/year") == approx(
+        total_hydrogen_produced, rel=1e-5
+    )
 
 
 def test_generic_summer_default_mode_is_production(plant_config):
@@ -350,6 +354,6 @@ def test_generic_summer_default_mode_is_production(plant_config):
     prob.run_model()
 
     # Should have production output, not consumption
-    assert prob.get_val("total_electricity_produced") == approx(
+    assert prob.get_val("total_electricity_produced", units="kW*h/year") == approx(
         total_electricity_produced, rel=1e-5
     )
