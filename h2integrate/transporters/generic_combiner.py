@@ -108,7 +108,7 @@ class GenericCombinerPerformanceModel(om.ExplicitComponent):
                 stream_number = key.split("capacity_factor")[-1]
                 rated_capacity = inputs[f"rated_{self.config.commodity}_production{stream_number}"]
                 # weight the capacity factor with the rated capacity to get the combined production
-                combined_production = combined_production + (value * rated_capacity)
+                combined_production += value * rated_capacity
 
         outputs[f"{self.config.commodity}_out"] = total_out
         outputs[f"rated_{self.config.commodity}_production"] = total_rated
