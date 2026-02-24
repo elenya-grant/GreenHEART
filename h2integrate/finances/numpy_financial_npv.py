@@ -258,10 +258,6 @@ class NumpyFinancialNPV(om.ExplicitComponent):
                 # Add refurbishment schedule to cost breakdown
                 cost_breakdown[f"{tech}: replacement cost"] = refurb_cost
 
-        # Convert cost breakdown to list of arrays for aggregation (currently unused)
-        [np.array(v) for k, v in cost_breakdown.items()]
-        # np.array(total_costs).sum(axis=0)
-
         # Calculate NPV for each cost category and sum to get total NPV
         # This iterative approach also builds npv_cost_breakdown for optional reporting
         npv_item_check = 0
