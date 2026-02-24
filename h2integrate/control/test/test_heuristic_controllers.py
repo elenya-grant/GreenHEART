@@ -3,7 +3,7 @@ import pytest
 import openmdao.api as om
 
 from h2integrate.storage.battery.pysam_battery import PySAMBatteryPerformanceModel
-from h2integrate.control.control_strategies.pyomo_controllers import (
+from h2integrate.control.control_strategies.heuristic_pyomo_controller import (
     HeuristicLoadFollowingController,
 )
 from h2integrate.control.control_rules.storage.pyomo_storage_rule_baseclass import (
