@@ -65,8 +65,6 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
     max_charge_rate: int | float = field()
     charge_efficiency: float = field(validator=range_val(0, 1), default=None)
     discharge_efficiency: float = field(validator=range_val(0, 1), default=None)
-    commodity: str = field(default=None)
-    commodity_rate_units: str = field(default=None)
     cost_per_production: float = field(default=None)
     cost_per_charge: float = field(default=None)
     cost_per_discharge: float = field(default=None)
@@ -250,8 +248,6 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
         """Build Pyomo model blocks and assign the dispatch solver."""
         self.dispatch_inputs["max_charge_rate"] = inputs["max_charge_rate"][0]
         self.dispatch_inputs["max_capacity"] = inputs["storage_capacity"][0]
-        self.config.max_capacity = inputs["storage_capacity"][0]
-        self.config.max_charge_rate = inputs["max_charge_rate"][0]
 
         discrete_outputs["pyomo_dispatch_solver"] = self.pyomo_setup(discrete_inputs)
 

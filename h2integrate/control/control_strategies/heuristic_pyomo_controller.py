@@ -16,7 +16,6 @@ if TYPE_CHECKING:  # to avoid circular imports
 
 @define(kw_only=True)
 class HeuristicLoadFollowingControllerConfig(PyomoControllerBaseConfig):
-    max_charge_rate: int | float = field()
     charge_efficiency: float = field(validator=range_val_or_none(0, 1), default=None)
     discharge_efficiency: float = field(validator=range_val_or_none(0, 1), default=None)
 
@@ -35,6 +34,7 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
         self.config = HeuristicLoadFollowingControllerConfig.from_dict(
             merge_shared_inputs(self.options["tech_config"]["model_inputs"], "control"),
             additional_cls_name=self.__class__.__name__,
+            strict=False,
         )
 
         self.n_timesteps = self.options["plant_config"]["plant"]["simulation"]["n_timesteps"]
