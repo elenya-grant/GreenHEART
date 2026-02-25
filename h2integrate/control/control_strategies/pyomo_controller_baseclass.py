@@ -277,7 +277,7 @@ class PyomoControllerBaseClass(om.ExplicitComponent):
             # loop over all control windows, where t is the starting index of each window
             for t in window_start_indices:
                 # get the inputs over the current control window
-                commodity_in = inputs[self.config.commodity + "_in"][
+                commodity_in = inputs[f"{self.config.commodity}_in"][
                     t : t + self.config.n_control_window
                 ]
                 demand_in = inputs[f"{commodity_name}_demand"][t : t + self.config.n_control_window]
