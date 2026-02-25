@@ -41,8 +41,6 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
 
         super().setup()
 
-        self.round_digits = 4
-
         self.max_charge_fraction = [0.0] * self.config.n_control_window
         self.max_discharge_fraction = [0.0] * self.config.n_control_window
         self._fixed_dispatch = [0.0] * self.config.n_control_window
@@ -269,7 +267,7 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
             float: Checked initial state-of-charge.
 
         """
-        initial_soc = round(initial_soc, self.round_digits)
+        initial_soc = round(initial_soc, self.config.round_digits)
         if initial_soc > self.maximum_soc:
             print(
                 "Warning: Storage dispatch was initialized with a state-of-charge greater than "
@@ -341,7 +339,7 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
     @initial_soc.setter
     def initial_soc(self, initial_soc: float):
         initial_soc = self._check_initial_soc(initial_soc)
-        self.pyomo_model.initial_soc = round(initial_soc, self.round_digits)
+        self.pyomo_model.initial_soc = round(initial_soc, self.config.round_digits)
 
     @property
     def minimum_soc(self) -> float:
@@ -352,7 +350,7 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
     @minimum_soc.setter
     def minimum_soc(self, minimum_soc: float):
         for t in self.blocks.index_set():
-            self.blocks[t].minimum_soc = round(minimum_soc, self.round_digits)
+            self.blocks[t].minimum_soc = round(minimum_soc, self.config.round_digits)
 
     @property
     def maximum_soc(self) -> float:
@@ -363,7 +361,7 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
     @maximum_soc.setter
     def maximum_soc(self, maximum_soc: float):
         for t in self.blocks.index_set():
-            self.blocks[t].maximum_soc = round(maximum_soc, self.round_digits)
+            self.blocks[t].maximum_soc = round(maximum_soc, self.config.round_digits)
 
     # Need these properties to define these values for methods in this class
     @property
@@ -376,7 +374,7 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
     def charge_efficiency(self, efficiency: float):
         efficiency = self._check_efficiency_value(efficiency)
         for t in self.blocks.index_set():
-            self.blocks[t].charge_efficiency = round(efficiency, self.round_digits)
+            self.blocks[t].charge_efficiency = round(efficiency, self.config.round_digits)
 
     @property
     def discharge_efficiency(self) -> float:
@@ -388,4 +386,4 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
     def discharge_efficiency(self, efficiency: float):
         efficiency = self._check_efficiency_value(efficiency)
         for t in self.blocks.index_set():
-            self.blocks[t].discharge_efficiency = round(efficiency, self.round_digits)
+            self.blocks[t].discharge_efficiency = round(efficiency, self.config.round_digits)

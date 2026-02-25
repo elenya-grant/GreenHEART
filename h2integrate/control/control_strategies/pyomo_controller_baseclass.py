@@ -49,6 +49,9 @@ class PyomoControllerBaseConfig(BaseConfig):
         system_commodity_interface_limit (float | int | str |list[float]): Max interface
             (e.g. grid interface) flow used to bound dispatch (scalar or per-timestep list of
             length n_control_window).
+        round_digits (int):
+            The number of digits to round to in the Pyomo model for numerical stability.
+            The default of this parameter is 4.
     """
 
     max_capacity: float = field()
@@ -60,6 +63,7 @@ class PyomoControllerBaseConfig(BaseConfig):
     commodity_rate_units: str = field()
     tech_name: str = field()
     system_commodity_interface_limit: float | int | str | list[float] = field()
+    round_digits: int = field(default=4)
 
     def __attrs_post_init__(self):
         if isinstance(self.system_commodity_interface_limit, str):

@@ -57,9 +57,6 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
         time_weighting_factor (float):
             The weighting factor applied to future time steps in the optimization objective
             (between 0 and 1).
-        round_digits (int):
-            The number of digits to round to in the Pyomo model for numerical stability.
-            The default of this parameter is 4.
         time_duration (float):
             The duration of each time step in the Pyomo model in hours.
             The default of this parameter is 1.0 (i.e., 1 hour time steps).
@@ -75,7 +72,6 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
     cost_per_discharge: float = field(default=None)
     commodity_met_value: float = field(default=None)
     time_weighting_factor: float = field(validator=range_val(0, 1), default=0.995)
-    round_digits: int = field(default=4)
     time_duration: float = field(default=1.0)  # hours
 
     def make_dispatch_inputs(self):
