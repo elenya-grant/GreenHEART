@@ -37,9 +37,6 @@ class PyomoControllerBaseConfig(BaseConfig):
         n_control_window (int):
             Number of consecutive timesteps processed per control action
             (rolling control / dispatch window length).
-        n_horizon_window (int):
-            Number of timesteps considered for look ahead / optimization horizon.
-            May be >= n_control_window (used by predictive strategies).
         commodity (str):
             Base name of the controlled commodity (e.g., "hydrogen", "electricity").
             Used to construct input/output variable names (e.g., f"{commodity}_in").
@@ -59,7 +56,6 @@ class PyomoControllerBaseConfig(BaseConfig):
     min_charge_percent: float = field(validator=range_val(0, 1))
     init_charge_percent: float = field(validator=range_val(0, 1))
     n_control_window: int = field()
-    n_horizon_window: int = field()
     commodity: str = field()
     commodity_rate_units: str = field()
     tech_name: str = field()

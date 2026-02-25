@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from attrs import field, define
 
 from h2integrate.core.utilities import merge_shared_inputs
+from h2integrate.core.validators import range_val_or_none
 from h2integrate.control.control_strategies.pyomo_controller_baseclass import (
     PyomoControllerBaseClass,
     PyomoControllerBaseConfig,
@@ -16,8 +17,8 @@ if TYPE_CHECKING:  # to avoid circular imports
 @define(kw_only=True)
 class HeuristicLoadFollowingControllerConfig(PyomoControllerBaseConfig):
     max_charge_rate: int | float = field()
-    charge_efficiency: float = field(default=None)
-    discharge_efficiency: float = field(default=None)
+    charge_efficiency: float = field(validator=range_val_or_none(0, 1), default=None)
+    discharge_efficiency: float = field(validator=range_val_or_none(0, 1), default=None)
 
 
 class HeuristicLoadFollowingController(PyomoControllerBaseClass):
