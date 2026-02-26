@@ -1000,12 +1000,6 @@ class H2IntegrateModel:
                         f"{connection_name}.{transport_item}_in",
                     )
 
-                elif "storage" in source_tech:
-                    # Connect the source technology to the connection component
-                    self.plant.connect(
-                        f"{source_tech}.{transport_item}_out",
-                        f"{connection_name}.{transport_item}_in",
-                    )
                 else:
                     # Connect the source technology to the connection component
                     self.plant.connect(
@@ -1035,13 +1029,6 @@ class H2IntegrateModel:
                     self.plant.connect(
                         f"{source_tech}.capacity_factor",
                         f"{dest_tech}.{transport_item}_capacity_factor{combiner_counts[dest_tech]}",
-                    )
-
-                elif "storage" in dest_tech:
-                    # Connect the connection component to the destination technology
-                    self.plant.connect(
-                        f"{connection_name}.{transport_item}_out",
-                        f"{dest_tech}.{transport_item}_in",
                     )
 
                 else:
