@@ -496,6 +496,12 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
         storage_power_out_timesteps = np.zeros(self.config.n_control_window)
         soc_timesteps = np.zeros(self.config.n_control_window)
 
+        # discharge is positive
+        discharge_timesteps = np.zeros(self.config.n_control_window)
+
+        # charge is negative
+        charge_timesteps = np.zeros(self.config.n_control_window)
+
         # get constant battery parameters needed during all time steps
         soc_max = self.system_model.value("maximum_SOC") / 100.0
         soc_min = self.system_model.value("minimum_SOC") / 100.0
@@ -548,6 +554,10 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
             # save outputs
             storage_power_out_timesteps[t] = self.system_model.value("P")
             soc_timesteps[t] = self.system_model.value("SOC")
+            if dispatch_command_t >= 0:
+                discharge_timesteps[t] = dispatch_command_t
+            else:
+                charge_timesteps[t] = dispatch_command_t
 
             # Store outputs based on the outputs defined in `BatteryOutputs` above. The values are
             # scraped from the PySAM model modules `StatePack` and `StateCell`.
