@@ -473,10 +473,14 @@ class ProFastBase(om.ExplicitComponent):
             user-defined technology, in USD.
         opex_adjusted_{tech} (float): Adjusted operational expenditure for each
             user-defined technology, in USD/year.
-        total_{commodity}_produced (float): Total annual production of the selected commodity
+        varopex_adjusted_{tech} (np.ndarray): Adjusted variable operational expenditure
+            for each user-defined technology, in USD/year.
+        rated_{commodity}_production (float): Rated production of the selected commodity
             (units depend on commodity type).
-        {tech}_time_until_replacement (float): Time until technology is replaced, in hours
-            (currently only supported if "electrolyzer" is in tech_config).
+        capacity_factor (np.ndarray): Capacity factor of the commodity producing tech(s)
+            per year of the plant life.
+        replacement_schedule_{tech} (np.ndarray): Fraction of the technology capacity that
+            is replaced in each year of the plant life.
 
 
     Methods:
@@ -547,10 +551,9 @@ class ProFastBase(om.ExplicitComponent):
             self.add_input(f"capex_adjusted_{tech}", val=0.0, units="USD")
             self.add_input(f"opex_adjusted_{tech}", val=0.0, units="USD/year")
             self.add_input(f"varopex_adjusted_{tech}", val=0.0, shape=plant_life, units="USD/year")
-
-            # Include electrolyzer replacement time if applicable
-            if tech.startswith("electrolyzer"):
-                self.add_input(f"{tech}_time_until_replacement", units="h")
+            self.add_input(
+                f"replacement_schedule_{tech}", val=0.0, shape=plant_life, units="unitless"
+            )
 
         # Load plant configuration and financial parameters
         plant_config = self.options["plant_config"]
@@ -666,18 +669,19 @@ class ProFastBase(om.ExplicitComponent):
 
             # see if any refurbishment information was input
             if "replacement_cost_percent" in tech_capex_info:
-                refurb_schedule = np.zeros(self.params.plant_life)
-
                 if "refurbishment_period_years" in tech_capex_info:
+                    refurb_schedule = np.zeros(self.params.plant_life)
                     refurb_period = tech_capex_info["refurbishment_period_years"]
-                else:
-                    refurb_period = round(
-                        float(inputs[f"{tech}_time_until_replacement"][0]) / (24 * 365)
+                    refurb_schedule[refurb_period : self.params.plant_life : refurb_period] = (
+                        tech_capex_info["replacement_cost_percent"]
                     )
 
-                refurb_schedule[refurb_period : self.params.plant_life : refurb_period] = (
-                    tech_capex_info["replacement_cost_percent"]
-                )
+                else:
+                    refurb_schedule = (
+                        inputs[f"replacement_schedule_{tech}"]
+                        * tech_capex_info["replacement_cost_percent"]
+                    )
+
                 # add refurbishment schedule to tech-specific capital item entry
                 tech_capex_info["refurb"] = list(refurb_schedule)
 

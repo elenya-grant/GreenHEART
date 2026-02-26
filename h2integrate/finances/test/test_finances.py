@@ -2,6 +2,7 @@ import copy
 import unittest
 from pathlib import Path
 
+import numpy as np
 import pytest
 import openmdao.api as om
 from pytest import approx
@@ -101,7 +102,10 @@ class TestProFastComp(unittest.TestCase):
         prob.set_val("capex_adjusted_electrolyzer1", 1.0e7, units="USD")
         prob.set_val("opex_adjusted_electrolyzer1", 1.0e4, units="USD/year")
 
-        prob.set_val("electrolyzer1_time_until_replacement", 5.0e3, units="h")
+        refurb_schedule = np.zeros(30)
+        replacement_period = round(5.0e3 / 8760)
+        refurb_schedule[replacement_period:30:replacement_period] = 1.0
+        prob.set_val("replacement_schedule_electrolyzer1", refurb_schedule, units="unitless")
 
         prob.run_model()
 
@@ -145,7 +149,10 @@ class TestProFastComp(unittest.TestCase):
         prob.set_val("opex_adjusted_h2_storage", 5.0e3, units="USD/year")
         prob.set_val("capex_adjusted_steel", 3.0e6, units="USD")
         prob.set_val("opex_adjusted_steel", 3.0e3, units="USD/year")
-        prob.set_val("electrolyzer_time_until_replacement", 80000.0, units="h")
+        refurb_schedule = np.zeros(30)
+        replacement_period = round(80000.0 / 8760)
+        refurb_schedule[replacement_period:30:replacement_period] = 1.0
+        prob.set_val("replacement_schedule_electrolyzer", refurb_schedule, units="unitless")
 
         prob.run_model()
 
@@ -198,7 +205,11 @@ class TestProFastComp(unittest.TestCase):
         prob.set_val("opex_adjusted_h2_storage", 5.0e3, units="USD/year")
         prob.set_val("capex_adjusted_steel", 3.0e6, units="USD")
         prob.set_val("opex_adjusted_steel", 3.0e3, units="USD/year")
-        prob.set_val("electrolyzer_time_until_replacement", 80000.0, units="h")
+
+        refurb_schedule = np.zeros(30)
+        replacement_period = round(80000.0 / 8760)
+        refurb_schedule[replacement_period:30:replacement_period] = 1.0
+        prob.set_val("replacement_schedule_electrolyzer", refurb_schedule, units="unitless")
 
         prob.run_model()
 
@@ -332,7 +343,10 @@ def test_profast_config_provided():
     prob.set_val("capex_adjusted_electrolyzer", 1.0e7, units="USD")
     prob.set_val("opex_adjusted_electrolyzer", 1.0e4, units="USD/year")
 
-    prob.set_val("electrolyzer_time_until_replacement", 5.0e3, units="h")
+    refurb_schedule = np.zeros(30)
+    replacement_period = round(5.0e3 / 8760)
+    refurb_schedule[replacement_period:30:replacement_period] = 1.0
+    prob.set_val("replacement_schedule_electrolyzer", refurb_schedule, units="unitless")
 
     prob.run_model()
 

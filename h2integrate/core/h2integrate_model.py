@@ -820,6 +820,8 @@ class H2IntegrateModel:
                 "adjusted_capex_opex_comp", adjusted_capex_opex_comp, promotes=["*"]
             )
 
+            # Initialize counter to check if invalid combination of finance
+            # groups exist within a finance subgroup
             n_tech_finances_in_group = 0
             for finance_group_name in finance_group_names:
                 # check if using tech-specific finance model
@@ -889,6 +891,17 @@ class H2IntegrateModel:
                         if k in self.plant_config["finance_parameters"]["finance_groups"]
                     ]
 
+                    if n_tech_finances_in_group > 0 and len(non_tech_finances) > 0:
+                        tech_finances = [
+                            k for k in finance_group_names if k not in non_tech_finances
+                        ]
+                        msg = (
+                            f"Cannot run a tech-specific finance model ({tech_finances}) in the "
+                            f"same finance subgroup as a system-level finance model "
+                            f"({non_tech_finances}). Please modify the finance_groups in finance "
+                            f"subgroup {subgroup_name}."
+                        )
+                        raise ValueError(msg)
                     # if multiple non-tech specific finance model groups are specified for the
                     # subgroup, the outputs of the finance model must have unique names to
                     # avoid errors.
@@ -1114,7 +1127,10 @@ class H2IntegrateModel:
                 primary_commodity_type = group_configs.get("commodity")
                 commodity_stream = group_configs.get("commodity_stream")
                 is_system_finance_model = group_configs.get("system_finance_model")
+
                 if is_system_finance_model:
+                    # Connect the rated commodity production and capacity factor
+                    # for system-level finance models
                     self.plant.connect(
                         f"{commodity_stream}.rated_{primary_commodity_type}_production",
                         f"finance_subgroup_{group_id}.rated_{primary_commodity_type}_production",
@@ -1146,10 +1162,11 @@ class H2IntegrateModel:
                         f"finance_subgroup_{group_id}.cost_year_{tech_name}",
                     )
 
-                    if "electrolyzer" in tech_name:
+                    if is_system_finance_model:
+                        # connect replacement schedule to system-level finance models
                         self.plant.connect(
-                            f"{tech_name}.time_until_replacement",
-                            f"finance_subgroup_{group_id}.{tech_name}_time_until_replacement",
+                            f"{tech_name}.replacement_schedule",
+                            f"finance_subgroup_{group_id}.replacement_schedule_{tech_name}",
                         )
 
         self.plant.options["auto_order"] = True
