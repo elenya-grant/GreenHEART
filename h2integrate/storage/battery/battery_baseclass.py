@@ -14,7 +14,7 @@ class BatteryPerformanceBaseClass(PerformanceModelBaseClass):
         self.add_input(
             "electricity_in",
             val=0.0,
-            shape_by_conn=True,
+            shape=self.n_timesteps,
             units="kW",
             desc="Power input to Battery",
         )
@@ -22,7 +22,7 @@ class BatteryPerformanceBaseClass(PerformanceModelBaseClass):
         self.add_output(
             "SOC",
             val=0.0,
-            copy_shape="electricity_in",
+            shape=self.n_timesteps,
             units="percent",
             desc="State of charge of Battery",
         )
@@ -30,7 +30,7 @@ class BatteryPerformanceBaseClass(PerformanceModelBaseClass):
         self.add_output(
             "battery_electricity_discharge",
             val=0.0,
-            copy_shape="electricity_in",
+            shape=self.n_timesteps,
             units="kW",
             desc="Electricity output from Battery only",
         )

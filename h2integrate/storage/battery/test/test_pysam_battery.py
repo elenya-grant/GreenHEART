@@ -273,8 +273,6 @@ def test_battery_initialization(plant_config, subtests):
 
     with subtests.test("battery attribute not None system_model"):
         assert battery.system_model is not None
-    with subtests.test("battery attribute not None outputs"):
-        assert battery.outputs is not None
 
     with subtests.test("battery mass"):
         # this test value does not match the value in test_battery.py in HOPP
