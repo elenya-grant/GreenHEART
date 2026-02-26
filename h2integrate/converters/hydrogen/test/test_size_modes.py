@@ -68,6 +68,8 @@ def test_resize_by_max_commodity(subtests):
         ["hopp", "electrolyzer", "electricity", "cable"],
         ["electrolyzer", "ammonia", "hydrogen", "pipe"],
         ["ammonia", "electrolyzer", "max_hydrogen_capacity"],
+        ["n2_feedstock", "ammonia", "nitrogen", "pipe"],
+        ["electricity_feedstock", "ammonia", "electricity", "cable"],
     ]
     input_config["plant_config"] = plant_config
     model = H2IntegrateModel(input_config)
