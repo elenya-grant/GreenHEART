@@ -749,6 +749,7 @@ class H2IntegrateModel:
                         "tech_configs": tech_configs,
                         "commodity": commodity,
                         "commodity_stream": commodity_stream,
+                        "system_finance_model": True,
                     }
                 }
             )
@@ -819,6 +820,7 @@ class H2IntegrateModel:
                 "adjusted_capex_opex_comp", adjusted_capex_opex_comp, promotes=["*"]
             )
 
+            n_tech_finances_in_group = 0
             for finance_group_name in finance_group_names:
                 # check if using tech-specific finance model
                 if any(
@@ -831,11 +833,13 @@ class H2IntegrateModel:
 
                     # this is created in create_technologies()
                     if tech_finance_group_name is not None:
+                        n_tech_finances_in_group += 1
                         # tech specific finance models are created in create_technologies()
                         # and do not need to be included in the general finance models.
                         # set commodity_stream to None so that inputs needed for system-level
                         # finance models are not connected to tech-specific finance models.
-                        finance_subgroups[subgroup_name].update({"commodity_stream": None})
+                        # finance_subgroups[subgroup_name].update({"commodity_stream": None})
+                        finance_subgroups[subgroup_name].update({"system_finance_model": False})
                         continue
 
                 # if not using a tech-specific finance group, get the finance model and inputs for
@@ -1109,7 +1113,8 @@ class H2IntegrateModel:
                 tech_configs = group_configs.get("tech_configs")
                 primary_commodity_type = group_configs.get("commodity")
                 commodity_stream = group_configs.get("commodity_stream")
-                if commodity_stream is not None:
+                is_system_finance_model = group_configs.get("system_finance_model")
+                if is_system_finance_model:
                     self.plant.connect(
                         f"{commodity_stream}.rated_{primary_commodity_type}_production",
                         f"finance_subgroup_{group_id}.rated_{primary_commodity_type}_production",
