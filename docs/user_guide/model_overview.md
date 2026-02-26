@@ -1,4 +1,5 @@
 
+(model-overview)=
 # Model Overview
 Currently, H2I recognizes four types of models:
 
@@ -73,6 +74,7 @@ When the Primary Commodity is electricity, those converters are considered elect
 | `pipe`      |  most mass-based commodities         |
 | `combiner`      | Any    |
 | `splitter` |  Any|
+| `generic_transport` | Any |
 
 Connection: `[source_tech, dest_tech, transport_commodity, transport_technology]`
 
@@ -87,6 +89,7 @@ Connection: `[source_tech, dest_tech, transport_commodity, transport_technology]
 | `generic_storage` |  Any              |
 
 (control)=
+(controller)=
 ## Control
 `Control` models are used to control the `Storage` models and resource flows.
 
@@ -98,6 +101,7 @@ Connection: `[source_tech, dest_tech, transport_commodity, transport_technology]
 | `FlexibleDemandOpenLoopConverterController`  |  open-loop control. manages resource flow based on demand and flexibility constraints     |
 | `HeuristicLoadFollowingController` | open-loop control that works on a time window basis to set dispatch commands. Uses pyomo |
 
+(technology-models-overview)=
 # Technology Models Overview
 
 Below summarizes the available performance, cost, and financial models for each model type. The list of supported models is also available in [supported_models.py](../../h2integrate/core/supported_models.py)
@@ -262,14 +266,16 @@ Below summarizes the available performance, cost, and financial models for each 
         + `'cable'`: specific to `electricity` commodity
 - `pipe`:
     - performance models:
-        + `'pipe'`: currently compatible with the commodities "hydrogen", "co2", "methanol", "ammonia", "nitrogen", "natural_gas", "pig_iron", "reformer_catalyst", "water", "carbon", "iron_ore", and "lime"
+        + `'pipe'`: compatible with the commodities "hydrogen", "co2", "methanol", "ammonia", "nitrogen", "natural_gas", and "water"
 - `combiner`:
     - performance models:
         + `'GenericCombinerPerformanceModel'`: can be used for any commodity
 - `splitter`:
     - performance models:
         + `'GenericSplitterPerformanceModel'`: can be used for any commodity
-
+- `generic_transport`:
+    - performance models:
+        + `'GenericTransporterPerformanceModel'`: can be used for any commodity
 (storage-models)=
 ## Storage Models
 - `h2_storage`: hydrogen storage
