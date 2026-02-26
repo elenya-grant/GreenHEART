@@ -59,7 +59,7 @@ dependencies = [
   "floris",
   "hopp>=3.3.0",
   "turbine-models>=0.2.1",
-  "wombat>=0.13.1",
+  "wombat>=0.13.2",
 ]
 keywords = [
     "python3",
@@ -97,9 +97,11 @@ develop = [
     "jupyter-book<2",
     "pre-commit",
     "pytest>=9",
+    "pytest-cov",
     "ruff",
     "sphinxcontrib-napoleon",
-    "h2integrate[gis,ard]"
+    "h2integrate[gis,ard]",
+    "yamlfix"
 ]
 examples = [
   "jupyterlab",
@@ -130,7 +132,22 @@ exclude_lines = ["# pragma: no cover"]
 branch = true
 source = ["h2integrate/*"]
 omit = [
-  "*test/*"
+  "*/test/*",
+  "*/test_*.py"
+]
+
+[tool.pytest]
+addopts = [
+  "--strict-markers",
+  "-r fEsxX",
+]
+tmp_path_retention_count = "1"
+tmp_path_retention_policy = "failed"
+cache_dir = ".cache"
+markers = [
+    "unit: marks unit tests (deselect with '-m \"not unit\"')",
+    "regression: marks regression tests (deselect with '-m \"not regression\"')",
+    "integration: marks unit tests (deselect with '-m \"not integration\"')",
 ]
 
 [tool.isort]
@@ -145,6 +162,7 @@ sections = [
   "LOCALFOLDER",
 ]
 known_first_party = "h2integrate"
+known_third_party = "pytest"
 known_local_folder = "test"
 combine_as_imports = true
 force_grid_wrap = 0
@@ -231,8 +249,18 @@ ignore-overlong-task-comments = true
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+[tool.ruff.lint.isort]
+known-third-party = ["pytest"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 docstring-code-format = true
+
+[tool.yamlfix]
+allow_duplicate_keys = true
+line_length = 120
+none_representation = "null"
+explicit_start = false
+# quote_representation = '"'  # NOTE: uncomment when issue is resolved: https://github.com/lyz-code/yamlfix/issues/252
+sequence_style = "keep_style"
