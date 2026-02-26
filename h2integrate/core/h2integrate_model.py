@@ -1146,6 +1146,8 @@ class H2IntegrateModel:
                     # For now, assume splitters and combiners do not add any costs
                     if "splitter" in tech_name or "combiner" in tech_name:
                         continue
+                    if tech_name == "cable" or tech_name == "pipe":
+                        continue
 
                     self.plant.connect(
                         f"{tech_name}.CapEx",
@@ -1162,7 +1164,7 @@ class H2IntegrateModel:
                         f"finance_subgroup_{group_id}.cost_year_{tech_name}",
                     )
 
-                    if is_system_finance_model:
+                    if is_system_finance_model and "transport" not in tech_name:
                         # connect replacement schedule to system-level finance models
                         self.plant.connect(
                             f"{tech_name}.replacement_schedule",
