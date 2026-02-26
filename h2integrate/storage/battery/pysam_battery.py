@@ -1,6 +1,3 @@
-from dataclasses import asdict, dataclass
-from collections.abc import Sequence
-
 import numpy as np
 import PySAM.BatteryTools as BatteryTools
 import PySAM.BatteryStateful as BatteryStateful
@@ -9,63 +6,6 @@ from attrs import field, define
 from h2integrate.core.utilities import BaseConfig, merge_shared_inputs
 from h2integrate.core.validators import gt_zero, contains, range_val
 from h2integrate.storage.battery.battery_baseclass import BatteryPerformanceBaseClass
-
-
-@dataclass
-class BatteryOutputs:
-    I: Sequence  # noqa: E741
-    P: Sequence
-    Q: Sequence
-    SOC: Sequence
-    T_batt: Sequence
-    gen: Sequence
-    n_cycles: Sequence
-    P_chargeable: Sequence
-    P_dischargeable: Sequence
-    unmet_demand: list[float]
-    unused_commodity: list[float]
-
-    """
-    Container for simulated outputs from the `BatteryStateful` and H2I dispatch models.
-
-    Attributes:
-        I (Sequence): Battery current [A] per timestep.
-        P (Sequence): Battery power [kW] per timestep.
-        Q (Sequence): Battery capacity [Ah] per timestep.
-        SOC (Sequence): State of charge [%] per timestep.
-        T_batt (Sequence): Battery temperature [°C] per timestep.
-        gen (Sequence): Generated power [kW] per timestep.
-        n_cycles (Sequence): Cumulative rainflow cycles since start of simulation [1].
-        P_chargeable (Sequence): Maximum estimated chargeable power [kW] per timestep.
-        P_dischargeable (Sequence): Maximum estimated dischargeable power [kW] per timestep.
-
-        unmet_demand (list[float]): Unmet demand [kW] per timestep.
-        unused_commodity (list[float]): Unused available commodity [kW] per timestep.
-    """
-
-    def __init__(self, n_timesteps, n_control_window):
-        """Class for storing stateful battery and dispatch outputs."""
-        self.stateful_attributes = [
-            # "I",
-            "P",
-            # "Q",
-            "SOC",
-            # "T_batt",
-            "n_cycles",
-            "P_chargeable",
-            "P_dischargeable",
-        ]
-        for attr in self.stateful_attributes:
-            setattr(self, attr, [0.0] * n_timesteps)
-
-        self.dispatch_lifecycles_per_control_window = [None] * int(n_timesteps / n_control_window)
-
-        # self.component_attributes = ["unmet_demand", "unused_commodity"]
-        # for attr in self.component_attributes:
-        #     setattr(self, attr, [0.0] * n_timesteps)
-
-    def export(self):
-        return asdict(self)
 
 
 @define(kw_only=True)
