@@ -280,3 +280,58 @@ def test_battery_initialization(plant_config, subtests):
         # and in HOPP it's in the attrs_post_init function
         # suggest removing this subtest
         assert battery.system_model.ParamsPack.mass * 20000 == pytest.approx(3044540.0, 1e-3)
+
+
+@pytest.mark.regression
+@pytest.mark.parametrize("n_timesteps", [48])
+def test_pysam_battery_no_controller_change_capacity(plant_config, subtests):
+    prob = om.Problem()
+    # Get the directory of the current script
+    current_dir = Path(__file__).parent
+
+    # Resolve the paths to the configuration files
+    tech_config_path = current_dir / "inputs" / "tech_config.yaml"
+
+    # Load the technology configuration
+    with tech_config_path.open() as file:
+        tech_config = yaml.safe_load(file)
+
+    init_charge_rate = 5 * 1e3
+    init_capacity = 20 * 1e3
+
+    electricity_demand = np.full(48, 15.0 * 1e3)  # demand is 15 MW
+    np.concat([np.arange(0, 25, 2.5), np.arange(25, 0, -2.5)])
+
+    tech_config = {
+        "model_inputs": {
+            "shared_parameters": {
+                "max_charge_rate": init_charge_rate,
+                "max_capacity": init_capacity,
+                "n_control_window": 24,
+                "init_charge_percent": 0.1,
+                "max_charge_percent": 1.0,
+                "min_charge_percent": 0.1,
+            },
+            "performance_parameters": {"chemistry": "LFPGraphite"},
+        }
+    }
+    # Set up the OpenMDAO problem
+    prob = om.Problem()
+    prob.model.add_subsystem(
+        name="IVC3",
+        subsys=om.IndepVarComp(name="electricity_demand", val=electricity_demand, units="kW"),
+        promotes=["*"],
+    )
+
+    prob.model.add_subsystem(
+        "pysam_battery",
+        PySAMBatteryPerformanceModel(
+            plant_config=plant_config,
+            tech_config=tech_config["technologies"]["battery"],
+        ),
+        promotes=["*"],
+    )
+
+    prob.setup()
+
+    prob.run_model()

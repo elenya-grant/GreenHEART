@@ -24,11 +24,6 @@ class PySAMBatteryPerformanceModelConfig(BaseConfig):
         max_charge_rate (float):
             Rated power capacity of the battery in kilowatts (kW).
             Must be greater than zero.
-        system_model_source (str):
-            Source software for the system model. "hopp" source has not been brought
-            over from HOPP yet. Options are:
-
-            - ``"pysam"``
 
         chemistry (str):
             Battery chemistry option. "LDES" has not been brought over from HOPP yet.
@@ -66,7 +61,6 @@ class PySAMBatteryPerformanceModelConfig(BaseConfig):
     max_capacity: float = field(validator=gt_zero)
     max_charge_rate: float = field(validator=gt_zero)
 
-    system_model_source: str = field(validator=contains(["pysam"]))
     chemistry: str = field(
         validator=contains(["LFPGraphite", "LMOLTO", "LeadAcid", "NMCGraphite"]),
     )
@@ -121,10 +115,6 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
             Commanded input electricity (kW), typically from dispatch.
 
     Outputs:
-        P_chargeable (ndarray):
-            Maximum chargeable power (kW).
-        P_dischargeable (ndarray):
-            Maximum dischargeable power (kW).
         unmet_demand_out (ndarray):
             Remaining unmet demand after discharge (kW).
         unused_commodity_out (ndarray):
