@@ -670,13 +670,17 @@ class ProFastBase(om.ExplicitComponent):
             # see if any refurbishment information was input
             if "replacement_cost_percent" in tech_capex_info:
                 if "refurbishment_period_years" in tech_capex_info:
+                    # Calculate replacement schedule using a user-defined replacement period
                     refurb_schedule = np.zeros(self.params.plant_life)
                     refurb_period = tech_capex_info["refurbishment_period_years"]
+                    # Multiply the replacement schedule by the replacement cost
+                    # replacement_cost_percent is fraction of original CAPEX (e.g., 0.15 = 15%)
                     refurb_schedule[refurb_period : self.params.plant_life : refurb_period] = (
                         tech_capex_info["replacement_cost_percent"]
                     )
 
                 else:
+                    # Use the replacement schedule from the technology performance model
                     refurb_schedule = (
                         inputs[f"replacement_schedule_{tech}"]
                         * tech_capex_info["replacement_cost_percent"]

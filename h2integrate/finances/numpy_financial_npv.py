@@ -245,8 +245,7 @@ class NumpyFinancialNPV(om.ExplicitComponent):
                         tech_capex_info["replacement_cost_percent"]
                     )
                 else:
-                    # Calculate from hours until replacement (e.g., electrolyzer lifetime hours)
-                    # Convert hours to years: divide by (24 hours/day * 365 days/year)
+                    # Multiply the technology replacement schedule by the replacement cost
                     refurb_schedule = (
                         inputs[f"replacement_schedule_{tech}"]
                         * tech_capex_info["replacement_cost_percent"]
