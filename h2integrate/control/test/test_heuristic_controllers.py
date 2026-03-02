@@ -297,6 +297,7 @@ def test_heuristic_load_following_battery_dispatch(plant_config, tech_config, su
 
     # Setup the system and required values
     prob.setup()
+
     prob.set_val("battery.electricity_in", electricity_in)
     prob.set_val("battery.electricity_demand", demand_in)
 
@@ -411,4 +412,257 @@ def test_heuristic_load_following_battery_dispatch(plant_config, tech_config, su
         assert (
             pytest.approx(expected_unused_commodity_out, abs=abs_tol, rel=rel_tol)
             == prob.get_val("battery.unused_electricity_out", units="kW")[:5]
+        )
+
+
+@pytest.mark.regression
+def test_heuristic_load_following_battery_dispatch_change_capacities(
+    plant_config, tech_config, subtests
+):
+    # update the battery capacity to be very small in the config
+
+    tech_config["technologies"]["battery"]["model_inputs"]["shared_parameters"].update(
+        {"max_charge_rate": 1000}
+    )
+    tech_config["technologies"]["battery"]["model_inputs"]["shared_parameters"].update(
+        {"max_capacity": 1000}
+    )
+
+    # Fabricate some oscillating power generation data: 0 kW for the first 12 hours, 10000 kW for
+    # the second twelve hours, and repeat that daily cycle over a year.
+
+    n_look_ahead_half = int(24 / 2)
+
+    electricity_in = np.concatenate(
+        (np.ones(n_look_ahead_half) * 0, np.ones(n_look_ahead_half) * 10000)
+    )
+    electricity_in = np.tile(electricity_in, 365)
+
+    demand_in = np.ones(8760) * 6000.0
+
+    # Setup the OpenMDAO problem and add subsystems
+    prob = om.Problem()
+
+    prob.model.add_subsystem(
+        name="IVC1",
+        subsys=om.IndepVarComp(name="max_charge_rate", val=1000, units="kW"),
+        promotes=["*"],
+    )
+
+    prob.model.add_subsystem(
+        name="IVC2",
+        subsys=om.IndepVarComp(name="storage_capacity", val=1000, units="kW*h"),
+        promotes=["*"],
+    )
+
+    prob.model.add_subsystem(
+        "PyomoRuleStorageBaseclass",
+        PyomoRuleStorageBaseclass(
+            plant_config=plant_config, tech_config=tech_config["technologies"]["battery"]
+        ),
+        promotes=["*"],
+    )
+
+    prob.model.add_subsystem(
+        "battery_heuristic_load_following_controller",
+        HeuristicLoadFollowingController(
+            plant_config=plant_config, tech_config=tech_config["technologies"]["battery"]
+        ),
+        promotes=["*"],
+    )
+
+    prob.model.add_subsystem(
+        "battery",
+        PySAMBatteryPerformanceModel(
+            plant_config=plant_config, tech_config=tech_config["technologies"]["battery"]
+        ),
+        promotes=["*"],
+    )
+
+    # Setup the system and required values
+    prob.setup()
+
+    prob.set_val("IVC1.max_charge_rate", 50000, units="kW")
+    prob.set_val("IVC2.storage_capacity", 200000, units="kW*h")
+
+    prob.set_val("battery.electricity_in", electricity_in)
+    prob.set_val("battery.electricity_demand", demand_in)
+
+    # Run the model
+    prob.run_model()
+
+    # Test the case where the charging/discharging cycle remains within the max and min SOC limits
+    # Check the expected outputs to actual outputs
+    expected_electricity_out = [
+        5999.99995059,
+        5990.56676743,
+        5990.138959,
+        5989.64831176,
+        5989.08548217,
+        5988.44193888,
+        5987.70577962,
+        5986.86071125,
+        5985.88493352,
+        5984.7496388,
+        5983.41717191,
+        5981.839478,
+        6000.0,
+        6000.0,
+        6000.0,
+        6000.0,
+        6000.0,
+        6000.0,
+        6000.0,
+        6000.0,
+        6000.0,
+        6000.0,
+        6000.0,
+        6000.0,
+    ]
+
+    expected_battery_electricity_discharge = [
+        5999.99995059,
+        5990.56676743,
+        5990.138959,
+        5989.64831176,
+        5989.08548217,
+        5988.44193888,
+        5987.70577962,
+        5986.86071125,
+        5985.88493352,
+        5984.7496388,
+        5983.41717191,
+        5981.839478,
+        -3988.62235554,
+        -3989.2357847,
+        -3989.76832626,
+        -3990.26170521,
+        -3990.71676106,
+        -3991.13573086,
+        -3991.52143699,
+        -3991.87684905,
+        -3992.20485715,
+        -3992.50815603,
+        -3992.78920148,
+        -3993.05020268,
+    ]
+
+    expected_SOC = [
+        49.39724571,
+        46.54631833,
+        43.69133882,
+        40.83119769,
+        37.96394628,
+        35.08762294,
+        32.20015974,
+        29.29919751,
+        26.38184809,
+        23.44436442,
+        20.48162855,
+        17.48627159,
+        19.47067094,
+        21.44466462,
+        23.40741401,
+        25.36052712,
+        27.30530573,
+        29.24281439,
+        31.17393198,
+        33.09939078,
+        35.01980641,
+        36.93570091,
+        38.84752069,
+        40.75565055,
+    ]
+
+    expected_unmet_demand_out = np.array(
+        [
+            4.93562475e-05,
+            9.43323257e00,
+            9.86104099e00,
+            1.03516883e01,
+            1.09145178e01,
+            1.15580611e01,
+            1.22942204e01,
+            1.31392889e01,
+            1.41150664e01,
+            1.52503612e01,
+            1.65828282e01,
+            1.81605218e01,
+            0.00000000e00,
+            0.00000000e00,
+            0.00000000e00,
+            0.00000000e00,
+            0.00000000e00,
+            0.00000000e00,
+            0.00000000e00,
+            0.00000000e00,
+            0.00000000e00,
+            0.00000000e00,
+            0.00000000e00,
+            0.00000000e00,
+        ]
+    )
+
+    expected_unused_commodity_out = np.array(
+        [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            11.37764445,
+            10.76421514,
+            10.23167373,
+            9.73829458,
+            9.28323883,
+            8.86426912,
+            8.47856327,
+            8.12315078,
+            7.79514283,
+            7.49184426,
+            7.21079852,
+            6.94979705,
+        ]
+    )
+
+    with subtests.test("Battery output capacity"):
+        assert (
+            pytest.approx(
+                prob.get_val("battery.rated_electricity_production", units="MW"), rel=1e-6
+            )
+            == 50.0
+        )
+
+    with subtests.test("Check electricity_out"):
+        assert (
+            pytest.approx(expected_electricity_out)
+            == prob.get_val("battery.electricity_out", units="kW")[0:24]
+        )
+
+    with subtests.test("Check battery_electricity_discharge"):
+        assert (
+            pytest.approx(expected_battery_electricity_discharge)
+            == prob.get_val("battery.battery_electricity_discharge", units="kW")[0:24]
+        )
+
+    with subtests.test("Check SOC"):
+        assert pytest.approx(expected_SOC) == prob.get_val("battery.SOC", units="percent")[0:24]
+
+    with subtests.test("Check unmet_demand"):
+        assert (
+            pytest.approx(expected_unmet_demand_out, abs=1e-4)
+            == prob.get_val("battery.unmet_electricity_demand_out", units="kW")[0:24]
+        )
+
+    with subtests.test("Check unused_electricity_out"):
+        assert (
+            pytest.approx(expected_unused_commodity_out)
+            == prob.get_val("battery.unused_electricity_out", units="kW")[0:24]
         )
