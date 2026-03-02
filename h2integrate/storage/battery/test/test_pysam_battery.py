@@ -342,11 +342,19 @@ def test_pysam_battery_no_controller_change_capacity(plant_config, subtests):
 
     prob_init.run_model()
 
-    with subtests.test("5 MW battery discharge < charge rate"):
+    with subtests.test("5 MW battery discharge profile within charge rate bounds"):
         assert (
             prob_init.get_val("pysam_battery.battery_discharge", units="kW").max()
             < init_charge_rate
         )
+        assert prob_init.get_val("pysam_battery.battery_discharge", units="kW").min() >= 0.0
+
+    with subtests.test("5 MW battery charge profile within charge rate bounds"):
+        assert (
+            prob_init.get_val("pysam_battery.battery_charge", units="kW").min()
+            > -1 * init_charge_rate
+        )
+        assert prob_init.get_val("pysam_battery.battery_charge", units="kW").max() <= 0.0
 
     with subtests.test("5 MW battery rated production == charge rate"):
         assert (
@@ -386,13 +394,34 @@ def test_pysam_battery_no_controller_change_capacity(plant_config, subtests):
 
     prob.run_model()
 
+    with subtests.test("2.5 MW battery discharge profile within charge rate bounds"):
+        assert (
+            prob.get_val("pysam_battery.battery_discharge", units="kW").max() < init_charge_rate / 2
+        )
+        assert prob.get_val("pysam_battery.battery_discharge", units="kW").min() >= 0.0
+
+    with subtests.test("2.5 MW battery charge profile within charge rate bounds"):
+        assert (
+            prob.get_val("pysam_battery.battery_charge", units="kW").min()
+            > -1 * init_charge_rate / 2
+        )
+        assert prob.get_val("pysam_battery.battery_charge", units="kW").max() <= 0.0
+
     with subtests.test("2.5 MW battery discharge < charge rate"):
-        assert prob.get_val("pysam_battery.battery_discharge", units="MW").max() < 2.5
+        assert prob.get_val(
+            "pysam_battery.battery_discharge", units="MW"
+        ).max() < init_charge_rate / (2 * 1e3)
 
     with subtests.test("2.5 MW battery discharge <= 5 MW battery discharge"):
         assert (
             prob.get_val("pysam_battery.battery_discharge", units="MW").max()
             < prob_init.get_val("pysam_battery.battery_discharge", units="MW").max()
+        )
+
+    with subtests.test("5 MW battery charge <= 2.5 MW battery charge"):
+        assert (
+            prob.get_val("pysam_battery.battery_discharge", units="MW").min()
+            <= prob_init.get_val("pysam_battery.battery_discharge", units="MW").min()
         )
 
     with subtests.test("2.5 MW battery rated production == charge rate"):

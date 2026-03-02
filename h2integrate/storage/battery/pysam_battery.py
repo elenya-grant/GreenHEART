@@ -331,7 +331,7 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
             # estimate required dispatch commands
             pseudo_commands = inputs["electricity_demand"] - inputs["electricity_in"]
 
-            battery_power, soc = self.simulate(
+            battery_power_out, soc = self.simulate(
                 storage_dispatch_commands=pseudo_commands,
                 time_step_duration=self.dt_hr,
                 charge_rate=inputs["max_charge_rate"][0],
@@ -340,15 +340,13 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
                 control_variable=self.config.control_variable,
             )
 
-            # determine battery discharge
-            battery_power_out = np.max(
-                [np.array(battery_power), np.zeros(self.n_timesteps)], axis=0
-            )
-            # [np.max([0, battery_power[i]]) for i in range(self.n_timesteps)]
+            # battery_power_out is positive when the battery is discharged
+            # and positive when the battery is charged
+            battery_power_out = np.array(battery_power_out)
 
             # calculate combined power out from inflow source and battery (note: battery_power is
             # negative when charging)
-            combined_power_out = inputs["electricity_in"] + np.array(battery_power)
+            combined_power_out = inputs["electricity_in"] + np.array(battery_power_out)
 
             # find the total power out to meet demand
             total_power_out = np.minimum(inputs["electricity_demand"], combined_power_out)
@@ -369,6 +367,8 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
         outputs["unused_electricity_out"] = unused_commodity
         outputs["battery_electricity_discharge"] = battery_power_out
 
+        # separate out the charge and discharge profiles from battery_power_out
+        # battery_charge is always <= zero, battery_discharge is always >=0
         outputs["battery_charge"] = np.where(battery_power_out < 0, battery_power_out, 0)
         outputs["battery_discharge"] = np.where(battery_power_out > 0, battery_power_out, 0)
 
