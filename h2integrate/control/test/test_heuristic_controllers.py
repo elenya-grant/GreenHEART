@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 import openmdao.api as om
+from pytest import fixture
 
 from h2integrate.storage.battery.pysam_battery import PySAMBatteryPerformanceModel
 from h2integrate.control.control_strategies.pyomo_controllers import (
@@ -11,65 +12,71 @@ from h2integrate.control.control_rules.storage.pyomo_storage_rule_baseclass impo
 )
 
 
-plant_config = {
-    "name": "plant_config",
-    "description": "...",
-    "plant": {
-        "plant_life": 30,
-        "grid_connection": False,
-        "ppa_price": 0.025,
-        "hybrid_electricity_estimated_cf": 0.492,
-        "simulation": {
-            "dt": 3600,
-            "n_timesteps": 8760,
-        },
-    },
-    "tech_to_dispatch_connections": [
-        ["battery", "battery"],
-    ],
-}
-
-tech_config = {
-    "name": "technology_config",
-    "description": "...",
-    "technologies": {
-        "battery": {
-            "dispatch_rule_set": {"model": "PyomoRuleStorageBaseclass"},
-            "control_strategy": {"model": "HeuristicLoadFollowingController"},
-            "performance_model": {"model": "PySAMBatteryPerformanceModel"},
-            "model_inputs": {
-                "shared_parameters": {
-                    "max_charge_rate": 50000,
-                    "max_capacity": 200000,
-                    "n_control_window": 24,
-                    "n_horizon_window": 48,
-                    "init_charge_percent": 0.5,
-                    "max_charge_percent": 0.9,
-                    "min_charge_percent": 0.1,
-                },
-                "performance_parameters": {
-                    "system_model_source": "pysam",
-                    "chemistry": "LFPGraphite",
-                    "control_variable": "input_power",
-                },
-                "control_parameters": {
-                    "commodity": "electricity",
-                    "commodity_rate_units": "kW",
-                    "tech_name": "battery",
-                    "system_commodity_interface_limit": 1e12,
-                },
-                "dispatch_rule_parameters": {
-                    "commodity": "electricity",
-                    "commodity_rate_units": "kW",
-                },
+@fixture
+def plant_config():
+    plant_config = {
+        "name": "plant_config",
+        "description": "...",
+        "plant": {
+            "plant_life": 30,
+            "grid_connection": False,
+            "ppa_price": 0.025,
+            "hybrid_electricity_estimated_cf": 0.492,
+            "simulation": {
+                "dt": 3600,
+                "n_timesteps": 8760,
             },
-        }
-    },
-}
+        },
+        "tech_to_dispatch_connections": [
+            ["battery", "battery"],
+        ],
+    }
+    return plant_config
+
+
+@fixture
+def tech_config():
+    tech_config = {
+        "name": "technology_config",
+        "description": "...",
+        "technologies": {
+            "battery": {
+                "dispatch_rule_set": {"model": "PyomoRuleStorageBaseclass"},
+                "control_strategy": {"model": "HeuristicLoadFollowingController"},
+                "performance_model": {"model": "PySAMBatteryPerformanceModel"},
+                "model_inputs": {
+                    "shared_parameters": {
+                        "max_charge_rate": 50000,
+                        "max_capacity": 200000,
+                        "n_control_window": 24,
+                        "n_horizon_window": 48,
+                        "init_charge_percent": 0.5,
+                        "max_charge_percent": 0.9,
+                        "min_charge_percent": 0.1,
+                    },
+                    "performance_parameters": {
+                        "chemistry": "LFPGraphite",
+                        "control_variable": "input_power",
+                    },
+                    "control_parameters": {
+                        "commodity": "electricity",
+                        "commodity_rate_units": "kW",
+                        "tech_name": "battery",
+                        "system_commodity_interface_limit": 1e12,
+                    },
+                    "dispatch_rule_parameters": {
+                        "commodity": "electricity",
+                        "commodity_rate_units": "kW",
+                    },
+                },
+            }
+        },
+    }
+    return tech_config
 
 
 @pytest.mark.regression
-def test_heuristic_load_following_battery_dispatch(subtests):
+def test_heuristic_load_following_battery_dispatch(plant_config, tech_config, subtests):
     # Fabricate some oscillating power generation data: 0 kW for the first 12 hours, 10000 kW for
     # the second twelve hours, and repeat that daily cycle over a year.
     n_look_ahead_half = int(24 / 2)

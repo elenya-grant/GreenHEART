@@ -325,6 +325,9 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
             # This essentially asks for discharge when demand exceeds input
             # and requests charge when input exceeds demand
 
+            # update the control window to be the number of timesteps in the simulation
+            self.config.n_control_window = self.n_timesteps
+
             # estimate required dispatch commands
             pseudo_commands = inputs["electricity_demand"] - inputs["electricity_in"]
 
