@@ -452,19 +452,25 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
 
             # manually adjust the dispatch command based on SOC
             ## for when battery is withing set bounds
+            # according to specs
+            max_chargeable_0 = charge_rate
             # according to simulation
             max_chargeable_1 = np.maximum(0, -self.system_model.value("P_chargeable"))
             # according to soc
             max_chargeable_2 = np.maximum(0, (soc_max - soc) * storage_capacity / self.dt_hr)
             # compare all versions of max_chargeable
-            max_chargeable = np.min([charge_rate, max_chargeable_1, max_chargeable_2])
+            max_chargeable = np.min([max_chargeable_0, max_chargeable_1, max_chargeable_2])
 
+            # according to specs
+            max_dischargeable_0 = discharge_rate
             # according to simulation
             max_dischargeable_1 = np.maximum(0, self.system_model.value("P_dischargeable"))
             # according to soc
             max_dischargeable_2 = np.maximum(0, (soc - soc_min) * storage_capacity / self.dt_hr)
             # compare all versions of max_dischargeable
-            max_dischargeable = np.min([discharge_rate, max_dischargeable_1, max_dischargeable_2])
+            max_dischargeable = np.min(
+                [max_dischargeable_0, max_dischargeable_1, max_dischargeable_2]
+            )
 
             if dispatch_command_t < -max_chargeable:
                 dispatch_command_t = -max_chargeable
