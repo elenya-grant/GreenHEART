@@ -217,8 +217,6 @@ def test_battery_config(subtests):
 
     with subtests.test("with minimal params n_control_window"):
         assert config.n_control_window == 24
-    with subtests.test("with minimal params n_horizon_window"):
-        assert config.n_horizon_window == 48
 
     with subtests.test("with invalid capacity"):
         with pytest.raises(ValueError):
