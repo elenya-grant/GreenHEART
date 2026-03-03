@@ -1,12 +1,7 @@
-import os
-from pathlib import Path
-
 import numpy as np
 
 from h2integrate.core.h2integrate_model import H2IntegrateModel
 
-
-os.chdir(Path(__file__).parent)
 
 # Create a H2Integrate model
 model = H2IntegrateModel("01_onshore_steel_mn.yaml")
