@@ -1,61 +1,9 @@
-from dataclasses import asdict, dataclass
-from collections.abc import Sequence
-
 import numpy as np
 from attrs import field, define
 
 from h2integrate.core.utilities import BaseConfig, merge_shared_inputs
 from h2integrate.core.validators import gt_zero, range_val, range_val_or_none
 from h2integrate.core.model_baseclasses import PerformanceModelBaseClass
-
-
-@dataclass
-class StorageOutputs:
-    P: Sequence
-    SOC: Sequence
-    gen: Sequence
-    n_cycles: Sequence
-    P_chargeable: Sequence
-    P_dischargeable: Sequence
-    unmet_demand: list[float]
-    unused_commodity: list[float]
-
-    """
-    Container for simulated outputs from the `BatteryStateful` and H2I dispatch models.
-
-    Attributes:
-        P (Sequence): storage power [kW] per timestep.
-        Q (Sequence): storage capacity [Ah] per timestep.
-        SOC (Sequence): State of charge [%] per timestep.
-        T_batt (Sequence): storage temperature [°C] per timestep.
-        gen (Sequence): Generated power [kW] per timestep.
-        n_cycles (Sequence): Cumulative rainflow cycles since start of simulation [1].
-        P_chargeable (Sequence): Maximum estimated chargeable power [kW] per timestep.
-        P_dischargeable (Sequence): Maximum estimated dischargeable power [kW] per timestep.
-
-        unmet_demand (list[float]): Unmet demand [kW] per timestep.
-        unused_commodity (list[float]): Unused available commodity [kW] per timestep.
-    """
-
-    def __init__(self, n_timesteps, n_control_window):
-        """Class for storing stateful storage and dispatch outputs."""
-        self.stateful_attributes = [
-            "P",
-            "SOC",
-            "n_cycles" "P_chargeable",
-            "P_dischargeable",
-        ]
-        for attr in self.stateful_attributes:
-            setattr(self, attr, [0.0] * n_timesteps)
-
-        self.dispatch_lifecycles_per_control_window = [None] * int(n_timesteps / n_control_window)
-
-        self.component_attributes = ["unmet_demand", "unused_commodity"]
-        for attr in self.component_attributes:
-            setattr(self, attr, [0.0] * n_timesteps)
-
-    def export(self):
-        return asdict(self)
 
 
 @define(kw_only=True)
@@ -199,10 +147,6 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             Commanded input electricity (kW), typically from dispatch.
 
     Outputs:
-        P_chargeable (ndarray):
-            Maximum chargeable power (kW).
-        P_dischargeable (ndarray):
-            Maximum dischargeable power (kW).
         unmet_demand_out (ndarray):
             Remaining unmet demand after discharge (kW).
         unused_commodity_out (ndarray):
@@ -308,22 +252,6 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             desc="Power demand",
         )
 
-        # self.add_output(
-        #     "P_chargeable",
-        #     val=0.0,
-        #     shape=self.n_timesteps,
-        #     units=self.commodity_rate_units,
-        #     desc="Estimated max chargeable power",
-        # )
-
-        # self.add_output(
-        #     "P_dischargeable",
-        #     val=0.0,
-        #     shape=self.n_timesteps,
-        #     units=self.commodity_rate_units,
-        #     desc="Estimated max dischargeable power",
-        # )
-
         self.add_output(
             f"unmet_{self.commodity}_demand_out",
             val=0.0,
@@ -346,11 +274,6 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             60**2
         )  # convert from seconds to hours
 
-        # Setup outputs for the storage model to be stored during the compute method
-        self.outputs = StorageOutputs(
-            n_timesteps=self.n_timesteps, n_control_window=self.config.n_control_window
-        )
-
         # create inputs for pyomo control model
         if "tech_to_dispatch_connections" in self.options["plant_config"]:
             # get technology group name
@@ -362,9 +285,6 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                 if any(intended_dispatch_tech in name for name in self.tech_group_name):
                     self.add_discrete_input("pyomo_dispatch_solver", val=dummy_function)
                     break
-
-        self.unmet_demand = 0.0
-        self.unused_commodity = 0.0
 
     def compute(self, inputs, outputs, discrete_inputs=[], discrete_outputs=[]):
         """Run the PySAM storage model for one simulation step.
@@ -427,7 +347,6 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             )
 
             # determine storage discharge
-            self.outputs.P = storage_power
             storage_commodity_out = [np.max([0, storage_power[i]]) for i in range(self.n_timesteps)]
 
             # calculate combined power out from inflow source and storage (note: storage_power is
@@ -438,26 +357,22 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             np.minimum(inputs[f"{self.commodity}_demand"], combined_power_out)
 
             # determine how much of the inflow electricity was unused
-            self.outputs.unused_commodity = [
+            unused_commodity = [
                 np.max([0, combined_power_out[i] - inputs[f"{self.commodity}_demand"][i]])
                 for i in range(self.n_timesteps)
             ]
-            unused_commodity = self.outputs.unused_commodity
 
             # determine how much demand was not met
-            self.outputs.unmet_demand = [
+            unmet_demand = [
                 np.max([0, inputs[f"{self.commodity}_demand"][i] - combined_power_out[i]])
                 for i in range(self.n_timesteps)
             ]
-            unmet_demand = self.outputs.unmet_demand
 
         outputs[f"unmet_{self.commodity}_demand_out"] = unmet_demand
         outputs[f"unused_{self.commodity}_out"] = unused_commodity
         outputs[f"storage_{self.commodity}_discharge"] = storage_commodity_out
         outputs[f"{self.commodity}_out"] = total_commodity_out
         outputs["SOC"] = soc
-        # outputs["P_chargeable"] = self.outputs.P_chargeable
-        # outputs["P_dischargeable"] = self.outputs.P_dischargeable
         outputs[f"rated_{self.commodity}_production"] = max_discharge_rate
 
         outputs[f"total_{self.commodity}_produced"] = np.sum(total_commodity_out)
@@ -525,13 +440,9 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
         storage_power_out_timesteps = np.zeros(self.config.n_control_window)
         soc_timesteps = np.zeros(self.config.n_control_window)
 
-        # get constant storage parameters needed during all time steps
-        # soc_max = self.system_model.value("maximum_SOC") / 100.0
-
         soc = float(self.current_soc)
         for t, dispatch_command_t in enumerate(storage_dispatch_commands):
             # get storage SOC at time t
-            # soc = self.system_model.value("SOC") / 100.0
 
             # if commanded to charge
             if dispatch_command_t < 0:
@@ -587,11 +498,6 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
 
             # save outputs
             soc_timesteps[t] = soc * 100
-
-            # Store outputs based on the outputs defined in `BatteryOutputs` above. The values are
-            # scraped from the PySAM model modules `StatePack` and `StateCell`.
-            for attr in self.outputs.component_attributes:
-                getattr(self.outputs, attr)[sim_start_index + t] = getattr(self, attr)
 
         self.current_soc = soc
         return storage_power_out_timesteps, soc_timesteps
