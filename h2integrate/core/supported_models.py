@@ -47,6 +47,10 @@ from h2integrate.converters.hydrogen.h2_fuel_cell import (
     LinearH2FuelCellPerformanceModel,
 )
 from h2integrate.converters.hydrogen.wombat_model import WOMBATElectrolyzerModel
+from h2integrate.converters.nuclear.nuclear_plant import (
+    QuinnNuclearCostModel,
+    QuinnNuclearPerformanceModel,
+)
 from h2integrate.converters.steel.steel_eaf_plant import (
     HydrogenEAFPlantCostComponent,
     NaturalGasEAFPlantCostComponent,
@@ -98,10 +102,6 @@ from h2integrate.converters.natural_gas.natural_gas_cc_ct import (
 )
 from h2integrate.converters.hydrogen.singlitico_cost_model import SingliticoCostModel
 from h2integrate.converters.co2.marine.direct_ocean_capture import DOCCostModel, DOCPerformanceModel
-from h2integrate.control.control_strategies.pyomo_controllers import (
-    OptimizedDispatchController,
-    HeuristicLoadFollowingController,
-)
 from h2integrate.converters.hydrogen.geologic.mathur_modified import GeoH2SubsurfaceCostModel
 from h2integrate.resource.solar.nrel_developer_goes_api_models import (
     GOESTMYSolarAPI,
@@ -131,6 +131,12 @@ from h2integrate.converters.co2.marine.ocean_alkalinity_enhancement import (
 )
 from h2integrate.converters.hydrogen.custom_electrolyzer_cost_model import (
     CustomElectrolyzerCostModel,
+)
+from h2integrate.control.control_strategies.heuristic_pyomo_controller import (
+    HeuristicLoadFollowingController,
+)
+from h2integrate.control.control_strategies.optimized_pyomo_controller import (
+    OptimizedDispatchController,
 )
 from h2integrate.converters.hydrogen.geologic.aspen_surface_processing import (
     AspenGeoH2SurfaceCostModel,
@@ -243,6 +249,8 @@ supported_models = {
     "AspenGeoH2SurfacePerformanceModel": AspenGeoH2SurfacePerformanceModel,
     "AspenGeoH2SurfaceCostModel": AspenGeoH2SurfaceCostModel,
     "NaturalGasPerformanceModel": NaturalGasPerformanceModel,
+    "QuinnNuclearPerformanceModel": QuinnNuclearPerformanceModel,
+    "QuinnNuclearCostModel": QuinnNuclearCostModel,
     "NaturalGasCostModel": NaturalGasCostModel,
     # Transport
     "cable": CablePerformanceModel,
