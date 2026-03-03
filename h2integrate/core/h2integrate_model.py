@@ -902,16 +902,11 @@ class H2IntegrateModel:
                 # check if multiple finance models are specified for the subgroup
                 if len(finance_group_names) > 1:
                     # check that the finance model groups do not include tech-specific finances
-                    non_tech_finances = [
-                        k
-                        for k in finance_group_names
-                        if k in self.plant_config["finance_parameters"]["finance_groups"]
-                    ]
+                    finance_groups = self.plant_config["finance_parameters"]["finance_groups"]
+                    non_tech_finances = [k for k in finance_group_names if k in finance_groups]
+                    tech_finances = [k for k in finance_group_names if k not in finance_groups]
 
-                    if n_tech_finances_in_group > 0 and len(non_tech_finances) > 0:
-                        tech_finances = [
-                            k for k in finance_group_names if k not in non_tech_finances
-                        ]
+                    if n_tech_finances_in_group > 0 and non_tech_finances:
                         msg = (
                             f"Cannot run a tech-specific finance model ({tech_finances}) in the "
                             f"same finance subgroup as a system-level finance model "

@@ -299,7 +299,7 @@ class ProFASTDefaultCapitalItem(BaseConfig):
         depr_type (str, optional): depreciation "MACRS" or "Straight line". Defaults to 'MACRS'.
         refurb (list[float], optional): Replacement schedule as a fraction of the capital cost.
             Defaults to [0.].
-        replacement_cost_percent (float | int, optional): Replacement cost as a fraction of CapEx.
+        replacement_cost_percent (float, optional): Replacement cost as a fraction of CapEx.
             Defaults to 0.0
 
     """
@@ -307,7 +307,7 @@ class ProFASTDefaultCapitalItem(BaseConfig):
     depr_period: int = field(converter=int, validator=contains([3, 5, 7, 10, 15, 20]))
     depr_type: str = field(converter=str.strip, validator=contains(["MACRS", "Straight line"]))
     refurb: int | float | list[float] = field(default=[0.0])
-    replacement_cost_percent: int | float = field(default=0.0, validator=range_val(0, 1))
+    replacement_cost_percent: float = field(default=0.0, validator=range_val(0, 1))
 
     def create_dict(self):
         """Create a ProFAST-compatible dictionary of attributes.
@@ -594,13 +594,6 @@ class ProFastBase(om.ExplicitComponent):
         coproduct_cost_params.setdefault("escalation", self.params.inflation_rate)
         coproduct_cost_params.setdefault("unit", self.price_units.replace("USD", "$"))
         self.coproduct_cost_settings = ProFASTDefaultCoproduct.from_dict(coproduct_cost_params)
-
-        # incentives - unused for now
-        # incentive_params = plant_config["finance_parameters"]["model_inputs"].get(
-        #     "incentives", {}
-        # )
-        # incentive_params.setdefault("decay", -1 * self.params.inflation_rate)
-        # self.incentive_params_settings = ProFASTDefaultIncentive.from_dict(incentive_params)
 
     def populate_profast(self, inputs):
         """Populate and configure the ProFAST financial model for analysis.

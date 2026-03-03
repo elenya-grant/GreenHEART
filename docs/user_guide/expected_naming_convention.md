@@ -1,6 +1,6 @@
 # Expected Technology Naming Convention in H2I
 
-Some logic within H2I is relies on some expected naming convention of technologies in the technology configuration file. The following details the naming convention required for H2I to run properly.
+Some logic within H2I relies on expected naming conventions of technologies in the technology configuration file. The following details the naming convention required for H2I to run properly.
 
 ```yaml
 technologies:
@@ -33,3 +33,7 @@ technologies:
     + 'lime_transport'
     + 'transport_iron_ore'
     + 'reformer_catalyst_transport_tube'
+
+```{note}
+These naming convention limitations are known and you can track them in this issue: https://github.com/NatLabRockies/H2Integrate/issues/374
+```

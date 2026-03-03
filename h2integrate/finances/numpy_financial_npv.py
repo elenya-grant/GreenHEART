@@ -50,7 +50,7 @@ class NumpyFinancialNPV(om.ExplicitComponent):
     positive. This follows the NumPy Financial convention:
 
     Reference:
-        NumpPy Financial NPV documentation:
+        NumPy Financial NPV documentation:
         https://numpy.org/numpy-financial/latest/npv.html#numpy_financial.npv
 
         By convention:
