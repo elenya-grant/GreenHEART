@@ -338,7 +338,7 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
             )
 
             # battery_power_out is positive when the battery is discharged
-            # and positive when the battery is charged
+            # and negative when the battery is charged
             battery_power_out = np.array(battery_power_out)
 
             # calculate combined power out from inflow source and battery (note: battery_power is
