@@ -22,6 +22,7 @@
   - `unittest` style tests are refactored to be `pytest` style tests for test consistency.
 - Added a pre-commit hook for `yamlfix` to auto-format YAML files and `yamlfix`'d all YAML files for consistent formatting
 - Insert model names for technologies with control strategies to simplify Pyomo workflows.
+- Refactored pyomo code by splitting apart classes into separate files and removing unused properties
 
 ## 0.6 [February 10, 2026]
 
