@@ -3,7 +3,7 @@ from attrs import field, define
 from pyomo.network import Port
 
 from h2integrate.core.utilities import merge_shared_inputs
-from h2integrate.core.validators import gt_zero, range_val, range_val_or_none
+from h2integrate.core.validators import gt_zero, range_val
 from h2integrate.control.control_rules.pyomo_rule_baseclass import (
     PyomoRuleBaseClass,
     PyomoRuleBaseConfig,
@@ -13,11 +13,9 @@ from h2integrate.control.control_rules.pyomo_rule_baseclass import (
 @define(kw_only=True)
 class PyomoStorageRuleBaseConfig(PyomoRuleBaseConfig):
     max_capacity: float = field(validator=gt_zero)
-    max_charge_rate: float = field(validator=gt_zero)
 
     min_charge_percent: float = field(default=0.1, validator=range_val(0, 1))
     max_charge_percent: float = field(default=0.9, validator=range_val(0, 1))
-    init_charge_percent: float | None = field(default=None, validator=range_val_or_none(0, 1))
 
     charge_efficiency: float = field(default=0.938, validator=range_val(0, 1))
     discharge_efficiency: float = field(default=0.938, validator=range_val(0, 1))
@@ -119,15 +117,6 @@ class PyomoRuleStorageBaseclass(PyomoRuleBaseClass):
             units=eval("pyo.units." + self.config.commodity_rate_units),
         )
 
-        if self.config.init_charge_percent is not None:
-            pyomo_model.soc0 = pyo.Param(
-                doc=pyomo_model.name + " initial state-of-charge at beginning of period[-]",
-                default=self.config.init_charge_percent,
-                within=pyo.PercentFraction,
-                mutable=True,
-                units=pyo.units.dimensionless,
-            )
-
     def _create_variables(self, pyomo_model: pyo.ConcreteModel, t):
         """Create storage-related decision variables in the Pyomo model.
 
@@ -153,13 +142,12 @@ class PyomoRuleStorageBaseclass(PyomoRuleBaseClass):
             units=pyo.units.dimensionless,
         )
 
-        if self.config.init_charge_percent is None:
-            pyomo_model.soc0 = pyo.Var(
-                doc=pyomo_model.name + " initial state-of-charge at beginning of period[-]",
-                domain=pyo.PercentFraction,
-                bounds=(pyomo_model.minimum_soc, pyomo_model.maximum_soc),
-                units=pyo.units.dimensionless,
-            )
+        pyomo_model.soc0 = pyo.Var(
+            doc=pyomo_model.name + " initial state-of-charge at beginning of period[-]",
+            domain=pyo.PercentFraction,
+            bounds=(pyomo_model.minimum_soc, pyomo_model.maximum_soc),
+            units=pyo.units.dimensionless,
+        )
         pyomo_model.soc = pyo.Var(
             doc=pyomo_model.name + " state-of-charge at end of period [-]",
             domain=pyo.PercentFraction,
