@@ -22,14 +22,6 @@ class StoragePerformanceModelConfig(BaseConfig):
         max_charge_rate (float):
             Rated power capacity of the storage in kilowatts (kW).
             Must be greater than zero.
-        system_model_source (str):
-            Source software for the system model. "hopp" source has not been brought
-            over from HOPP yet. Options are:
-                - "pysam"
-        chemistry (str):
-            storage chemistry option. "LDES" has not been brought over from HOPP yet.
-            Supported values include:
-                - PySAM: "LFPGraphite", "LMOLTO", "LeadAcid", "NMCGraphite"
         min_charge_percent (float):
             Minimum allowable state of charge as a fraction (0 to 1).
         max_charge_percent (float):
@@ -70,10 +62,6 @@ class StoragePerformanceModelConfig(BaseConfig):
     discharge_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
     round_trip_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
 
-    # n_horizon_window: int = field(validator=gt_zero, default=48)
-    # control_variable: str = field(
-    #     default="input_power", validator=contains(["input_power", "input_current"])
-    # )
     def __attrs_post_init__(self):
         """
         Post-initialization logic to validate and calculate efficiencies.
@@ -230,12 +218,36 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             desc=f"{self.commodity} output from storage only",
         )
 
+        self.add_output(
+            f"storage_{self.commodity}_charge",
+            val=0.0,
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc=f"{self.commodity} input to storage only",
+        )
+
+        self.add_output(
+            f"storage_{self.commodity}_out",
+            val=0.0,
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc=f"{self.commodity} input and output from storage",
+        )
+
         self.add_input(
             "max_charge_rate",
             val=self.config.max_charge_rate,
             units=self.config.commodity_rate_units,
             desc="Storage charge rate",
         )
+
+        if not self.config.charge_equals_discharge:
+            self.add_input(
+                "max_discharge_rate",
+                val=self.config.max_discharge_rate,
+                units=self.config.commodity_rate_units,
+                desc="Storage discharge rate",
+            )
 
         self.add_input(
             "storage_capacity",
@@ -306,9 +318,9 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
         """
         # Size the storage based on inputs -> method brought from HOPP
         if self.config.charge_equals_discharge:
-            max_discharge_rate = inputs["max_charge_rate"].item()
+            max_discharge_rate = inputs["max_charge_rate"][0]
         else:
-            max_discharge_rate = float(self.config.max_discharge_rate)
+            max_discharge_rate = inputs["max_discharge_rate"][0]
 
         self.current_soc = self.config.init_charge_percent
         self.unmet_demand = 0.0
@@ -319,7 +331,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             dispatch = discrete_inputs["pyomo_dispatch_solver"]
             # kwargs are tech-specific inputs to the simulate() method
             kwargs = {
-                "charge_rate": inputs["max_charge_rate"][0],
+                "" "charge_rate": inputs["max_charge_rate"][0],
                 "discharge_rate": max_discharge_rate,
                 "storage_capacity": inputs["storage_capacity"][0],
             }
@@ -331,50 +343,72 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                 soc,
             ) = dispatch(self.simulate, kwargs, inputs)
 
+            storage_commodity_out = np.array(storage_commodity_out)
+
         else:
             # Simulate the storage with provided inputs and no controller.
             # This essentially asks for discharge when demand exceeds input
             # and requests charge when input exceeds demand
 
+            # update the control window to be the number of timesteps in the simulation
+            self.config.n_control_window = self.n_timesteps
+
             # estimate required dispatch commands
             pseudo_commands = inputs[f"{self.commodity}_demand"] - inputs[f"{self.commodity}_in"]
 
-            storage_power, soc = self.simulate(
+            storage_commodity_out, soc = self.simulate(
                 storage_dispatch_commands=pseudo_commands,
-                charge_rate=inputs["charge_rate"][0],
+                charge_rate=inputs["max_charge_rate"][0],
                 discharge_rate=max_discharge_rate,
                 storage_capacity=inputs["storage_capacity"][0],
             )
 
-            # determine storage discharge
-            storage_commodity_out = [np.max([0, storage_power[i]]) for i in range(self.n_timesteps)]
+            # determine storage charge and discharge
+            # storage_commodity_out is positive when the storage is discharged
+            # and negative when the storage is charged
+            storage_commodity_out = np.array(storage_commodity_out)
 
-            # calculate combined power out from inflow source and storage (note: storage_power is
-            # negative when charging)
-            combined_power_out = inputs[f"{self.commodity}_in"] + storage_power
+            # calculate combined power out from inflow source and storage
+            # (note: storage_commodity_out is negative when charging)
+            combined_commodity_out = inputs[f"{self.commodity}_in"] + storage_commodity_out
 
-            # find the total power out to meet demand
-            np.minimum(inputs[f"{self.commodity}_demand"], combined_power_out)
+            # find the total commodity out to meet demand
+            total_commodity_out = np.minimum(
+                inputs[f"{self.commodity}_demand"], combined_commodity_out
+            )
 
-            # determine how much of the inflow electricity was unused
-            unused_commodity = [
-                np.max([0, combined_power_out[i] - inputs[f"{self.commodity}_demand"][i]])
-                for i in range(self.n_timesteps)
-            ]
+            # determine how much of the inflow commodity was unused
+            unused_commodity = np.max(
+                [
+                    np.zeros(self.n_timesteps),
+                    combined_commodity_out - inputs[f"{self.commodity}_demand"],
+                ],
+                axis=0,
+            )
 
             # determine how much demand was not met
-            unmet_demand = [
-                np.max([0, inputs[f"{self.commodity}_demand"][i] - combined_power_out[i]])
-                for i in range(self.n_timesteps)
-            ]
+            unmet_demand = np.max(
+                [
+                    np.zeros(self.n_timesteps),
+                    inputs[f"{self.commodity}_demand"] - combined_commodity_out,
+                ],
+                axis=0,
+            )
+
+        outputs[f"storage_{self.commodity}_charge"] = np.where(
+            storage_commodity_out < 0, storage_commodity_out, 0
+        )
+        outputs[f"storage_{self.commodity}_discharge"] = np.where(
+            storage_commodity_out > 0, storage_commodity_out, 0
+        )
 
         outputs[f"unmet_{self.commodity}_demand_out"] = unmet_demand
         outputs[f"unused_{self.commodity}_out"] = unused_commodity
-        outputs[f"storage_{self.commodity}_discharge"] = storage_commodity_out
+        outputs[f"storage_{self.commodity}_out"] = storage_commodity_out
         outputs[f"{self.commodity}_out"] = total_commodity_out
+
         outputs["SOC"] = soc
         outputs[f"rated_{self.commodity}_production"] = max_discharge_rate
-
         outputs[f"total_{self.commodity}_produced"] = np.sum(total_commodity_out)
         outputs[f"annual_{self.commodity}_produced"] = outputs[
             f"total_{self.commodity}_produced"
@@ -425,19 +459,12 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                 storage_power_kW : array of PySAM P values (kW) per timestep
                                     (positive = discharge, negative = charge).
                 soc_percent      : array of SOC values (%) per timestep.
-
-        Notes:
-            - SOC bounds may still be exceeded slightly due to PySAM internal dynamics.
-            - self.outputs.stateful_attributes are updated only if the attribute exists
-            in StatePack or StateCell.
-            - self.outputs.component_attributes (e.g., unmet_demand) are not modified here;
-            they are populated in compute(), unless an external dispatcher manages them.
         """
 
         # Loop through the provided input power/current (decided by control_variable)
 
         # initialize outputs
-        storage_power_out_timesteps = np.zeros(self.config.n_control_window)
+        storage_commodity_out_timesteps = np.zeros(self.config.n_control_window)
         soc_timesteps = np.zeros(self.config.n_control_window)
 
         soc = float(self.current_soc)
@@ -446,10 +473,11 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
 
             # if commanded to charge
             if dispatch_command_t < 0:
-                # available charge is positive?
+                # available charge from storage
                 available_charge = float(
                     (self.config.max_charge_percent - soc) * storage_capacity / self.dt_hr
                 )
+                # max that storage can be charged
                 max_chargeable = (
                     np.min(
                         [
@@ -460,11 +488,12 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                     )
                     * self.config.charge_efficiency
                 )
+                #
                 if dispatch_command_t < -max_chargeable:
                     dispatch_command_t = -max_chargeable
 
             else:
-                # also positive
+                # available discharge from storage
                 available_discharge = float(
                     (soc - self.config.min_charge_percent) * storage_capacity / self.dt_hr
                 )
@@ -482,25 +511,24 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                     dispatch_command_t = max_dischargeable
 
             # if storage soc is outside the set bounds, discharge storage down to set bounds
-            if (
-                soc > self.config.max_charge_percent
-            ) and dispatch_command_t < 0:  # and (dispatch_command_t <= 0):
+            if (soc > self.config.max_charge_percent) and dispatch_command_t < 0:
                 dispatch_command_t = 0.0
 
             if dispatch_command_t < 0:
                 # charge: increase soc and negative storage_power_out
                 soc += max_chargeable / storage_capacity
-                storage_power_out_timesteps[t] = -1 * max_chargeable
+                storage_commodity_out_timesteps[t] = -1 * max_chargeable
             else:
                 # discharge: decrease soc and positive storage_power_out
                 soc -= max_dischargeable / storage_capacity
-                storage_power_out_timesteps[t] = max_dischargeable
+                storage_commodity_out_timesteps[t] = max_dischargeable
 
-            # save outputs
+            # storage outputs
             soc_timesteps[t] = soc * 100
 
+        # update current SOC
         self.current_soc = soc
-        return storage_power_out_timesteps, soc_timesteps
+        return storage_commodity_out_timesteps, soc_timesteps
 
 
 def dummy_function():

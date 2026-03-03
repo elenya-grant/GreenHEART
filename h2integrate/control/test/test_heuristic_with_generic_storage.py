@@ -4,7 +4,7 @@ import openmdao.api as om
 from pytest import fixture
 
 from h2integrate.storage.generic_storage_pyo import StoragePerformanceModel
-from h2integrate.control.control_strategies.pyomo_controllers import (
+from h2integrate.control.control_strategies.heuristic_pyomo_controller import (
     HeuristicLoadFollowingController,
 )
 from h2integrate.control.control_rules.storage.pyomo_storage_rule_baseclass import (
