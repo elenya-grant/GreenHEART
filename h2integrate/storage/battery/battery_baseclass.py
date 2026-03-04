@@ -28,7 +28,7 @@ class BatteryPerformanceBaseClass(PerformanceModelBaseClass):
         )
 
         self.add_output(
-            "battery_electricity_discharge",
+            "battery_electricity",
             val=0.0,
             shape=self.n_timesteps,
             units="kW",

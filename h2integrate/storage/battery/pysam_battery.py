@@ -119,10 +119,10 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
         electricity_out (ndarray):
             Dispatched electricity to meet demand (kW), including electricity from
             electricity_in that was never used to charge the battery and
-            battery_electricity_discharge.
+            battery_electricity.
         SOC (ndarray):
             Battery state of charge (%).
-        battery_electricity_discharge (ndarray):
+        battery_electricity (ndarray):
             Electricity output from the battery model (kW).
 
     Methods:
@@ -207,7 +207,7 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
         )
 
         self.add_output(
-            "battery_discharge",
+            "battery_electricity_discharge",
             val=0.0,
             shape=self.n_timesteps,
             units="kW",
@@ -215,7 +215,7 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
         )
 
         self.add_output(
-            "battery_charge",
+            "battery_electricity_charge",
             val=0.0,
             shape=self.n_timesteps,
             units="kW",
@@ -356,12 +356,12 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
 
         outputs["unmet_electricity_demand_out"] = unmet_demand
         outputs["unused_electricity_out"] = unused_commodity
-        outputs["battery_electricity_discharge"] = battery_power
+        outputs["battery_electricity"] = battery_power
 
         # separate out the charge and discharge profiles from battery_power
-        # battery_charge is always <= zero, battery_discharge is always >=0
-        outputs["battery_charge"] = np.where(battery_power < 0, battery_power, 0)
-        outputs["battery_discharge"] = np.where(battery_power > 0, battery_power, 0)
+        # battery_electricity_charge is always <= zero, battery_electricity_discharge is always >=0
+        outputs["battery_electricity_charge"] = np.where(battery_power < 0, battery_power, 0)
+        outputs["battery_electricity_discharge"] = np.where(battery_power > 0, battery_power, 0)
 
         outputs["electricity_out"] = total_power_out
         outputs["SOC"] = soc
