@@ -4,8 +4,8 @@ import openmdao.api as om
 from pytest import fixture
 
 from h2integrate.storage.generic_storage_pyo import StoragePerformanceModel
-from h2integrate.control.control_strategies.heuristic_pyomo_controller import (
-    HeuristicLoadFollowingController,
+from h2integrate.control.control_strategies.optimized_pyomo_controller import (
+    OptimizedDispatchController,
 )
 from h2integrate.control.control_rules.storage.pyomo_storage_rule_baseclass import (
     PyomoRuleStorageBaseclass,
@@ -35,7 +35,7 @@ def tech_config_generic():
         "technologies": {
             "h2_storage": {
                 "dispatch_rule_set": {"model": "PyomoRuleStorageBaseclass"},
-                "control_strategy": {"model": "HeuristicLoadFollowingController"},
+                "control_strategy": {"model": "OptimizedDispatchController"},
                 "performance_model": {"model": "StoragePerformanceModel"},
                 "model_inputs": {
                     "shared_parameters": {
@@ -47,15 +47,20 @@ def tech_config_generic():
                         "min_charge_percent": 0.1,
                         "commodity": "hydrogen",
                         "commodity_rate_units": "kg/h",
+                        "charge_efficiency": 1.0,
+                        "discharge_efficiency": 1.0,
                     },
                     "performance_parameters": {
                         "charge_equals_discharge": True,
                         "commodity_amount_units": "kg",
-                        "charge_efficiency": 1.0,
-                        "discharge_efficiency": 1.0,
                     },
                     "control_parameters": {
                         "tech_name": "h2_storage",
+                        "cost_per_charge": 0.03,  # USD/kg
+                        "cost_per_discharge": 0.05,  # USD/kg
+                        "commodity_met_value": 0.1,  # USD/kg
+                        "cost_per_production": 0.0,  # USD/kg
+                        "time_weighting_factor": 0.995,
                         "system_commodity_interface_limit": 10.0,
                     },
                 },
@@ -66,9 +71,7 @@ def tech_config_generic():
 
 
 @pytest.mark.regression
-def test_heuristic_load_following_dispatch_with_generic_storage(
-    plant_config, tech_config_generic, subtests
-):
+def test_optimal_control_with_generic_storage(plant_config, tech_config_generic, subtests):
     commodity_demand = np.full(8760, 5.0)
     commodity_in = np.tile(np.concat([np.zeros(3), np.cumsum(np.ones(15)), np.full(6, 4.0)]), 365)
 
@@ -84,8 +87,8 @@ def test_heuristic_load_following_dispatch_with_generic_storage(
     )
 
     prob.model.add_subsystem(
-        "battery_heuristic_load_following_controller",
-        HeuristicLoadFollowingController(
+        "battery_optimized_load_following_controller",
+        OptimizedDispatchController(
             plant_config=plant_config, tech_config=tech_config_generic["technologies"]["h2_storage"]
         ),
         promotes=["*"],
