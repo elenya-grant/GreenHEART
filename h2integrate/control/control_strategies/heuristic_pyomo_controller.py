@@ -61,10 +61,7 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
         """Initializes parameters."""
 
         self.minimum_storage = 0.0
-        if "storage_capacity" in inputs:
-            self.maximum_storage = inputs["storage_capacity"][0]
-        else:
-            self.maximum_storage = self.config.max_capacity
+        self.maximum_storage = inputs["storage_capacity"][0]
         self.minimum_soc = self.config.min_charge_percent
         self.maximum_soc = self.config.max_charge_percent
         self.initial_soc = self.config.init_charge_percent

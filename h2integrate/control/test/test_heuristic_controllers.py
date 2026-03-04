@@ -14,7 +14,7 @@ from h2integrate.control.control_rules.storage.pyomo_storage_rule_baseclass impo
 
 @fixture
 def plant_config():
-    plant_config = {
+    plant_config_dict = {
         "plant": {
             "plant_life": 30,
             "simulation": {
@@ -26,12 +26,12 @@ def plant_config():
             ["battery", "battery"],
         ],
     }
-    return plant_config
+    return plant_config_dict
 
 
 @fixture
 def tech_config():
-    tech_config = {
+    tech_config_dict = {
         "name": "technology_config",
         "description": "...",
         "technologies": {
@@ -67,7 +67,7 @@ def tech_config():
             }
         },
     }
-    return tech_config
+    return tech_config_dict
 
 
 @pytest.mark.regression
