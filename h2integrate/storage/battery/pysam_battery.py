@@ -250,9 +250,10 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
 
         Args:
             inputs (dict):
-                Continuous input values (e.g., electricity_in, electricity_demand).
+                Continuous input values (e.g., electricity_in, electricity_demand) or
+                battery design parameters.
             outputs (dict):
-                Dictionary where model outputs (SOC, P_chargeable, unmet demand, etc.)
+                Dictionary where model outputs (SOC, battery_discharge, unmet demand, etc.)
                 are written.
             discrete_inputs (dict):
                 Discrete inputs such as control mode or Pyomo solver.
@@ -396,9 +397,6 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
             2. PySAM internal estimates (``P_chargeable`` and ``P_dischargeable``)
             3. Remaining energy headroom vs. SOC bounds
 
-        The method updates internal rolling arrays in ``self.outputs`` in-place using
-        ``sim_start_index`` as an offset (enabling sliding / receding horizon logic).
-
         The simulate method is much of what would normally be in the ``compute()`` method
         of a component, but is separated into its own function here to allow the ``dispatch()``
         method to manage calls to the performance model.
@@ -420,10 +418,6 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
 
         Notes:
             - SOC bounds may still be exceeded slightly due to PySAM internal dynamics.
-            - ``self.outputs.stateful_attributes`` are updated only if the attribute exists
-              in StatePack or StateCell.
-            - ``self.outputs.component_attributes`` (e.g., unmet_demand) are not modified here;
-              they are populated in ``compute()``, unless an external dispatcher manages them.
         """
 
         # Loop through the provided input power/current (decided by control_variable)
