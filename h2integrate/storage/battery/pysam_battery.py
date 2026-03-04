@@ -349,16 +349,10 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
             total_power_out = np.minimum(inputs["electricity_demand"], combined_power_out)
 
             # determine how much of the inflow electricity was unused
-            unused_commodity = [
-                np.max([0, combined_power_out[i] - inputs["electricity_demand"][i]])
-                for i in range(self.n_timesteps)
-            ]
+            unused_commodity = np.maximum(0, combined_power_out - inputs["electricity_demand"])
 
             # determine how much demand was not met
-            unmet_demand = [
-                np.max([0, inputs["electricity_demand"][i] - combined_power_out[i]])
-                for i in range(self.n_timesteps)
-            ]
+            unmet_demand = np.maximum(0, inputs["electricity_demand"] - combined_power_out)
 
         outputs["unmet_electricity_demand_out"] = unmet_demand
         outputs["unused_electricity_out"] = unused_commodity
