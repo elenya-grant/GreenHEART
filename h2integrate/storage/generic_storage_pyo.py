@@ -11,16 +11,18 @@ class StoragePerformanceModelConfig(BaseConfig):
     """Configuration class for storage performance models.
 
     This class defines configuration parameters for simulating storage
-    performance in PySAM system models. It includes
-    specifications such as capacity, chemistry, state-of-charge limits,
-    and reference module characteristics.
+    performance with the Pyomo controllers. It includes
+    specifications such as capacity, charge rate, state-of-charge limits,
+    and charge/discharge efficiencies.
 
     Attributes:
+        commodity (str): name of commodity
+        commodity_rate_units (str): Units of the commodity (e.g., "kg/h").
         max_capacity (float):
-            Maximum storage energy capacity in kilowatt-hours (kWh).
+            Maximum storage energy capacity in commodity_amount_units.
             Must be greater than zero.
         max_charge_rate (float):
-            Rated power capacity of the storage in kilowatts (kW).
+            Rated commodity capacity of the storage  in commodity_rate_units.
             Must be greater than zero.
         min_charge_percent (float):
             Minimum allowable state of charge as a fraction (0 to 1).
@@ -30,17 +32,25 @@ class StoragePerformanceModelConfig(BaseConfig):
             Initial state of charge as a fraction (0 to 1).
         n_control_window (int, optional):
             Number of timesteps in the control window. Defaults to 24.
-        n_horizon_window (int, optional):
-            Number of timesteps in the horizon window. Defaults to 48.
-        control_variable (str):
-            Control mode for the PySAM storage, either ``"input_power"``
-            or ``"input_current"``.
-        ref_module_capacity (int | float, optional):
-            Reference module capacity in kilowatt-hours (kWh).
-            Defaults to 400.
-        ref_module_surface_area (int | float, optional):
-            Reference module surface area in square meters (m²).
-            Defaults to 30.
+        commodity_amount_units (str | None, optional): Units of the commodity as an amount
+            (i.e., kW*h or kg). If not provided, defaults to commodity_rate_units*h.
+        max_discharge_rate (float | None, optional): Maximum rate at which the commodity can be
+            discharged (in units per time step, e.g., "kg/time step"). This rate does not include
+            the discharge_efficiency. Only required if `charge_equals_discharge` is False.
+        charge_equals_discharge (bool, optional): If True, set the max_discharge_rate equal to the
+            max_charge_rate. If False, specify the max_discharge_rate as a value different than
+            the max_charge_rate. Defaults to True.
+        charge_efficiency (float | None, optional): Efficiency of charging the storage, represented
+            as a decimal between 0 and 1 (e.g., 0.9 for 90% efficiency). Optional if
+            `round_trip_efficiency` is provided.
+        discharge_efficiency (float | None, optional): Efficiency of discharging the storage,
+            represented as a decimal between 0 and 1 (e.g., 0.9 for 90% efficiency). Optional if
+            `round_trip_efficiency` is provided.
+        round_trip_efficiency (float | None, optional): Combined efficiency of charging and
+            discharging the storage, represented as a decimal between 0 and 1 (e.g., 0.81 for
+            81% efficiency). Optional if `charge_efficiency` and `discharge_efficiency` are
+            provided.
+
     """
 
     commodity: str = field()
@@ -108,45 +118,38 @@ class StoragePerformanceModelConfig(BaseConfig):
 
 
 class StoragePerformanceModel(PerformanceModelBaseClass):
-    """OpenMDAO component wrapping the PySAM storage Performance model.
+    """OpenMDAO component for a storage component.
 
     Attributes:
-        config (PySAMBatteryPerformanceModelConfig):
+        config (StoragePerformanceModelConfig):
             Configuration parameters for the storage performance model.
-        system_model (BatteryStateful):
-            Instance of the PySAM BatteryStateful model, initialized with
-            the selected chemistry and configuration parameters.
-        outputs (BatteryOutputs):
-            Container for simulation outputs such as SOC, chargeable/dischargeable
-            power, unmet demand, and unused commodities.
-        unmet_demand (float):
-            Tracks unmet demand during simulation (kW).
-        unused_commodity (float):
-            Tracks unused commodity during simulation (kW).
+        current_soc (float): soc at the start of each interval that the simulate()
+            method is called
+        dt_hr (float): timestep in hours.
 
     Inputs:
         max_charge_rate (float):
-            storage charge rate in kilowatts per hour (kW).
+            storage charge rate in commodity_rate_units
         storage_capacity (float):
-            Total energy storage capacity in kilowatt-hours (kWh).
-        electricity_demand (ndarray):
-            Power demand time series (kW).
-        electricity_in (ndarray):
-            Commanded input electricity (kW), typically from dispatch.
+            Total energy storage capacity in commodity_amount_units
+        commodity_demand (ndarray):
+            Commodity demand time series (commodity_rate_units).
+        commodity_in (ndarray):
+            Commanded input commodity (commodity_rate_units), typically from dispatch.
 
     Outputs:
         unmet_demand_out (ndarray):
-            Remaining unmet demand after discharge (kW).
+            Remaining unmet demand after discharge in commodity_rate_units.
         unused_commodity_out (ndarray):
-            Unused energy not absorbed by the storage (kW).
-        electricity_out (ndarray):
-            Dispatched electricity to meet demand (kW), including electricity from
-            electricity_in that was never used to charge the storage and
-            storage_electricity_discharge.
+            Unused energy not absorbed by the storage in commodity_rate_units.
+        commodity_out (ndarray):
+            Dispatched commodity to meet demand in commodity_rate_units, including commodity from
+            commodity_in that was never used to charge the storage and
+            storage_commodity_discharge.
         SOC (ndarray):
             storage state of charge (%).
-        storage_electricity_discharge (ndarray):
-            Electricity output from the storage model (kW).
+        storage_commodity_discharge (ndarray):
+            commodity output from the storage model in commodity_rate_units.
 
     Methods:
         setup():
@@ -156,16 +159,14 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             Runs the PySAM BatteryStateful model for a simulation timestep,
             updating outputs such as SOC, charge/discharge limits, unmet
             demand, and unused commodities.
-        simulate(electricity_in, electricity_demand, time_step_duration, control_variable,
+        simulate(commodity_in, commodity_demand, time_step_duration, control_variable,
             sim_start_index=0):
-            Simulates the storage behavior across timesteps using either
-            input power or input current as control. This method is similar to what is
+            Simulates the storage behavior across timesteps using input commodity as control.
+            This method is similar to what is
             provided in typical compute methods in H2Integrate for running models, but
             needs to be a separate method here to allow the dispatch function to call
             and manage the performance model.
-        _set_control_mode(control_mode=1.0, input_power=0.0, input_current=0.0,
-            control_variable="input_power"):
-            Sets the storage control mode (power or current).
+
 
     Notes:
         - Default timestep is 1 hour (``dt=1.0``).
@@ -261,7 +262,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             val=0.0,
             shape=self.n_timesteps,
             units=self.commodity_rate_units,
-            desc="Power demand",
+            desc=f"{self.commodity} demand",
         )
 
         self.add_output(
@@ -269,7 +270,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             val=0.0,
             shape=self.n_timesteps,
             units=self.commodity_rate_units,
-            desc="Unmet power demand",
+            desc=f"Unmet {self.commodity} demand",
         )
 
         self.add_output(
@@ -307,7 +308,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
 
         Args:
             inputs (dict):
-                Continuous input values (e.g., electricity_in, electricity_demand).
+                Continuous input values (e.g., commodity_in, commodity_demand).
             outputs (dict):
                 Dictionary where model outputs (SOC, P_chargeable, unmet demand, etc.)
                 are written.
@@ -323,8 +324,6 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             max_discharge_rate = inputs["max_discharge_rate"][0]
 
         self.current_soc = self.config.init_charge_percent
-        self.unmet_demand = 0.0
-        self.unused_commodity = 0.0
 
         if "pyomo_dispatch_solver" in discrete_inputs:
             # Simulate the storage with provided dispatch inputs
@@ -368,7 +367,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             # and negative when the storage is charged
             storage_commodity_out = np.array(storage_commodity_out)
 
-            # calculate combined power out from inflow source and storage
+            # calculate combined commodity out from inflow source and storage
             # (note: storage_commodity_out is negative when charging)
             combined_commodity_out = inputs[f"{self.commodity}_in"] + storage_commodity_out
 
@@ -378,21 +377,13 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             )
 
             # determine how much of the inflow commodity was unused
-            unused_commodity = np.max(
-                [
-                    np.zeros(self.n_timesteps),
-                    combined_commodity_out - inputs[f"{self.commodity}_demand"],
-                ],
-                axis=0,
+            unused_commodity = np.maximum(
+                0, combined_commodity_out - inputs[f"{self.commodity}_demand"]
             )
 
             # determine how much demand was not met
-            unmet_demand = np.max(
-                [
-                    np.zeros(self.n_timesteps),
-                    inputs[f"{self.commodity}_demand"] - combined_commodity_out,
-                ],
-                axis=0,
+            unmet_demand = np.maximum(
+                0, inputs[f"{self.commodity}_demand"] - combined_commodity_out
             )
 
         outputs[f"storage_{self.commodity}_charge"] = np.where(
@@ -425,43 +416,40 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
         storage_capacity: float,
         sim_start_index: int = 0,
     ):
-        """Run the PySAM BatteryStateful model over a control window.
+        """Run the storage model over a control window.
 
         Applies a sequence of dispatch commands (positive = discharge, negative = charge)
         one timestep at a time. Each command is clipped to allowable instantaneous
         charge / discharge limits derived from:
-          1. Rated power (config.max_charge_rate)
-          2. PySAM internal estimates (P_chargeable / P_dischargeable)
-          3. Remaining energy headroom vs. SOC bounds
-
-        The method updates internal rolling arrays in self.outputs in-place using
-        sim_start_index as an offset (enabling sliding / receding horizon logic).
+          1. Rated commodity (charge_rate and discharge_rate)
+          2. Remaining storage headroom vs. SOC bounds
 
         The simulate method is much of what would normally be in the compute() method
-        of a component, but is separated into its own function here to allow the dispatch()
-        method to manage calls to the performance model.
+        of a component, but is separated into its own function here to allow the dispatch
+        model to manage calls to the performance model.
 
         Args:
-            storage_dispatch_commands : Sequence[float]
-                Commanded power per timestep (kW). Negative = charge, positive = discharge.
+            storage_dispatch_commands (list[float]): Control set point of commodity flow through
+                storage per timestep in commodity_rate_units.
+                Negative = charge, positive = discharge.
                 Length should be = config.n_control_window.
-            time_step_duration : float | Sequence[float]
-                Timestep duration in hours. Scalar applied uniformly or sequence matching
-                len(storage_dispatch_commands).
-            control_variable : str
-                PySAM control input to set each step ("input_power" or "input_current").
-            sim_start_index : int, optional
+            charge_rate (float): maximum amount of commodity that can be put into storage per
+                timestep in commodity_rate_units
+            discharge_rate (float): maximum amount of commodity that can be drawn out of storage
+                per timestep in commodity_rate_units
+            storage_capacity (float): rated storage capacity in commodity_amount_units
+            sim_start_index (int, optional):
                 Starting index for writing into persistent output arrays (default 0).
 
         Returns:
             tuple[np.ndarray, np.ndarray]
-                (storage_power_kW, soc_percent)
-                storage_power_kW : array of PySAM P values (kW) per timestep
+                (storage_commodity_out, soc_percent)
+                storage_commodity_out array of storage values in commodity_rate_units per timestep
                                     (positive = discharge, negative = charge).
                 soc_percent      : array of SOC values (%) per timestep.
         """
 
-        # Loop through the provided input power/current (decided by control_variable)
+        # Loop through the provided input storage set point (decided by control_variable)
 
         # initialize outputs
         storage_commodity_out_timesteps = np.zeros(self.config.n_control_window)
@@ -515,11 +503,11 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                 dispatch_command_t = 0.0
 
             if dispatch_command_t < 0:
-                # charge: increase soc and negative storage_power_out
+                # charge: increase soc and negative storage_commodity_out
                 soc += max_chargeable / storage_capacity
                 storage_commodity_out_timesteps[t] = -1 * max_chargeable
             else:
-                # discharge: decrease soc and positive storage_power_out
+                # discharge: decrease soc and positive storage_commodity_out
                 soc -= max_dischargeable / storage_capacity
                 storage_commodity_out_timesteps[t] = max_dischargeable
 
