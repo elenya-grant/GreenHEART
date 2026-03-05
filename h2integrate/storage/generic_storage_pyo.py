@@ -24,11 +24,11 @@ class StoragePerformanceModelConfig(BaseConfig):
         max_charge_rate (float):
             Rated commodity capacity of the storage  in commodity_rate_units.
             Must be greater than zero.
-        min_charge_percent (float):
+        min_charge_fraction (float):
             Minimum allowable state of charge as a fraction (0 to 1).
-        max_charge_percent (float):
+        max_charge_fraction (float):
             Maximum allowable state of charge as a fraction (0 to 1).
-        init_charge_percent (float):
+        init_charge_fraction (float):
             Initial state of charge as a fraction (0 to 1).
         n_control_window (int, optional):
             Number of timesteps in the control window. Defaults to 24.
@@ -59,9 +59,9 @@ class StoragePerformanceModelConfig(BaseConfig):
     max_capacity: float = field(validator=gt_zero)
     max_charge_rate: float = field(validator=gt_zero)
 
-    min_charge_percent: float = field(validator=range_val(0, 1))
-    max_charge_percent: float = field(validator=range_val(0, 1))
-    init_charge_percent: float = field(validator=range_val(0, 1))
+    min_charge_fraction: float = field(validator=range_val(0, 1))
+    max_charge_fraction: float = field(validator=range_val(0, 1))
+    init_charge_fraction: float = field(validator=range_val(0, 1))
     n_control_window: int = field(validator=gt_zero, default=24)
 
     commodity_amount_units: str = field(default=None)
@@ -171,7 +171,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
     Notes:
         - Default timestep is 1 hour (``dt=1.0``).
         - State of charge (SOC) bounds are set using the configuration's
-          ``min_charge_percent`` and ``max_charge_percent``.
+          ``min_charge_fraction`` and ``max_charge_fraction``.
         - If a Pyomo dispatch solver is provided, the storage will simulate
           dispatch decisions using solver inputs.
     """
@@ -323,14 +323,14 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
         else:
             max_discharge_rate = inputs["max_discharge_rate"][0]
 
-        self.current_soc = self.config.init_charge_percent
+        self.current_soc = self.config.init_charge_fraction
 
         if "pyomo_dispatch_solver" in discrete_inputs:
             # Simulate the storage with provided dispatch inputs
             dispatch = discrete_inputs["pyomo_dispatch_solver"]
             # kwargs are tech-specific inputs to the simulate() method
             kwargs = {
-                "" "charge_rate": inputs["max_charge_rate"][0],
+                "charge_rate": inputs["max_charge_rate"][0],
                 "discharge_rate": max_discharge_rate,
                 "storage_capacity": inputs["storage_capacity"][0],
             }
@@ -463,7 +463,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             if dispatch_command_t < 0:
                 # available charge from storage
                 available_charge = float(
-                    (self.config.max_charge_percent - soc) * storage_capacity / self.dt_hr
+                    (self.config.max_charge_fraction - soc) * storage_capacity / self.dt_hr
                 )
                 # max that storage can be charged
                 max_chargeable = (
@@ -483,7 +483,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             else:
                 # available discharge from storage
                 available_discharge = float(
-                    (soc - self.config.min_charge_percent) * storage_capacity / self.dt_hr
+                    (soc - self.config.min_charge_fraction) * storage_capacity / self.dt_hr
                 )
                 max_dischargeable = (
                     np.min(
@@ -499,7 +499,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                     dispatch_command_t = max_dischargeable
 
             # if storage soc is outside the set bounds, discharge storage down to set bounds
-            if (soc > self.config.max_charge_percent) and dispatch_command_t < 0:
+            if (soc > self.config.max_charge_fraction) and dispatch_command_t < 0:
                 dispatch_command_t = 0.0
 
             if dispatch_command_t < 0:
