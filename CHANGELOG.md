@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased, TBD
+- PySAM battery now takes in charge rate and storage capacity as inputs[PR 557](https://github.com/NatLabRockies/H2Integrate/pull/557)
+
 ## 0.7 [March 3, 2026]
 
 ### New Features
