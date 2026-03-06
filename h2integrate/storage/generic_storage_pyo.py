@@ -463,8 +463,19 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
         # Loop through the provided input storage set point (decided by control_variable)
 
         # initialize outputs
+        # initialize outputs
         storage_commodity_out_timesteps = np.zeros(self.config.n_control_window)
         soc_timesteps = np.zeros(self.config.n_control_window)
+
+        # discharge is positive
+        discharge_timesteps = np.zeros(self.config.n_control_window)
+
+        # charge is negative
+        charge_timesteps = np.zeros(self.config.n_control_window)
+
+        # get constant battery parameters needed during all time steps
+        soc_max = self.config.max_charge_fraction  # self.system_model.value("maximum_SOC") / 100.0
+        soc_min = self.config.min_charge_fraction  # self.system_model.value("minimum_SOC") / 100.0
 
         # If the capacity is zero, return zeros
         if storage_capacity <= 0:
@@ -478,64 +489,53 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
         soc = float(self.current_soc)
         for t, dispatch_command_t in enumerate(storage_dispatch_commands):
             # get storage SOC at time t
+            # soc = self.system_model.value("SOC") / 100.0
 
-            # if commanded to charge
-            if dispatch_command_t < 0:
-                # available charge from storage
-                available_charge = float(
-                    (self.config.max_charge_fraction - soc) * storage_capacity / self.dt_hr
-                )
-                # max that storage can be charged
-                max_chargeable = (
-                    np.min(
-                        [
-                            available_charge,
-                            charge_rate / self.config.charge_efficiency,
-                            -1 * dispatch_command_t,
-                        ]
-                    )
-                    * self.config.charge_efficiency
-                )
-                #
-                if dispatch_command_t < -max_chargeable:
-                    dispatch_command_t = -max_chargeable
+            # manually adjust the dispatch command based on SOC
+            ## for when battery is withing set bounds
+            # according to specs
+            max_chargeable_0 = charge_rate
+            # according to simulation
+            # max_chargeable_1 = np.maximum(0, -self.system_model.value("P_chargeable"))
+            # according to soc
+            max_chargeable_2 = np.maximum(0, (soc_max - soc) * storage_capacity / self.dt_hr)
+            # compare all versions of max_chargeable
 
-            else:
-                # available discharge from storage
-                available_discharge = float(
-                    (soc - self.config.min_charge_fraction) * storage_capacity / self.dt_hr
-                )
-                max_dischargeable = (
-                    np.min(
-                        [
-                            available_discharge,
-                            discharge_rate / self.config.discharge_efficiency,
-                            dispatch_command_t,
-                        ]
-                    )
-                    * self.config.discharge_efficiency
-                )
-                if dispatch_command_t > max_dischargeable:
-                    dispatch_command_t = max_dischargeable
+            max_chargeable = np.min([max_chargeable_0, max_chargeable_2])
 
-            # if storage soc is outside the set bounds, discharge storage down to set bounds
-            if (soc > self.config.max_charge_fraction) and dispatch_command_t < 0:
+            # according to specs
+            max_dischargeable_0 = discharge_rate
+            # according to simulation
+            # max_dischargeable_1 = np.maximum(0, self.system_model.value("P_dischargeable"))
+            # according to soc
+            max_dischargeable_2 = np.maximum(0, (soc - soc_min) * storage_capacity / self.dt_hr)
+            # compare all versions of max_dischargeable
+            max_dischargeable = np.min([max_dischargeable_0, max_dischargeable_2])
+
+            if dispatch_command_t < -max_chargeable:
+                dispatch_command_t = -max_chargeable
+            if dispatch_command_t > max_dischargeable:
+                dispatch_command_t = max_dischargeable
+
+            # if battery soc is outside the set bounds, discharge battery down to set bounds
+            if (soc > soc_max) and dispatch_command_t < 0:  # and (dispatch_command_t <= 0):
                 dispatch_command_t = 0.0
 
-            if dispatch_command_t < 0:
-                # charge: increase soc and negative storage_commodity_out
-                soc += max_chargeable / storage_capacity
-                storage_commodity_out_timesteps[t] = -1 * max_chargeable
-            else:
-                # discharge: decrease soc and positive storage_commodity_out
-                soc -= max_dischargeable / storage_capacity
-                storage_commodity_out_timesteps[t] = max_dischargeable
+            # Set the input variable to the desired value
+            soc -= dispatch_command_t / storage_capacity
+            storage_commodity_out_timesteps[t] = dispatch_command_t
 
-            # storage outputs
+            # save outputs
             soc_timesteps[t] = soc * 100
+            if dispatch_command_t >= 0:
+                discharge_timesteps[t] = dispatch_command_t
+            else:
+                charge_timesteps[t] = dispatch_command_t
 
-        # update current SOC
+            # import pdb; pdb.set_trace()
+
         self.current_soc = soc
+
         return storage_commodity_out_timesteps, soc_timesteps
 
 
