@@ -113,6 +113,13 @@ class StoragePerformanceModelConfig(BaseConfig):
 
             self.max_discharge_rate = self.max_charge_rate
 
+        if not self.charge_equals_discharge and self.max_discharge_rate is None:
+            msg = (
+                "max_discharge_rate is required when charge_equals_discharge is False. "
+                "Please input the discharge rate using the key `max_discharge_rate`."
+            )
+            raise ValueError(msg)
+
         if self.commodity_amount_units is None:
             self.commodity_amount_units = f"({self.commodity_rate_units})*h"
 
@@ -404,9 +411,13 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
         outputs[f"annual_{self.commodity}_produced"] = outputs[
             f"total_{self.commodity}_produced"
         ] * (1 / self.fraction_of_year_simulated)
-        outputs["capacity_factor"] = outputs[f"total_{self.commodity}_produced"] / (
-            outputs[f"rated_{self.commodity}_production"] * self.n_timesteps
-        )
+
+        if outputs[f"rated_{self.commodity}_production"] <= 0:
+            outputs["capacity_factor"] = 0.0
+        else:
+            outputs["capacity_factor"] = outputs[f"total_{self.commodity}_produced"] / (
+                outputs[f"rated_{self.commodity}_production"] * self.n_timesteps
+            )
 
     def simulate(
         self,
@@ -465,6 +476,15 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
         # get constant battery parameters needed during all time steps
         soc_max = self.config.max_charge_fraction  # self.system_model.value("maximum_SOC") / 100.0
         soc_min = self.config.min_charge_fraction  # self.system_model.value("minimum_SOC") / 100.0
+
+        # If the capacity is zero, return zeros
+        if storage_capacity <= 0:
+            soc_timesteps = np.full(self.config.n_control_window, float(self.current_soc) * 100)
+            return storage_commodity_out_timesteps, soc_timesteps
+        # If charge and discharge rate are zero, return zeros
+        if charge_rate <= 0 and discharge_rate <= 0:
+            soc_timesteps = np.full(self.config.n_control_window, float(self.current_soc) * 100)
+            return storage_commodity_out_timesteps, soc_timesteps
 
         soc = float(self.current_soc)
         for t, dispatch_command_t in enumerate(storage_dispatch_commands):
