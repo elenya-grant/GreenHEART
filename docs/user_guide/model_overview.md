@@ -88,6 +88,7 @@ Connection: `[source_tech, dest_tech, transport_commodity, transport_technology]
 | `h2_storage`      |  hydrogen         |
 | `battery`         |  electricity      |
 | `generic_storage` |  Any              |
+| `generic_storage_pyo` |  Any              |
 
 (control)=
 (controller)=
@@ -305,6 +306,8 @@ Below summarizes the available performance, cost, and financial models for each 
         + `'PySAMBatteryPerformanceModel'`
     - cost models:
         + `'ATBBatteryCostModel'`
+- `generic_storage_pyo`: storage for any commodity type that is compatible with the Pyomo controllers
+    - performance models: `StoragePerformanceModel`
 
 (basic-operations)=
 ## Basic Operations

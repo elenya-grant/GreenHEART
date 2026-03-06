@@ -10,6 +10,7 @@
   `min_charge_fraction`, `max_charge_fraction`, and `init_charge_fraction` across all
   configuration classes, YAML configs, tests, and examples. These values are fractions
   between 0 and 1, so the previous "percent" naming was misleading. [PR 581](https://github.com/NatLabRockies/H2Integrate/pull/581)
+- Added a generic storage model that is compatible with the Pyomo controllers [PR 571](https://github.com/NatLabRockies/H2Integrate/pull/571)
 
 ## 0.7 [March 3, 2026]
 
