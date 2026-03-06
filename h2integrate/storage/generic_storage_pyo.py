@@ -84,9 +84,11 @@ class StoragePerformanceModelConfig(BaseConfig):
         if self.round_trip_efficiency is not None:
             if self.charge_efficiency is not None or self.discharge_efficiency is not None:
                 raise ValueError(
-                    "Provide either `round_trip_efficiency` or both `charge_efficiency` "
-                    "and `discharge_efficiency`, but not both."
+                    "Exactly one of the following sets of parameters must be set: (a) "
+                    "`round_trip_efficiency`, or (b) both `charge_efficiency` "
+                    "and `discharge_efficiency`."
                 )
+
             # Calculate charge and discharge efficiencies from round-trip efficiency
             self.charge_efficiency = np.sqrt(self.round_trip_efficiency)
             self.discharge_efficiency = np.sqrt(self.round_trip_efficiency)
@@ -95,8 +97,9 @@ class StoragePerformanceModelConfig(BaseConfig):
             pass
         else:
             raise ValueError(
-                "You must provide either `round_trip_efficiency` or both "
-                "`charge_efficiency` and `discharge_efficiency`."
+                "Exactly one of the following sets of parameters must be set: (a) "
+                "`round_trip_efficiency`, or (b) both `charge_efficiency` "
+                "and `discharge_efficiency`."
             )
 
         if self.charge_equals_discharge:
@@ -163,7 +166,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             Defines model inputs, outputs, configuration, and connections
             to plant-level dispatch (if applicable).
         compute(inputs, outputs, discrete_inputs, discrete_outputs):
-            Runs the PySAM BatteryStateful model for a simulation timestep,
+            Runs the storage model for a simulation timestep,
             updating outputs such as SOC, charge/discharge limits, unmet
             demand, and unused commodities.
         simulate(commodity_in, commodity_demand, time_step_duration, control_variable,
@@ -184,10 +187,9 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
     """
 
     def setup(self):
-        """Set up the PySAM storage Performance model in OpenMDAO.
+        """Set up the storage performance model in OpenMDAO.
 
-        Initializes the configuration, defines inputs/outputs for OpenMDAO,
-        and creates a `BatteryStateful` instance with the selected chemistry.
+        Initializes the configuration and defines inputs/outputs for OpenMDAO.
         If dispatch connections are specified, it also sets up a discrete
         input for Pyomo solver integration.
         """
@@ -288,8 +290,6 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             desc="Unused generated commodity",
         )
 
-        # Initialize the PySAM BatteryStateful model with defaults
-
         self.dt_hr = int(self.options["plant_config"]["plant"]["simulation"]["dt"]) / (
             60**2
         )  # convert from seconds to hours
@@ -307,7 +307,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                     break
 
     def compute(self, inputs, outputs, discrete_inputs=[], discrete_outputs=[]):
-        """Run the PySAM storage model for one simulation step.
+        """Run the storage model.
 
         Configures the storage stateful model parameters (SOC limits, timestep,
         thermal properties, etc.), executes the simulation, and stores the
@@ -317,7 +317,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
             inputs (dict):
                 Continuous input values (e.g., commodity_in, commodity_demand).
             outputs (dict):
-                Dictionary where model outputs (SOC, P_chargeable, unmet demand, etc.)
+                Dictionary where model outputs (SOC, unmet demand, etc.)
                 are written.
             discrete_inputs (dict):
                 Discrete inputs such as control mode or Pyomo solver.
