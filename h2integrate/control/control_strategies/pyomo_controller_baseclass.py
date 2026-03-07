@@ -123,20 +123,20 @@ class PyomoControllerBaseClass(om.ExplicitComponent):
 
         # create inputs for all pyomo object creation functions from all connected technologies
         self.dispatch_connections = self.options["plant_config"]["tech_to_dispatch_connections"]
-        for connection in self.dispatch_connections:
-            # get connection definition
-            source_tech, intended_dispatch_tech = connection
-            if any(intended_dispatch_tech in name for name in self.tech_group_name):
-                if source_tech == intended_dispatch_tech:
-                    # When getting rules for the same tech, the tech name is not used in order to
-                    # allow for automatic connections rather than complicating the h2i model set up
-                    self.add_discrete_input("dispatch_block_rule_function", val=self.dummy_method)
-                else:
-                    self.add_discrete_input(
-                        f"{'dispatch_block_rule_function'}_{source_tech}", val=self.dummy_method
-                    )
-            else:
-                continue
+        # for connection in self.dispatch_connections:
+        #     # get connection definition
+        #     source_tech, intended_dispatch_tech = connection
+        #     if any(intended_dispatch_tech in name for name in self.tech_group_name):
+        #         if source_tech == intended_dispatch_tech:
+        #             # When getting rules for the same tech, the tech name is not used in order to
+        #             # allow for automatic connections rather than complicating the h2i model setup
+        #             self.add_discrete_input("dispatch_block_rule_function", val=self.dummy_method)
+        #         else:
+        #             self.add_discrete_input(
+        #                 f"{'dispatch_block_rule_function'}_{source_tech}", val=self.dummy_method
+        #             )
+        #     else:
+        #         continue
 
         # create output for the pyomo control model
         self.add_discrete_output(
@@ -161,32 +161,32 @@ class PyomoControllerBaseClass(om.ExplicitComponent):
         # initialize the pyomo model
         self.pyomo_model = pyomo.ConcreteModel()
 
-        index_set = pyomo.Set(initialize=range(self.config.n_control_window))
+        # index_set = pyomo.Set(initialize=range(self.config.n_control_window))
 
-        self.source_techs = []
-        self.dispatch_tech = []
+        # self.source_techs = []
+        # self.dispatch_tech = []
 
-        # run each pyomo rule set up function for each technology
-        for connection in self.dispatch_connections:
-            # get connection definition
-            source_tech, intended_dispatch_tech = connection
-            # only add connections to intended dispatch tech
-            if any(intended_dispatch_tech in name for name in self.tech_group_name):
-                # names are specified differently if connecting within the tech group vs
-                # connecting from an external tech group. This facilitates OM connections
-                if source_tech == intended_dispatch_tech:
-                    dispatch_block_rule_function = discrete_inputs["dispatch_block_rule_function"]
-                    self.dispatch_tech.append(source_tech)
-                else:
-                    dispatch_block_rule_function = discrete_inputs[
-                        f"{'dispatch_block_rule_function'}_{source_tech}"
-                    ]
-                # create pyomo block and set attr
-                blocks = pyomo.Block(index_set, rule=dispatch_block_rule_function)
-                setattr(self.pyomo_model, source_tech, blocks)
-                self.source_techs.append(source_tech)
-            else:
-                continue
+        # # run each pyomo rule set up function for each technology
+        # for connection in self.dispatch_connections:
+        #     # get connection definition
+        #     source_tech, intended_dispatch_tech = connection
+        #     # only add connections to intended dispatch tech
+        #     if any(intended_dispatch_tech in name for name in self.tech_group_name):
+        #         # names are specified differently if connecting within the tech group vs
+        #         # connecting from an external tech group. This facilitates OM connections
+        #         if source_tech == intended_dispatch_tech:
+        #             dispatch_block_rule_function = discrete_inputs["dispatch_block_rule_function"]
+        #             self.dispatch_tech.append(source_tech)
+        #         else:
+        #             dispatch_block_rule_function = discrete_inputs[
+        #                 f"{'dispatch_block_rule_function'}_{source_tech}"
+        #             ]
+        #         # create pyomo block and set attr
+        #         blocks = pyomo.Block(index_set, rule=dispatch_block_rule_function)
+        #         setattr(self.pyomo_model, source_tech, blocks)
+        #         self.source_techs.append(source_tech)
+        #     else:
+        #         continue
 
         # define dispatch solver
         def pyomo_dispatch_solver(
