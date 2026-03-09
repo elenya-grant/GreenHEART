@@ -427,114 +427,115 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
         storage_capacity: float,
         sim_start_index: int = 0,
     ):
-        """Run the storage model over a control window.
+        """Run the storage model over a control window of ``n_control_window`` timesteps.
 
-        Applies a sequence of dispatch commands (positive = discharge, negative = charge)
-        one timestep at a time. Each command is clipped to allowable instantaneous
-        charge / discharge limits derived from:
-          1. Rated commodity (charge_rate and discharge_rate)
-          2. Remaining storage headroom vs. SOC bounds
+        Iterates through ``storage_dispatch_commands`` one timestep at a time.
+        A negative command requests charging; a positive command requests
+        discharging.  Each command is clipped to the most restrictive of three
+        limits before it is applied:
 
-        The simulate method is much of what would normally be in the compute() method
-        of a component, but is separated into its own function here to allow the dispatch
-        model to manage calls to the performance model.
+        1. **SOC headroom** - the remaining capacity (charge) or remaining
+           stored commodity (discharge), converted to a rate via
+           ``storage_capacity / dt_hr``.
+        2. **Hardware rate limit** - ``charge_rate`` or ``discharge_rate``,
+           divided by the corresponding efficiency so the limit is expressed
+           in pre-efficiency rate units.
+        3. **Commanded magnitude** - the absolute value of the dispatch command
+           itself (we never exceed what was asked for).
+
+        After clipping, the result is scaled by the charge or discharge
+        efficiency to obtain the actual commodity flow into or out of the
+        storage, and the SOC is updated accordingly.
+
+        This method is separated from ``compute()`` so the Pyomo dispatch
+        controller can call it directly to evaluate candidate schedules.
 
         Args:
-            storage_dispatch_commands (list[float]): Control set point of commodity flow through
-                storage per timestep in commodity_rate_units.
-                Negative = charge, positive = discharge.
-                Length should be = config.n_control_window.
-            charge_rate (float): maximum amount of commodity that can be put into storage per
-                timestep in commodity_rate_units
-            discharge_rate (float): maximum amount of commodity that can be drawn out of storage
-                per timestep in commodity_rate_units
-            storage_capacity (float): rated storage capacity in commodity_amount_units
+            storage_dispatch_commands (array_like[float]):
+                Dispatch set-points for each timestep in ``commodity_rate_units``.
+                Negative values command charging; positive values command
+                discharging.  Length must equal ``config.n_control_window``.
+            charge_rate (float):
+                Maximum commodity input rate to storage in
+                ``commodity_rate_units`` (before charge efficiency is applied).
+            discharge_rate (float):
+                Maximum commodity output rate from storage in
+                ``commodity_rate_units`` (before discharge efficiency is applied).
+            storage_capacity (float):
+                Rated storage capacity in ``commodity_amount_units``.
             sim_start_index (int, optional):
-                Starting index for writing into persistent output arrays (default 0).
+                Starting index for writing into persistent output arrays.
+                Defaults to 0.
 
         Returns:
             tuple[np.ndarray, np.ndarray]
-                (storage_commodity_out, soc_percent)
-                storage_commodity_out array of storage values in commodity_rate_units per timestep
-                                    (positive = discharge, negative = charge).
-                soc_percent      : array of SOC values (%) per timestep.
+                storage_commodity_out_timesteps :
+                    Commodity flow per timestep in ``commodity_rate_units``.
+                    Positive = discharge (commodity leaving storage),
+                    negative = charge (commodity entering storage).
+                soc_timesteps :
+                    State of charge at the end of each timestep, in percent
+                    (0-100).
         """
 
-        # Loop through the provided input storage set point (decided by control_variable)
+        n = self.config.n_control_window
+        storage_commodity_out_timesteps = np.zeros(n)
+        soc_timesteps = np.zeros(n)
 
-        # initialize outputs
-        storage_commodity_out_timesteps = np.zeros(self.config.n_control_window)
-        soc_timesteps = np.zeros(self.config.n_control_window)
-
-        # If the capacity is zero, return zeros
-        if storage_capacity <= 0:
-            soc_timesteps = np.full(self.config.n_control_window, float(self.current_soc) * 100)
-            return storage_commodity_out_timesteps, soc_timesteps
-        # If charge and discharge rate are zero, return zeros
-        if charge_rate <= 0 and discharge_rate <= 0:
-            soc_timesteps = np.full(self.config.n_control_window, float(self.current_soc) * 100)
+        # Early return when storage cannot operate: zero capacity or both
+        # charge and discharge rates are zero.
+        if storage_capacity <= 0 or (charge_rate <= 0 and discharge_rate <= 0):
+            soc_timesteps[:] = self.current_soc * 100.0
             return storage_commodity_out_timesteps, soc_timesteps
 
+        # Pre-compute scalar constants to avoid repeated attribute lookups
+        # and redundant divisions inside the per-timestep loop.
+        charge_eff = self.config.charge_efficiency
+        discharge_eff = self.config.discharge_efficiency
+        max_frac = self.config.max_charge_fraction
+        min_frac = self.config.min_charge_fraction
+
+        # max_charge_input / max_discharge_input are the hardware rate limits
+        # expressed in *pre-efficiency* rate units so they can be compared
+        # directly against the SOC headroom and the raw command magnitude.
+        max_charge_input = charge_rate / charge_eff
+        max_discharge_input = discharge_rate / discharge_eff
+
+        commands = np.asarray(storage_dispatch_commands, dtype=float)
         soc = float(self.current_soc)
-        for t, dispatch_command_t in enumerate(storage_dispatch_commands):
-            # get storage SOC at time t
 
-            # if commanded to charge
-            if dispatch_command_t < 0:
-                # available charge from storage
-                available_charge = float(
-                    (self.config.max_charge_fraction - soc) * storage_capacity / self.dt_hr
-                )
-                # max that storage can be charged
-                max_chargeable = (
-                    np.min(
-                        [
-                            available_charge,
-                            charge_rate / self.config.charge_efficiency,
-                            -1 * dispatch_command_t,
-                        ]
-                    )
-                    * self.config.charge_efficiency
-                )
-                #
-                if dispatch_command_t < -max_chargeable:
-                    dispatch_command_t = -max_chargeable
+        for t, cmd in enumerate(commands):
+            if cmd < 0.0:
+                # --- Charging ---
+                # headroom: how much more commodity the storage can accept,
+                # expressed as a rate (commodity_rate_units).
+                headroom = (max_frac - soc) * storage_capacity / self.dt_hr
 
+                # Clip to the most restrictive limit, then apply efficiency.
+                # max(0, ...) guards against negative headroom when SOC
+                # slightly exceeds max_frac.
+                actual_charge = max(0.0, min(headroom, max_charge_input, -cmd)) * charge_eff
+
+                # Update SOC (actual_charge is in post-efficiency units)
+                soc += actual_charge / storage_capacity
+                storage_commodity_out_timesteps[t] = -actual_charge
             else:
-                # available discharge from storage
-                available_discharge = float(
-                    (soc - self.config.min_charge_fraction) * storage_capacity / self.dt_hr
-                )
-                max_dischargeable = (
-                    np.min(
-                        [
-                            available_discharge,
-                            discharge_rate / self.config.discharge_efficiency,
-                            dispatch_command_t,
-                        ]
-                    )
-                    * self.config.discharge_efficiency
-                )
-                if dispatch_command_t > max_dischargeable:
-                    dispatch_command_t = max_dischargeable
+                # --- Discharging ---
+                # headroom: how much commodity can still be drawn before
+                # hitting the minimum SOC, expressed as a rate.
+                headroom = (soc - min_frac) * storage_capacity / self.dt_hr
 
-            # if storage soc is outside the set bounds, discharge storage down to set bounds
-            if (soc > self.config.max_charge_fraction) and dispatch_command_t < 0:
-                dispatch_command_t = 0.0
+                # Clip and apply discharge efficiency.
+                actual_discharge = max(0.0, min(headroom, max_discharge_input, cmd)) * discharge_eff
 
-            if dispatch_command_t < 0:
-                # charge: increase soc and negative storage_commodity_out
-                soc += max_chargeable / storage_capacity
-                storage_commodity_out_timesteps[t] = -1 * max_chargeable
-            else:
-                # discharge: decrease soc and positive storage_commodity_out
-                soc -= max_dischargeable / storage_capacity
-                storage_commodity_out_timesteps[t] = max_dischargeable
+                # Update SOC (actual_discharge is in post-efficiency units)
+                soc -= actual_discharge / storage_capacity
+                storage_commodity_out_timesteps[t] = actual_discharge
 
-            # storage outputs
-            soc_timesteps[t] = soc * 100
+            soc_timesteps[t] = soc * 100.0
 
-        # update current SOC
+        # Persist the final SOC so subsequent simulate() calls (e.g. from the
+        # Pyomo controller across rolling windows) start where we left off.
         self.current_soc = soc
         return storage_commodity_out_timesteps, soc_timesteps
 
