@@ -492,8 +492,8 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
         # and redundant divisions inside the per-timestep loop.
         charge_eff = self.config.charge_efficiency
         discharge_eff = self.config.discharge_efficiency
-        max_frac = self.config.max_charge_fraction
-        min_frac = self.config.min_charge_fraction
+        soc_max = self.config.max_charge_fraction
+        soc_min = self.config.min_charge_fraction
 
         # max_charge_input / max_discharge_input are the hardware rate limits
         # expressed in *pre-efficiency* rate units so they can be compared
@@ -509,11 +509,11 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                 # --- Charging ---
                 # headroom: how much more commodity the storage can accept,
                 # expressed as a rate (commodity_rate_units).
-                headroom = (max_frac - soc) * storage_capacity / self.dt_hr
+                headroom = (soc_max - soc) * storage_capacity / self.dt_hr
 
                 # Clip to the most restrictive limit, then apply efficiency.
                 # max(0, ...) guards against negative headroom when SOC
-                # slightly exceeds max_frac.
+                # slightly exceeds soc_max.
                 actual_charge = max(0.0, min(headroom, max_charge_input, -cmd)) * charge_eff
 
                 # Update SOC (actual_charge is in post-efficiency units)
@@ -523,7 +523,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                 # --- Discharging ---
                 # headroom: how much commodity can still be drawn before
                 # hitting the minimum SOC, expressed as a rate.
-                headroom = (soc - min_frac) * storage_capacity / self.dt_hr
+                headroom = (soc - soc_min) * storage_capacity / self.dt_hr
 
                 # Clip and apply discharge efficiency.
                 actual_discharge = max(0.0, min(headroom, max_discharge_input, cmd)) * discharge_eff

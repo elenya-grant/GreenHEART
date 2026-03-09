@@ -330,7 +330,6 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
 
             battery_power, soc = self.simulate(
                 storage_dispatch_commands=pseudo_commands,
-                time_step_duration=self.dt_hr,
                 charge_rate=inputs["max_charge_rate"][0],
                 discharge_rate=inputs["max_charge_rate"][0],
                 storage_capacity=inputs["storage_capacity"][0],
