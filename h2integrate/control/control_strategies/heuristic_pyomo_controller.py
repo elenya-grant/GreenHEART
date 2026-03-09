@@ -97,7 +97,6 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
                 # connecting from an external tech group. This facilitates OM connections
                 if source_tech == intended_dispatch_tech:
                     dispatch_block_rule_function = discrete_inputs["dispatch_block_rule_function"]
-                    self.dispatch_tech.append(source_tech)
                 else:
                     dispatch_block_rule_function = discrete_inputs[
                         f"{'dispatch_block_rule_function'}_{source_tech}"
@@ -174,7 +173,7 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
             # get the starting index for each control window
             window_start_indices = list(range(0, self.n_timesteps, self.config.n_control_window))
 
-            self.initialize_parameters()
+            self.initialize_parameters(inputs)
 
             # loop over all control windows, where t is the starting index of each window
             for t in window_start_indices:
