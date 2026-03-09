@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 import numpy as np
 from attrs import field, define
 
@@ -76,7 +74,7 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         super().setup()
 
         self.add_input(
-            f"{self.commodity}_demand_profile",
+            f"{self.commodity}_demand",
             units=f"{self.config.commodity_rate_units}",
             val=self.config.demand_profile,
             shape=self.n_timesteps,
@@ -111,6 +109,10 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
             units=f"{self.config.commodity_rate_units}",
         )
 
+        self.dt_hr = int(self.options["plant_config"]["plant"]["simulation"]["dt"]) / (
+            60**2
+        )  # convert from seconds to hours
+
     def compute(self, inputs, outputs):
         # Step 1: Auto-size the storage to meet the demand
 
@@ -118,28 +120,30 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         storage_max_fill_rate = np.max(inputs[f"{self.commodity}_in"])
 
         # Set the demand profile
-        if np.sum(inputs[f"{self.commodity}_demand_profile"]) > 0:
-            commodity_demand = inputs[f"{self.commodity}_demand_profile"]
+        if np.sum(inputs[f"{self.commodity}_demand"]) > 0:
+            commodity_demand = inputs[f"{self.commodity}_demand"]
         else:
-            # If the commodity_demand_profile is zero, use the average
+            # If the commodity_demand is zero, use the average
             # commodity_in as the demand
             commodity_demand = np.mean(inputs[f"{self.commodity}_in"]) * np.ones(
                 self.n_timesteps
             )  # TODO: update demand based on end-use needs
 
         # The commodity_set_point is the production set by the controller
-        desired_commodity_production = inputs[f"{self.commodity}_set_point"]
+        # storage_dispatch_commands = inputs[f"{self.commodity}_set_point"]
 
         # TODO: SOC is just an absolute value and is not a percentage. Ideally would calculate as shortfall in future.
         # Size the storage capacity to meet the demand as much as possible
         commodity_storage_soc = []
-        for j in range(len(desired_commodity_production)):
+        for j in range(len(inputs[f"{self.commodity}_in"])):
             if j == 0:
-                commodity_storage_soc.append(desired_commodity_production[j] - commodity_demand[j])
+                commodity_storage_soc.append(
+                    inputs[f"{self.commodity}_in"][j] - commodity_demand[j]
+                )
             else:
                 commodity_storage_soc.append(
                     commodity_storage_soc[j - 1]
-                    + desired_commodity_production[j]
+                    + inputs[f"{self.commodity}_in"][j]
                     - commodity_demand[j]
                 )
 
@@ -155,49 +159,45 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         )
 
         # Step 2: Simulate the storage performance based on the sizes calculated
+        self.current_soc = commodity_storage_soc[0] / commodity_storage_capacity_kg
 
-        # Initialize output arrays of charge and discharge
-        discharge_storage = np.zeros(self.n_timesteps)
-        charge_storage = np.zeros(self.n_timesteps)
-        output_array = np.zeros(self.n_timesteps)
+        storage_commodity_out, soc = self.simulate(
+            storage_dispatch_commands=inputs[f"{self.commodity}_set_point"],
+            charge_rate=storage_max_fill_rate,
+            discharge_rate=storage_max_fill_rate,
+            storage_capacity=commodity_storage_capacity_kg,
+        )
 
-        # Initialize state-of-charge value as the soc at t=0
-        soc = deepcopy(commodity_storage_soc[0])
+        # determine storage charge and discharge
+        # storage_commodity_out is positive when the storage is discharged
+        # and negative when the storage is charged
+        storage_commodity_out = np.array(storage_commodity_out)
 
-        # Simulate a basic storage component
-        for t, demand_t in enumerate(commodity_demand):
-            input_flow = desired_commodity_production[t]
-            available_charge = float(commodity_storage_capacity_kg - soc)
-            available_discharge = float(soc)
+        # calculate combined commodity out from inflow source and storage
+        # (note: storage_commodity_out is negative when charging)
+        combined_commodity_out = inputs[f"{self.commodity}_in"] + storage_commodity_out
 
-            # If demand is greater than the input, discharge storage
-            if demand_t > input_flow:
-                # Discharge storage to meet demand.
-                discharge_needed = demand_t - input_flow
-                discharge = min(discharge_needed, available_discharge, storage_max_fill_rate)
-                # Update SOC
-                soc -= discharge
+        # find the total commodity out to meet demand
+        total_commodity_out = np.minimum(inputs[f"{self.commodity}_demand"], combined_commodity_out)
 
-                discharge_storage[t] = discharge
-                output_array[t] = input_flow + discharge
+        # determine how much of the inflow commodity was unused
+        # unused_commodity = np.maximum(
+        #     0, combined_commodity_out - inputs[f"{self.commodity}_demand"]
+        # )
 
-            # If input is greater than the demand, charge storage
-            else:
-                # Charge storage with unused input
-                unused_input = input_flow - demand_t
-                charge = min(unused_input, available_charge, storage_max_fill_rate)
-                # Update SOC
-                soc += charge
+        # # determine how much demand was not met
+        # unmet_demand = np.maximum(
+        #     0, inputs[f"{self.commodity}_demand"] - combined_commodity_out
+        # )
 
-                charge_storage[t] = charge
-                output_array[t] = demand_t
+        discharge_storage = np.where(storage_commodity_out > 0, storage_commodity_out, 0)
 
         # Output the storage sizes (charge rate and capacity)
         outputs["max_charge_rate"] = storage_max_fill_rate
         outputs["max_capacity"] = commodity_storage_capacity_kg
 
         # commodity_out is the commodity_set_point - charge_storage + discharge_storage
-        outputs[f"{self.commodity}_out"] = output_array
+        outputs[f"{self.commodity}_out"] = total_commodity_out
 
         # The rated_commodity_production is based on the discharge rate
         # (which is assumed equal to the charge rate)
@@ -215,3 +215,123 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
 
         # Capacity factor is total discharged commodity / maximum discharged commodity possible
         outputs["capacity_factor"] = outputs[f"total_{self.commodity}_produced"] / max_production
+
+    def simulate(
+        self,
+        storage_dispatch_commands: list,
+        charge_rate: float,
+        discharge_rate: float,
+        storage_capacity: float,
+        sim_start_index: int = 0,
+    ):
+        """Run the storage model over a control window of ``n_control_window`` timesteps.
+
+        Iterates through ``storage_dispatch_commands`` one timestep at a time.
+        A negative command requests charging; a positive command requests
+        discharging.  Each command is clipped to the most restrictive of three
+        limits before it is applied:
+
+        1. **SOC headroom** - the remaining capacity (charge) or remaining
+           stored commodity (discharge), converted to a rate via
+           ``storage_capacity / dt_hr``.
+        2. **Hardware rate limit** - ``charge_rate`` or ``discharge_rate``,
+           divided by the corresponding efficiency so the limit is expressed
+           in pre-efficiency rate units.
+        3. **Commanded magnitude** - the absolute value of the dispatch command
+           itself (we never exceed what was asked for).
+
+        After clipping, the result is scaled by the charge or discharge
+        efficiency to obtain the actual commodity flow into or out of the
+        storage, and the SOC is updated accordingly.
+
+        This method is separated from ``compute()`` so the Pyomo dispatch
+        controller can call it directly to evaluate candidate schedules.
+
+        Args:
+            storage_dispatch_commands (array_like[float]):
+                Dispatch set-points for each timestep in ``commodity_rate_units``.
+                Negative values command charging; positive values command
+                discharging.  Length must equal ``config.n_control_window``.
+            charge_rate (float):
+                Maximum commodity input rate to storage in
+                ``commodity_rate_units`` (before charge efficiency is applied).
+            discharge_rate (float):
+                Maximum commodity output rate from storage in
+                ``commodity_rate_units`` (before discharge efficiency is applied).
+            storage_capacity (float):
+                Rated storage capacity in ``commodity_amount_units``.
+            sim_start_index (int, optional):
+                Starting index for writing into persistent output arrays.
+                Defaults to 0.
+
+        Returns:
+            tuple[np.ndarray, np.ndarray]
+                storage_commodity_out_timesteps :
+                    Commodity flow per timestep in ``commodity_rate_units``.
+                    Positive = discharge (commodity leaving storage),
+                    negative = charge (commodity entering storage).
+                soc_timesteps :
+                    State of charge at the end of each timestep, in percent
+                    (0-100).
+        """
+
+        n = len(storage_dispatch_commands)
+        storage_commodity_out_timesteps = np.zeros(n)
+        soc_timesteps = np.zeros(n)
+
+        # Early return when storage cannot operate: zero capacity or both
+        # charge and discharge rates are zero.
+        if storage_capacity <= 0 or (charge_rate <= 0 and discharge_rate <= 0):
+            soc_timesteps[:] = self.current_soc * 100.0
+            return storage_commodity_out_timesteps, soc_timesteps
+
+        # Pre-compute scalar constants to avoid repeated attribute lookups
+        # and redundant divisions inside the per-timestep loop.
+        charge_eff = 1.0
+        discharge_eff = 1.0
+        soc_max = 1.0
+        soc_min = 0.0
+
+        # max_charge_input / max_discharge_input are the hardware rate limits
+        # expressed in *pre-efficiency* rate units so they can be compared
+        # directly against the SOC headroom and the raw command magnitude.
+        max_charge_input = charge_rate / charge_eff
+        max_discharge_input = discharge_rate / discharge_eff
+
+        commands = np.asarray(storage_dispatch_commands, dtype=float)
+        soc = float(self.current_soc)
+
+        for t, cmd in enumerate(commands):
+            if cmd < 0.0:
+                # --- Charging ---
+                # headroom: how much more commodity the storage can accept,
+                # expressed as a rate (commodity_rate_units).
+                headroom = (soc_max - soc) * storage_capacity / self.dt_hr
+
+                # Clip to the most restrictive limit, then apply efficiency.
+                # max(0, ...) guards against negative headroom when SOC
+                # slightly exceeds soc_max.
+                actual_charge = max(0.0, min(headroom, max_charge_input, -cmd)) * charge_eff
+
+                # Update SOC (actual_charge is in post-efficiency units)
+                soc += actual_charge / storage_capacity
+                storage_commodity_out_timesteps[t] = -actual_charge
+            else:
+                # --- Discharging ---
+                # headroom: how much commodity can still be drawn before
+                # hitting the minimum SOC, expressed as a rate.
+                headroom = (soc - soc_min) * storage_capacity / self.dt_hr
+
+                # Clip and apply discharge efficiency.
+                actual_discharge = max(0.0, min(headroom, max_discharge_input, cmd)) * discharge_eff
+
+                # Update SOC (actual_discharge is in post-efficiency units)
+                soc -= actual_discharge / storage_capacity
+                storage_commodity_out_timesteps[t] = actual_discharge
+
+            soc_timesteps[t] = soc * 100.0
+
+        # Persist the final SOC so subsequent simulate() calls (e.g. from the
+        # Pyomo controller across rolling windows) start where we left off.
+        self.current_soc = soc
+        return storage_commodity_out_timesteps, soc_timesteps

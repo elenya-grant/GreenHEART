@@ -37,11 +37,22 @@ class PassThroughOpenLoopController(om.ExplicitComponent):
             additional_cls_name=self.__class__.__name__,
         )
 
+        n_timesteps = int(self.options["plant_config"]["plant"]["simulation"]["n_timesteps"])
+
         self.add_input(
             f"{self.config.commodity}_in",
-            shape_by_conn=True,
+            val=0.0,
+            shape=n_timesteps,
             units=self.config.commodity_rate_units,
             desc=f"{self.config.commodity} input timeseries from production to storage",
+        )
+
+        self.add_input(
+            f"{self.config.commodity}_demand",
+            val=0.0,
+            shape=n_timesteps,
+            units=self.config.commodity_rate_units,
+            desc=f"{self.config.commodity} demand",
         )
 
         self.add_output(
@@ -63,7 +74,9 @@ class PassThroughOpenLoopController(om.ExplicitComponent):
         """
 
         # Assign the input to the output
-        outputs[f"{self.config.commodity}_set_point"] = inputs[f"{self.config.commodity}_in"]
+        outputs[f"{self.config.commodity}_set_point"] = (
+            inputs[f"{self.config.commodity}_demand"] - inputs[f"{self.config.commodity}_in"]
+        )
 
     def setup_partials(self):
         """
