@@ -79,7 +79,7 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
 
         Returns:
             callable: Function(performance_model, performance_model_kwargs, inputs, commodity)
-                executing rolling-window heuristic dispatch or optimization and returning:
+                executing rolling-window heuristic dispatch and returning:
                 (total_out, storage_out, unmet_demand, unused_commodity, soc)
         """
         # initialize the pyomo model

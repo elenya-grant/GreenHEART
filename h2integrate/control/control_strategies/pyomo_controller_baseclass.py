@@ -109,9 +109,7 @@ class PyomoControllerBaseClass(om.ExplicitComponent):
     def setup(self):
         """Register per-technology dispatch rule inputs and expose the solver callable.
 
-        Adds discrete inputs named 'dispatch_block_rule_function' (and variants
-        suffixed with source tech names for cross-tech connections) plus a
-        discrete output 'pyomo_dispatch_solver' that will hold the assembled
+        Adds discrete a discrete output 'pyomo_dispatch_solver' that will hold the assembled
         callable after compute().
         """
 
@@ -137,11 +135,11 @@ class PyomoControllerBaseClass(om.ExplicitComponent):
         discrete_outputs["pyomo_dispatch_solver"] = self.pyomo_setup(discrete_inputs)
 
     def pyomo_setup(self, discrete_inputs):
-        """Create the Pyomo model, attach per-tech Blocks, and return dispatch solver.
+        """Create the Pyomo model and return dispatch solver.
 
         Returns:
             callable: Function(performance_model, performance_model_kwargs, inputs, commodity)
-                executing rolling-window heuristic dispatch or optimization and returning:
+                executing rolling-window dispatch and returning:
                 (total_out, storage_out, unmet_demand, unused_commodity, soc)
         """
         # initialize the pyomo model
@@ -160,9 +158,9 @@ class PyomoControllerBaseClass(om.ExplicitComponent):
 
             Iterates over the full simulation period in chunks of size
             `self.config.n_control_window`, (re)configures per-window dispatch
-            parameters, invokes a heuristic control strategy to set fixed
-            dispatch decisions, and then calls the provided performance_model
-            over each window to obtain storage output and SOC trajectories.
+            parameters, applies the chosen control strategy, and then calls the
+            provided performance_model over each window to obtain storage output and
+            SOC trajectories.
 
             Args:
                 performance_model (callable):

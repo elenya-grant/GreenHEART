@@ -139,11 +139,11 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
         self.dispatch_inputs = self.config.make_dispatch_inputs()
 
     def pyomo_setup(self, discrete_inputs):
-        """Create the Pyomo model, attach per-tech Blocks, and return dispatch solver.
+        """Create the Pyomo model, extract dispatch technology names, and return dispatch solver.
 
         Returns:
             callable: Function(performance_model, performance_model_kwargs, inputs, commodity)
-                executing rolling-window heuristic dispatch or optimization and returning:
+                executing rolling-window optimization to determine dispatch and returning:
                 (total_out, storage_out, unmet_demand, unused_commodity, soc)
         """
         # initialize the pyomo model
@@ -154,16 +154,14 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
         self.source_techs = []
         self.dispatch_tech = []
 
-        # run each pyomo rule set up function for each technology
         for connection in self.dispatch_connections:
             # get connection definition
             source_tech, intended_dispatch_tech = connection
             # only add connections to intended dispatch tech
             if any(intended_dispatch_tech in name for name in self.tech_group_name):
-                # Record source and dispatch techs
+                # record source and dispatch techs
                 if source_tech == intended_dispatch_tech:
                     self.dispatch_tech.append(source_tech)
-                # create pyomo block and set attr
                 self.source_techs.append(source_tech)
             else:
                 continue
@@ -181,7 +179,7 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
 
             Iterates over the full simulation period in chunks of size
             `self.config.n_control_window`, (re)configures per-window dispatch
-            parameters, invokes a heuristic control strategy to set fixed
+            parameters, solves the Pyomo optimization model to determine
             dispatch decisions, and then calls the provided performance_model
             over each window to obtain storage output and SOC trajectories.
 
