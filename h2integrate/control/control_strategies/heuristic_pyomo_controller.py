@@ -18,8 +18,54 @@ if TYPE_CHECKING:  # to avoid circular imports
 
 @define(kw_only=True)
 class HeuristicLoadFollowingControllerConfig(PyomoControllerBaseConfig):
+    """Configuration class for the HeuristicLoadFollowingController.
+
+    Attributes:
+        charge_efficiency (float | None, optional): Efficiency of charging the storage, represented
+            as a decimal between 0 and 1 (e.g., 0.9 for 90% efficiency). Optional if
+            `round_trip_efficiency` is provided.
+        discharge_efficiency (float | None, optional): Efficiency of discharging the storage,
+            represented as a decimal between 0 and 1 (e.g., 0.9 for 90% efficiency). Optional if
+            `round_trip_efficiency` is provided.
+        round_trip_efficiency (float | None, optional): Combined efficiency of charging and
+            discharging the storage, represented as a decimal between 0 and 1 (e.g., 0.81 for
+            81% efficiency). Optional if `charge_efficiency` and `discharge_efficiency` are
+            provided.
+    """
+
     charge_efficiency: float = field(validator=range_val_or_none(0, 1), default=None)
     discharge_efficiency: float = field(validator=range_val_or_none(0, 1), default=None)
+    round_trip_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
+
+    def __attrs_post_init__(self):
+        """
+        Post-initialization logic to validate and calculate efficiencies.
+
+        Ensures that either `charge_efficiency` and `discharge_efficiency` are provided,
+        or `round_trip_efficiency` is provided. If `round_trip_efficiency` is provided,
+        it calculates `charge_efficiency` and `discharge_efficiency` as the square root
+        of `round_trip_efficiency`.
+        """
+        if self.round_trip_efficiency is not None:
+            if self.charge_efficiency is not None or self.discharge_efficiency is not None:
+                raise ValueError(
+                    "Exactly one of the following sets of parameters must be set: (a) "
+                    "`round_trip_efficiency`, or (b) both `charge_efficiency` "
+                    "and `discharge_efficiency`."
+                )
+
+            # Calculate charge and discharge efficiencies from round-trip efficiency
+            self.charge_efficiency = np.sqrt(self.round_trip_efficiency)
+            self.discharge_efficiency = np.sqrt(self.round_trip_efficiency)
+        elif self.charge_efficiency is not None and self.discharge_efficiency is not None:
+            # Ensure both charge and discharge efficiencies are provided
+            pass
+        else:
+            raise ValueError(
+                "Exactly one of the following sets of parameters must be set: (a) "
+                "`round_trip_efficiency`, or (b) both `charge_efficiency` "
+                "and `discharge_efficiency`."
+            )
 
 
 class HeuristicLoadFollowingController(PyomoControllerBaseClass):
