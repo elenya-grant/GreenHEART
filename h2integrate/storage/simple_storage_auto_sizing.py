@@ -154,18 +154,16 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
             commodity_storage_soc = [x + np.abs(minimum_soc) for x in commodity_storage_soc]
 
         # Calculate the maximum hydrogen storage capacity needed to meet the demand
-        commodity_storage_capacity_kg = np.max(commodity_storage_soc) - np.min(
-            commodity_storage_soc
-        )
+        commodity_storage_capacity = np.max(commodity_storage_soc) - np.min(commodity_storage_soc)
 
         # Step 2: Simulate the storage performance based on the sizes calculated
-        self.current_soc = commodity_storage_soc[0] / commodity_storage_capacity_kg
+        self.current_soc = commodity_storage_soc[0] / commodity_storage_capacity
 
         storage_commodity_out, soc = self.simulate(
             storage_dispatch_commands=inputs[f"{self.commodity}_set_point"],
             charge_rate=storage_max_fill_rate,
             discharge_rate=storage_max_fill_rate,
-            storage_capacity=commodity_storage_capacity_kg,
+            storage_capacity=commodity_storage_capacity,
         )
 
         # determine storage charge and discharge
@@ -194,7 +192,7 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
 
         # Output the storage sizes (charge rate and capacity)
         outputs["max_charge_rate"] = storage_max_fill_rate
-        outputs["max_capacity"] = commodity_storage_capacity_kg
+        outputs["max_capacity"] = commodity_storage_capacity
 
         # commodity_out is the commodity_set_point - charge_storage + discharge_storage
         outputs[f"{self.commodity}_out"] = total_commodity_out

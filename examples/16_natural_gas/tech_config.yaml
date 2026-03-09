@@ -42,14 +42,14 @@ technologies:
         commodity_rate_units: kW
         max_charge_rate: 25000.0  # kW/time step, 25 MW
         max_capacity: 200000.0  # kWh, 200 MWh
-      control_parameters:
         max_charge_fraction: 1.0  # fraction (0-1)
         min_charge_fraction: 0.1  # fraction (0-1)
         init_charge_fraction: 0.1  # fraction (0-1)
-        max_discharge_rate: 25000.0  # kW/time step
         charge_efficiency: 1.0  # fraction (0-1)
         discharge_efficiency: 1.0  # fraction (0-1)
         demand_profile: 100000  # kW, 100 MW
+      control_parameters:
+        max_discharge_rate: 25000.0  # kW/time step
       cost_parameters:
         cost_year: 2022
         energy_capex: 300  # $/kWh

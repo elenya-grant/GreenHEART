@@ -281,6 +281,7 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
         unused_commodity_array = outputs[f"{commodity}_unused_commodity"]
         output_array = outputs[f"{commodity}_set_point"]
         unmet_demand_array = outputs[f"{commodity}_unmet_demand"]
+        total_output_array = np.zeros(len(output_array))
 
         # Loop through each time step
         for t, demand_t in enumerate(demand_profile):
@@ -309,7 +310,8 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
                 soc -= discharge / max_capacity  # soc is a ratio with value between 0 and 1
                 # output is as observed outside the storage, so we need to adjust `discharge` by
                 # applying `discharge_efficiency`.
-                output_array[t] = input_flow + discharge * discharge_efficiency
+                total_output_array[t] = input_flow + discharge * discharge_efficiency
+                output_array[t] = discharge * discharge_efficiency
             else:
                 # Charge storage with unused input
                 # `unused_input` is as seen outside the storage
@@ -323,7 +325,8 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
                     * charge_efficiency
                 )
                 soc += charge / max_capacity  # soc is a ratio with value between 0 and 1
-                output_array[t] = demand_t
+                output_array[t] = -1 * charge * charge_efficiency
+                total_output_array[t] = demand_t
 
             # Ensure SOC stays within bounds
             soc = max(min_charge_fraction, min(max_charge_fraction, soc))
@@ -336,7 +339,7 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
             unused_commodity_array[t] = max(0.0, unused_input - charge / charge_efficiency)
 
             # Record the missed load at the current time step
-            unmet_demand_array[t] = max(0.0, (demand_t - output_array[t]))
+            unmet_demand_array[t] = max(0.0, (demand_t - total_output_array[t]))
 
         outputs[f"{commodity}_set_point"] = output_array
 
