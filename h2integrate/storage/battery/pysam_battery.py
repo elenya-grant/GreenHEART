@@ -425,48 +425,53 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
         soc_max = self.system_model.value("maximum_SOC") / 100.0
         soc_min = self.system_model.value("minimum_SOC") / 100.0
 
-        for t, dispatch_command_t in enumerate(storage_dispatch_commands):
-            # get storage SOC at time t
+        commands = np.asarray(storage_dispatch_commands, dtype=float)
+
+        for t, cmd in enumerate(commands):
+            # get storage SOC at time t as a fraction
             soc = self.system_model.value("SOC") / 100.0
 
-            # manually adjust the dispatch command based on SOC
-            ## for when battery is withing set bounds
-            # according to specs
-            max_chargeable_0 = charge_rate
-            # according to simulation
-            max_chargeable_1 = np.maximum(0, -self.system_model.value("P_chargeable"))
-            # according to soc
-            max_chargeable_2 = np.maximum(0, (soc_max - soc) * storage_capacity / self.dt_hr)
-            # compare all versions of max_chargeable
-            max_chargeable = np.min([max_chargeable_0, max_chargeable_1, max_chargeable_2])
+            if cmd < 0.0:
+                # --- Charging ---
+                # headroom: how much more commodity the storage can accept,
+                # expressed as a rate (commodity_rate_units).
+                headroom = (soc_max - soc) * storage_capacity / self.dt_hr
 
-            # according to specs
-            max_dischargeable_0 = discharge_rate
-            # according to simulation
-            max_dischargeable_1 = np.maximum(0, self.system_model.value("P_dischargeable"))
-            # according to soc
-            max_dischargeable_2 = np.maximum(0, (soc - soc_min) * storage_capacity / self.dt_hr)
-            # compare all versions of max_dischargeable
-            max_dischargeable = np.min(
-                [max_dischargeable_0, max_dischargeable_1, max_dischargeable_2]
-            )
+                # Calculate the max charge according to the charge rate and the simulation
+                max_charge_input = min([charge_rate, -self.system_model.value("P_chargeable")])
 
-            if dispatch_command_t < -max_chargeable:
-                dispatch_command_t = -max_chargeable
-            if dispatch_command_t > max_dischargeable:
-                dispatch_command_t = max_dischargeable
+                # Clip to the most restrictive limit,
+                # max(0, ...) guards against negative headroom when SOC
+                # slightly exceeds soc_max.
+                actual_charge = max(0.0, min(headroom, max_charge_input, -cmd))
 
-            # if battery soc is outside the set bounds, discharge battery down to set bounds
-            if (soc > soc_max) and dispatch_command_t < 0:  # and (dispatch_command_t <= 0):
-                dispatch_command_t = 0.0
+                # Update the charge command for the PySAM batttery
+                cmd = -actual_charge
+
+            else:
+                # --- Discharging ---
+                # headroom: how much commodity can still be drawn before
+                # hitting the minimum SOC, expressed as a rate.
+                headroom = (soc - soc_min) * storage_capacity / self.dt_hr
+
+                # Calculate the max discharge according to the discharge rate and the simulation
+                max_discharge_input = min(
+                    [discharge_rate, self.system_model.value("P_dischargeable")]
+                )
+
+                # Clip and apply discharge efficiency.
+                actual_discharge = max(0.0, min(headroom, max_discharge_input, cmd))
+
+                # Update the discharge command for the PySAM batttery
+                cmd = actual_discharge
 
             # Set the input variable to the desired value
-            self.system_model.value(control_variable, dispatch_command_t)
+            self.system_model.value(control_variable, cmd)
 
             # Simulate the PySAM BatteryStateful model
             self.system_model.execute(0)
 
-            # save outputs
+            # Save outputs at time t based on the simulation
             storage_power_out_timesteps[t] = self.system_model.value("P")
             soc_timesteps[t] = self.system_model.value("SOC")
 
