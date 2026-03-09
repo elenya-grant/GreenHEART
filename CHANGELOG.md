@@ -11,6 +11,8 @@
   configuration classes, YAML configs, tests, and examples. These values are fractions
   between 0 and 1, so the previous "percent" naming was misleading. [PR 581](https://github.com/NatLabRockies/H2Integrate/pull/581)
 - Breaks out pyomo controller simulation code from base class to individual controllers. [PR 587](https://github.com/NatLabRockies/H2Integrate/pull/587)
+- Reorganized utilities, split them out to appropriate modules [PR 586](https://github.com/NatLabRockies/H2Integrate/pull/586)
+- Added a generic storage model that is compatible with the Pyomo controllers [PR 571](https://github.com/NatLabRockies/H2Integrate/pull/571)
 
 ## 0.7 [March 3, 2026]
 
