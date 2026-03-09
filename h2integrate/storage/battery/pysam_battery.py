@@ -302,7 +302,6 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
             # Simulate the battery with provided dispatch inputs
             dispatch = discrete_inputs["pyomo_dispatch_solver"]
             kwargs = {
-                "time_step_duration": self.dt_hr,
                 "charge_rate": inputs["max_charge_rate"][0],
                 "discharge_rate": inputs["max_charge_rate"][0],
                 "storage_capacity": inputs["storage_capacity"][0],
@@ -380,7 +379,6 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
     def simulate(
         self,
         storage_dispatch_commands: list,
-        time_step_duration: list,
         charge_rate: float,
         discharge_rate: float,
         storage_capacity: float,
@@ -405,9 +403,6 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
             storage_dispatch_commands : Sequence[float]
                 Commanded power per timestep (kW). Negative = charge, positive = discharge.
                 Length should be = ``config.n_control_window``.
-            time_step_duration : float | Sequence[float]
-                Timestep duration in hours. Scalar applied uniformly or sequence matching
-                ``len(storage_dispatch_commands)``.
             control_variable : str
                 PySAM control input to set each step ("input_power" or "input_current").
             sim_start_index : int, optional
@@ -421,7 +416,7 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
         """
 
         # Loop through the provided input power/current (decided by control_variable)
-        self.system_model.value("dt_hr", time_step_duration)
+        self.system_model.value("dt_hr", self.dt_hr)
 
         # initialize outputs
         storage_power_out_timesteps = np.zeros(self.config.n_control_window)
