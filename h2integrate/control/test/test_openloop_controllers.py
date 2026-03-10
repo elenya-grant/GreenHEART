@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 import openmdao.api as om
 from pytest import fixture
-from openmdao.utils.assert_utils import assert_check_totals
 
 from h2integrate.control.control_strategies.passthrough_openloop_controller import (
     PassThroughOpenLoopController,
@@ -78,24 +77,6 @@ def test_pass_through_controller(subtests):
         assert pytest.approx(
             prob.get_val("hydrogen_set_point", units="kg/h"), rel=1e-3
         ) == np.arange(4.5, -5.5, -1)
-
-    # Run the test
-    with subtests.test("Check derivatives"):
-        # check total derivatives using OpenMDAO's check_totals and assert tools
-        assert_check_totals(
-            prob.check_totals(
-                of=[
-                    "hydrogen_set_point",
-                ],
-                wrt=[
-                    "hydrogen_in",
-                ],
-                step=1e-6,
-                form="central",
-                show_only_incorrect=False,
-                out_stream=None,
-            )
-        )
 
 
 @pytest.mark.regression

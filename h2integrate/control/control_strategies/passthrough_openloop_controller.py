@@ -87,29 +87,3 @@ class PassThroughOpenLoopController(om.ExplicitComponent):
         outputs[f"{self.config.commodity}_set_point"] = (
             commodity_demand - inputs[f"{self.config.commodity}_in"]
         )
-
-    def setup_partials(self):
-        """
-        Declare partial derivatives as unity throughout the design space.
-
-        This method specifies that the derivative of the output with respect to the input is
-        always 1.0, consistent with the pass-through behavior.
-
-        Note:
-        This method is not currently used and isn't strictly needed if you're creating other
-        controllers; it is included as a nod towards potential future development enabling
-        more derivative information passing.
-        """
-
-        # Get the size of the input/output array
-        size = self._get_var_meta(f"{self.config.commodity}_in", "size")
-
-        # Declare partials sparsely for all elements as an identity matrix
-        # (diagonal elements are 1.0, others are 0.0)
-        self.declare_partials(
-            of=f"{self.config.commodity}_set_point",
-            wrt=f"{self.config.commodity}_in",
-            rows=np.arange(size),
-            cols=np.arange(size),
-            val=np.ones(size),  # Diagonal elements are 1.0
-        )
