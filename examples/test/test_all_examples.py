@@ -919,12 +919,9 @@ def test_natural_gas_example(subtests, temp_copy_of_example):
 
     model.run()
 
-    model.post_process()
     solar_aep = sum(model.prob.get_val("solar.electricity_out", units="kW"))
     solar_bat_out_total = sum(model.prob.get_val("battery.electricity_out", units="kW"))
-    solar_curtailed_total = sum(
-        model.prob.get_val("battery.electricity_unused_commodity", units="kW")
-    )
+    solar_curtailed_total = sum(model.prob.get_val("battery.unused_electricity_out", units="kW"))
 
     renewable_subgroup_total_electricity = (
         model.prob.get_val("finance_subgroup_renewables.rated_electricity_production", units="kW")[
@@ -954,7 +951,7 @@ def test_natural_gas_example(subtests, temp_copy_of_example):
 
     # NOTE: battery output power is not included in any of the financials
 
-    pre_ng_missed_load = model.prob.get_val("battery.electricity_unmet_demand", units="kW")
+    pre_ng_missed_load = model.prob.get_val("battery.unmet_electricity_demand_out", units="kW")
     ng_electricity_demand = model.prob.get_val("natural_gas_plant.electricity_demand", units="kW")
     ng_electricity_production = model.prob.get_val("natural_gas_plant.electricity_out", units="kW")
     bat_init_charge = 200000.0 * 0.1  # max capacity in kW and initial charge rate percentage

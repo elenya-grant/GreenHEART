@@ -9,16 +9,21 @@ from h2integrate.core.model_baseclasses import PerformanceModelBaseClass
 @define(kw_only=True)
 class SimpleGenericStorageConfig(BaseConfig):
     commodity: str = field()
-    commodity_rate_units: str = field()  # TODO: update to commodity_rate_units
+    commodity_rate_units: str = field()
     max_charge_rate: float = field(validator=gte_zero)
     max_capacity: float = field()
+    demand_profile: int | float | list = field()
     max_charge_fraction: float = field(validator=range_val(0, 1))
     min_charge_fraction: float = field(validator=range_val(0, 1))
     init_charge_fraction: float = field(validator=range_val(0, 1))
+
+    commodity_amount_units: str = field(default=None)
+    max_discharge_rate: float | None = field(default=None)
+    charge_equals_discharge: bool = field(default=True)
+
     charge_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
     discharge_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
     round_trip_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
-    demand_profile: int | float | list = field()
 
     def __attrs_post_init__(self):
         """
@@ -32,9 +37,11 @@ class SimpleGenericStorageConfig(BaseConfig):
         if self.round_trip_efficiency is not None:
             if self.charge_efficiency is not None or self.discharge_efficiency is not None:
                 raise ValueError(
-                    "Provide either `round_trip_efficiency` or both `charge_efficiency` "
-                    "and `discharge_efficiency`, but not both."
+                    "Exactly one of the following sets of parameters must be set: (a) "
+                    "`round_trip_efficiency`, or (b) both `charge_efficiency` "
+                    "and `discharge_efficiency`."
                 )
+
             # Calculate charge and discharge efficiencies from round-trip efficiency
             self.charge_efficiency = np.sqrt(self.round_trip_efficiency)
             self.discharge_efficiency = np.sqrt(self.round_trip_efficiency)
@@ -43,9 +50,34 @@ class SimpleGenericStorageConfig(BaseConfig):
             pass
         else:
             raise ValueError(
-                "You must provide either `round_trip_efficiency` or both "
-                "`charge_efficiency` and `discharge_efficiency`."
+                "Exactly one of the following sets of parameters must be set: (a) "
+                "`round_trip_efficiency`, or (b) both `charge_efficiency` "
+                "and `discharge_efficiency`."
             )
+
+        if self.charge_equals_discharge:
+            if (
+                self.max_discharge_rate is not None
+                and self.max_discharge_rate != self.max_charge_rate
+            ):
+                msg = (
+                    "Max discharge rate does not equal max charge rate but charge_equals_discharge "
+                    f"is True. Discharge rate is {self.max_discharge_rate} and charge rate "
+                    f"is {self.max_charge_rate}."
+                )
+                raise ValueError(msg)
+
+            self.max_discharge_rate = self.max_charge_rate
+
+        if not self.charge_equals_discharge and self.max_discharge_rate is None:
+            msg = (
+                "max_discharge_rate is required when charge_equals_discharge is False. "
+                "Please input the discharge rate using the key `max_discharge_rate`."
+            )
+            raise ValueError(msg)
+
+        if self.commodity_amount_units is None:
+            self.commodity_amount_units = f"({self.commodity_rate_units})*h"
 
 
 class SimpleGenericStorage(PerformanceModelBaseClass):
@@ -66,7 +98,8 @@ class SimpleGenericStorage(PerformanceModelBaseClass):
         )
         self.commodity = self.config.commodity
         self.commodity_rate_units = self.config.commodity_rate_units
-        self.commodity_amount_units = f"({self.commodity_rate_units})*h"
+        self.commodity_amount_units = self.config.commodity_amount_units
+
         super().setup()
         self.add_input(
             f"{self.commodity}_set_point",
@@ -89,6 +122,7 @@ class SimpleGenericStorage(PerformanceModelBaseClass):
             shape=self.n_timesteps,
             desc=f"{self.commodity} demand profile timeseries",
         )
+
         self.add_input(
             "max_charge_rate",
             val=self.config.max_charge_rate,
@@ -101,6 +135,65 @@ class SimpleGenericStorage(PerformanceModelBaseClass):
             units=self.commodity_amount_units,
             desc="Storage capacity",
         )
+        if not self.config.charge_equals_discharge:
+            self.add_input(
+                "max_discharge_rate",
+                val=0.0,
+                shape=1,
+                units=self.commodity_rate_units,
+                desc="Storage discharge rate",
+            )
+
+        self.add_output(
+            "storage_duration",
+            units=f"({self.commodity_amount_units})/({self.commodity_rate_units})",
+            desc="Estimated storage duration based on max capacity and discharge rate",
+        )
+        # Set storage performance outputs
+        self.add_output(
+            f"unmet_{self.commodity}_demand_out",
+            val=0.0,
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc=f"Unmet {self.commodity} demand",
+        )
+
+        self.add_output(
+            f"unused_{self.commodity}_out",
+            val=0.0,
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc="Unused generated commodity",
+        )
+        self.add_output(
+            f"storage_{self.commodity}_out",
+            val=0.0,
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc=f"{self.commodity} input and output from storage",
+        )
+        self.add_output(
+            f"storage_{self.commodity}_discharge",
+            val=0.0,
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc=f"{self.commodity} output from storage only",
+        )
+
+        self.add_output(
+            f"storage_{self.commodity}_charge",
+            val=0.0,
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc=f"{self.commodity} input to storage only",
+        )
+        self.add_output(
+            "SOC",
+            val=0.0,
+            shape=self.n_timesteps,
+            units="percent",
+            desc="State of charge of storage",
+        )
 
         self.dt_hr = int(self.options["plant_config"]["plant"]["simulation"]["dt"]) / (
             60**2
@@ -109,14 +202,17 @@ class SimpleGenericStorage(PerformanceModelBaseClass):
     def compute(self, inputs, outputs):
         self.current_soc = float(self.config.init_charge_fraction)
 
+        if self.config.charge_equals_discharge:
+            discharge_rate = inputs["max_charge_rate"][0]
+        else:
+            discharge_rate = inputs["max_discharge_rate"][0]
         storage_commodity_out, soc = self.simulate(
             storage_dispatch_commands=inputs[f"{self.commodity}_set_point"],
             charge_rate=inputs["max_charge_rate"][0],
-            discharge_rate=inputs["max_charge_rate"][0],
+            discharge_rate=discharge_rate,
             storage_capacity=inputs["storage_capacity"][0],
         )
 
-        # determine storage charge and discharge
         # storage_commodity_out is positive when the storage is discharged
         # and negative when the storage is charged
         storage_commodity_out = np.array(storage_commodity_out)
@@ -129,36 +225,54 @@ class SimpleGenericStorage(PerformanceModelBaseClass):
         total_commodity_out = np.minimum(inputs[f"{self.commodity}_demand"], combined_commodity_out)
 
         # determine how much of the inflow commodity was unused
-        # unused_commodity = np.maximum(
-        #     0, combined_commodity_out - inputs[f"{self.commodity}_demand"]
-        # )
+        unused_commodity = np.maximum(
+            0, combined_commodity_out - inputs[f"{self.commodity}_demand"]
+        )
 
-        # # determine how much demand was not met
-        # unmet_demand = np.maximum(
-        #     0, inputs[f"{self.commodity}_demand"] - combined_commodity_out
-        # )
+        # determine how much demand was not met
+        unmet_demand = np.maximum(0, inputs[f"{self.commodity}_demand"] - combined_commodity_out)
 
-        np.where(storage_commodity_out > 0, storage_commodity_out, 0)
+        outputs["storage_duration"] = inputs["storage_capacity"] / discharge_rate
 
-        # TODO: update the below outputs
-        # Pass the commodity_out as the commodity_set_point
+        # Output the storage performance timeseries
+
+        # storage_commodity_charge is the charge profile and is always <=0
+        outputs[f"storage_{self.commodity}_charge"] = np.where(
+            storage_commodity_out < 0, storage_commodity_out, 0
+        )
+        # storage_commodity_discharge is the discharge profile and is always <=0
+        outputs[f"storage_{self.commodity}_discharge"] = np.where(
+            storage_commodity_out > 0, storage_commodity_out, 0
+        )
+
+        outputs[f"unmet_{self.commodity}_demand_out"] = unmet_demand
+        outputs[f"unused_{self.commodity}_out"] = unused_commodity
+        outputs["SOC"] = soc
+        # storage_commodity_out is the combined charge and discharge profile
+        outputs[f"storage_{self.commodity}_out"] = storage_commodity_out
+
+        # commodity_out is the commodity_in - charge_storage + discharge_storage
         outputs[f"{self.commodity}_out"] = total_commodity_out
 
-        # Set the rated commodity production from the max_charge_rate input
-        outputs[f"rated_{self.commodity}_production"] = inputs["max_charge_rate"]
+        # Output the standard performance model outputs
+        # The rated_commodity_production is based on the discharge rate
+        outputs[f"rated_{self.commodity}_production"] = discharge_rate
 
-        # Calculate the total and annual commodity produced
+        # The total_commodity_produced is the sum of the commodity to meet demand
         outputs[f"total_{self.commodity}_produced"] = outputs[f"{self.commodity}_out"].sum()
+
+        # Adjust the total_commodity_produced to a year-long simulation
         outputs[f"annual_{self.commodity}_produced"] = outputs[
             f"total_{self.commodity}_produced"
         ] * (1 / self.fraction_of_year_simulated)
 
         # Calculate the maximum theoretical commodity production over the simulation
-        rated_production = (
+        max_production = (
             outputs[f"rated_{self.commodity}_production"] * self.n_timesteps * (self.dt / 3600)
         )
 
-        outputs["capacity_factor"] = outputs[f"total_{self.commodity}_produced"] / rated_production
+        # Capacity factor is total commodity produced / maximum discharged commodity possible
+        outputs["capacity_factor"] = outputs[f"total_{self.commodity}_produced"] / max_production
 
     def simulate(
         self,

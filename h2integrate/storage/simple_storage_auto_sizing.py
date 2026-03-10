@@ -163,10 +163,10 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
 
         # Output the calculated storage capacities
         self.add_output(
-            "max_capacity",
+            "max_capacity",  # TODO: rename to max_capacity
             val=0.0,
             shape=1,
-            units=f"({self.commodity_rate_units})*h",
+            units=f"({self.commodity_rate_units})*h",  # TODO: update to commodity_amount_units
         )
 
         self.add_output(
@@ -183,6 +183,11 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
                 units=self.commodity_rate_units,
                 desc="Storage discharge rate",
             )
+        self.add_output(
+            "storage_duration",
+            units=f"({self.commodity_amount_units})/({self.commodity_rate_units})",
+            desc="Estimated storage duration based on max capacity and discharge rate",
+        )
         # Set storage performance outputs
         self.add_output(
             f"unmet_{self.commodity}_demand_out",
@@ -327,6 +332,8 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
 
         outputs[f"unmet_{self.commodity}_demand_out"] = unmet_demand
         outputs[f"unused_{self.commodity}_out"] = unused_commodity
+        outputs["SOC"] = soc
+        # storage_commodity_out is the combined charge and discharge profile
         outputs[f"storage_{self.commodity}_out"] = storage_commodity_out
 
         # Output the storage sizes (charge rate and capacity)
@@ -334,14 +341,16 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         outputs["max_capacity"] = commodity_storage_capacity
         if "max_discharge_rate" in outputs:
             outputs["max_discharge_rate"] = storage_max_unfill_rate
+        outputs["storage_duration"] = outputs["max_capacity"] / storage_max_unfill_rate
 
-        # commodity_out is the commodity_set_point - charge_storage + discharge_storage
+        # commodity_out is the commodity_in - charge_storage + discharge_storage
         outputs[f"{self.commodity}_out"] = total_commodity_out
 
+        # Output the standard performance model outputs
         # The rated_commodity_production is based on the discharge rate
         outputs[f"rated_{self.commodity}_production"] = storage_max_unfill_rate
 
-        # The total_commodity_produced is the sum of the commodity discharged from storage
+        # The total_commodity_produced is the sum of the commodity to meet demand
         outputs[f"total_{self.commodity}_produced"] = np.sum(total_commodity_out)
 
         # Adjust the total_commodity_produced to a year-long simulation
