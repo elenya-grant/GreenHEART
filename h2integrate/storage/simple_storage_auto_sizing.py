@@ -2,6 +2,7 @@ import numpy as np
 from attrs import field, define
 
 from h2integrate.core.utilities import BaseConfig, merge_shared_inputs
+from h2integrate.core.validators import range_val, range_val_or_none
 from h2integrate.core.model_baseclasses import PerformanceModelBaseClass
 
 
@@ -9,12 +10,77 @@ from h2integrate.core.model_baseclasses import PerformanceModelBaseClass
 class StorageSizingModelConfig(BaseConfig):
     """Configuration class for the StorageAutoSizingModel.
 
-    Fields include `commodity`, `commodity_rate_units`, and `demand_profile`.
+    Attributes:
+        commodity (str): name of commodity. Defaults to "hydrogen".
+        commodity_rate_units (str): Units of the commodity (e.g., "kg/h"). Defaults to "kg/h".
+        demand_profile (int | float | list): Commodity demand in commodity_rate_units. If 0,
+            then assumes the demand is the mean of the input commodity. Defaults to 0.
+        min_charge_fraction (float): Minimum allowable state of charge as a fraction (0 to 1).
+            Defaults to 0.
+        max_charge_fraction (float): Maximum allowable state of charge as a fraction (0 to 1).
+            Defaults to 1.0
+        commodity_amount_units (str | None, optional): Units of the commodity as an amount
+            (i.e., kW*h or kg). If not provided, defaults to commodity_rate_units*h.
+        charge_equals_discharge (bool, optional): If True, outputs the max_discharge_rate
+            in addition to the max_charge_rate.
+        charge_efficiency (float | None, optional): Efficiency of charging the storage, represented
+            as a decimal between 0 and 1 (e.g., 0.9 for 90% efficiency). Optional if
+            `round_trip_efficiency` is provided.
+        discharge_efficiency (float | None, optional): Efficiency of discharging the storage,
+            represented as a decimal between 0 and 1 (e.g., 0.9 for 90% efficiency). Optional if
+            `round_trip_efficiency` is provided.
+        round_trip_efficiency (float | None, optional): Combined efficiency of charging and
+            discharging the storage, represented as a decimal between 0 and 1 (e.g., 0.81 for
+            81% efficiency). Optional if `charge_efficiency` and `discharge_efficiency` are
+            provided.
     """
 
     commodity: str = field(default="hydrogen")
-    commodity_rate_units: str = field(default="kg/h")  # TODO: update to commodity_rate_units
+    commodity_rate_units: str = field(default="kg/h")
     demand_profile: int | float | list = field(default=0.0)
+
+    min_charge_fraction: float = field(default=0.0, validator=range_val(0, 1))
+    max_charge_fraction: float = field(default=1.0, validator=range_val(0, 1))
+
+    commodity_amount_units: str = field(default=None)
+    charge_equals_discharge: bool = field(default=True)
+
+    charge_efficiency: float | None = field(default=1.0, validator=range_val_or_none(0, 1))
+    discharge_efficiency: float | None = field(default=1.0, validator=range_val_or_none(0, 1))
+    round_trip_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
+
+    def __attrs_post_init__(self):
+        """
+        Post-initialization logic to validate and calculate efficiencies.
+
+        Ensures that either `charge_efficiency` and `discharge_efficiency` are provided,
+        or `round_trip_efficiency` is provided. If `round_trip_efficiency` is provided,
+        it calculates `charge_efficiency` and `discharge_efficiency` as the square root
+        of `round_trip_efficiency`.
+        """
+        if self.round_trip_efficiency is not None:
+            if self.charge_efficiency is not None or self.discharge_efficiency is not None:
+                raise ValueError(
+                    "Exactly one of the following sets of parameters must be set: (a) "
+                    "`round_trip_efficiency`, or (b) both `charge_efficiency` "
+                    "and `discharge_efficiency`."
+                )
+
+            # Calculate charge and discharge efficiencies from round-trip efficiency
+            self.charge_efficiency = np.sqrt(self.round_trip_efficiency)
+            self.discharge_efficiency = np.sqrt(self.round_trip_efficiency)
+        elif self.charge_efficiency is not None and self.discharge_efficiency is not None:
+            # Ensure both charge and discharge efficiencies are provided
+            pass
+        else:
+            raise ValueError(
+                "Exactly one of the following sets of parameters must be set: (a) "
+                "`round_trip_efficiency`, or (b) both `charge_efficiency` "
+                "and `discharge_efficiency`."
+            )
+
+        if self.commodity_amount_units is None:
+            self.commodity_amount_units = f"({self.commodity_rate_units})*h"
 
 
 class StorageAutoSizingModel(PerformanceModelBaseClass):
@@ -75,7 +141,7 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
 
         self.add_input(
             f"{self.commodity}_demand",
-            units=f"{self.config.commodity_rate_units}",
+            units=self.commodity_rate_units,
             val=self.config.demand_profile,
             shape=self.n_timesteps,
             desc=f"{self.commodity} demand profile timeseries",
@@ -84,29 +150,83 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         self.add_input(
             f"{self.commodity}_in",
             shape_by_conn=True,
-            units=f"{self.config.commodity_rate_units}",
+            units=self.commodity_rate_units,
             desc=f"{self.commodity} input timeseries from production to storage",
         )
 
         self.add_input(
             f"{self.commodity}_set_point",
             shape_by_conn=True,
-            units=f"{self.config.commodity_rate_units}",
+            units=self.commodity_rate_units,
             desc=f"{self.commodity} input set point from controller",
         )
 
+        # Output the calculated storage capacities
         self.add_output(
             "max_capacity",
             val=0.0,
             shape=1,
-            units=f"({self.config.commodity_rate_units})*h",
+            units=f"({self.commodity_rate_units})*h",
         )
 
         self.add_output(
             "max_charge_rate",
             val=0.0,
             shape=1,
-            units=f"{self.config.commodity_rate_units}",
+            units=self.commodity_rate_units,
+        )
+        if not self.config.charge_equals_discharge:
+            self.add_output(
+                "max_discharge_rate",
+                val=0.0,
+                shape=1,
+                units=self.commodity_rate_units,
+                desc="Storage discharge rate",
+            )
+        # Set storage performance outputs
+        self.add_output(
+            f"unmet_{self.commodity}_demand_out",
+            val=0.0,
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc=f"Unmet {self.commodity} demand",
+        )
+
+        self.add_output(
+            f"unused_{self.commodity}_out",
+            val=0.0,
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc="Unused generated commodity",
+        )
+        self.add_output(
+            f"storage_{self.commodity}_out",
+            val=0.0,
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc=f"{self.commodity} input and output from storage",
+        )
+        self.add_output(
+            f"storage_{self.commodity}_discharge",
+            val=0.0,
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc=f"{self.commodity} output from storage only",
+        )
+
+        self.add_output(
+            f"storage_{self.commodity}_charge",
+            val=0.0,
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc=f"{self.commodity} input to storage only",
+        )
+        self.add_output(
+            "SOC",
+            val=0.0,
+            shape=self.n_timesteps,
+            units="percent",
+            desc="State of charge of storage",
         )
 
         self.dt_hr = int(self.options["plant_config"]["plant"]["simulation"]["dt"]) / (
@@ -117,7 +237,12 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         # Step 1: Auto-size the storage to meet the demand
 
         # Auto-size the fill rate as the max of the input commodity
-        storage_max_fill_rate = np.max(inputs[f"{self.commodity}_in"])
+        storage_max_fill_rate = (
+            np.max(inputs[f"{self.commodity}_in"]) / self.config.charge_efficiency
+        )
+        storage_max_unfill_rate = (
+            np.max(inputs[f"{self.commodity}_in"]) / self.config.discharge_efficiency
+        )
 
         # Set the demand profile
         if np.sum(inputs[f"{self.commodity}_demand"]) > 0:
@@ -129,19 +254,14 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
                 self.n_timesteps
             )  # TODO: update demand based on end-use needs
 
-        # The commodity_set_point is the production set by the controller
-        # storage_dispatch_commands = inputs[f"{self.commodity}_set_point"]
-
         # TODO: SOC is just an absolute value and is not a percentage. Ideally would calculate as shortfall in future.
         # Size the storage capacity to meet the demand as much as possible
-        commodity_storage_soc = []
+        commodity_storage_soc = np.zeros(self.n_timesteps)
         for j in range(len(inputs[f"{self.commodity}_in"])):
             if j == 0:
-                commodity_storage_soc.append(
-                    inputs[f"{self.commodity}_in"][j] - commodity_demand[j]
-                )
+                commodity_storage_soc[j] = inputs[f"{self.commodity}_in"][j] - commodity_demand[j]
             else:
-                commodity_storage_soc.append(
+                commodity_storage_soc[j] = (
                     commodity_storage_soc[j - 1]
                     + inputs[f"{self.commodity}_in"][j]
                     - commodity_demand[j]
@@ -150,19 +270,30 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         minimum_soc = np.min(commodity_storage_soc)
 
         # Adjust soc so it's not negative.
-        if minimum_soc < 0:
-            commodity_storage_soc = [x + np.abs(minimum_soc) for x in commodity_storage_soc]
+        if np.min(commodity_storage_soc) < 0:
+            commodity_storage_soc = np.abs(minimum_soc) + commodity_storage_soc
+            # commodity_storage_soc = [x + np.abs(minimum_soc) for x in commodity_storage_soc]
 
         # Calculate the maximum hydrogen storage capacity needed to meet the demand
-        commodity_storage_capacity = np.max(commodity_storage_soc) - np.min(commodity_storage_soc)
+        commodity_storage_capacity_max = np.max(commodity_storage_soc) - np.min(
+            commodity_storage_soc
+        )
+
+        # Increase capacity to adjust for min and max SOC bounds
+        commodity_storage_capacity = commodity_storage_capacity_max / (
+            self.config.max_charge_fraction - self.config.min_charge_fraction
+        )
 
         # Step 2: Simulate the storage performance based on the sizes calculated
-        self.current_soc = commodity_storage_soc[0] / commodity_storage_capacity
+        # Initialize the starting SOC
+        self.current_soc = np.max(
+            [commodity_storage_soc[0] / commodity_storage_capacity, self.config.min_charge_fraction]
+        )
 
         storage_commodity_out, soc = self.simulate(
             storage_dispatch_commands=inputs[f"{self.commodity}_set_point"],
             charge_rate=storage_max_fill_rate,
-            discharge_rate=storage_max_fill_rate,
+            discharge_rate=storage_max_unfill_rate,
             storage_capacity=commodity_storage_capacity,
         )
 
@@ -179,39 +310,49 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         total_commodity_out = np.minimum(commodity_demand, combined_commodity_out)
 
         # determine how much of the inflow commodity was unused
-        # unused_commodity = np.maximum(
-        #     0, combined_commodity_out - inputs[f"{self.commodity}_demand"]
-        # )
+        unused_commodity = np.maximum(
+            0, combined_commodity_out - inputs[f"{self.commodity}_demand"]
+        )
 
-        # # determine how much demand was not met
-        # unmet_demand = np.maximum(
-        #     0, inputs[f"{self.commodity}_demand"] - combined_commodity_out
-        # )
+        # determine how much demand was not met
+        unmet_demand = np.maximum(0, inputs[f"{self.commodity}_demand"] - combined_commodity_out)
 
-        discharge_storage = np.where(storage_commodity_out > 0, storage_commodity_out, 0)
+        # Output the storage performance timeseries
+        outputs[f"storage_{self.commodity}_charge"] = np.where(
+            storage_commodity_out < 0, storage_commodity_out, 0
+        )
+        outputs[f"storage_{self.commodity}_discharge"] = np.where(
+            storage_commodity_out > 0, storage_commodity_out, 0
+        )
+
+        outputs[f"unmet_{self.commodity}_demand_out"] = unmet_demand
+        outputs[f"unused_{self.commodity}_out"] = unused_commodity
+        outputs[f"storage_{self.commodity}_out"] = storage_commodity_out
 
         # Output the storage sizes (charge rate and capacity)
         outputs["max_charge_rate"] = storage_max_fill_rate
         outputs["max_capacity"] = commodity_storage_capacity
+        if "max_discharge_rate" in outputs:
+            outputs["max_discharge_rate"] = storage_max_unfill_rate
 
         # commodity_out is the commodity_set_point - charge_storage + discharge_storage
         outputs[f"{self.commodity}_out"] = total_commodity_out
 
         # The rated_commodity_production is based on the discharge rate
-        # (which is assumed equal to the charge rate)
-        outputs[f"rated_{self.commodity}_production"] = storage_max_fill_rate
+        outputs[f"rated_{self.commodity}_production"] = storage_max_unfill_rate
 
         # The total_commodity_produced is the sum of the commodity discharged from storage
-        outputs[f"total_{self.commodity}_produced"] = discharge_storage.sum()
+        outputs[f"total_{self.commodity}_produced"] = np.sum(total_commodity_out)
+
         # Adjust the total_commodity_produced to a year-long simulation
         outputs[f"annual_{self.commodity}_produced"] = outputs[
             f"total_{self.commodity}_produced"
         ] * (1 / self.fraction_of_year_simulated)
 
         # The maximum production is based on the charge/discharge rate
-        max_production = storage_max_fill_rate * self.n_timesteps * (self.dt / 3600)
+        max_production = storage_max_unfill_rate * self.n_timesteps * (self.dt / 3600)
 
-        # Capacity factor is total discharged commodity / maximum discharged commodity possible
+        # Capacity factor is total commodity produced / maximum discharged commodity possible
         outputs["capacity_factor"] = outputs[f"total_{self.commodity}_produced"] / max_production
 
     def simulate(
@@ -285,10 +426,10 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
 
         # Pre-compute scalar constants to avoid repeated attribute lookups
         # and redundant divisions inside the per-timestep loop.
-        charge_eff = 1.0
-        discharge_eff = 1.0
-        soc_max = 1.0
-        soc_min = 0.0
+        charge_eff = self.config.charge_efficiency
+        discharge_eff = self.config.discharge_efficiency
+        soc_max = self.config.max_charge_fraction
+        soc_min = self.config.min_charge_fraction
 
         # max_charge_input / max_discharge_input are the hardware rate limits
         # expressed in *pre-efficiency* rate units so they can be compared
