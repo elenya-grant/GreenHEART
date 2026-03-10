@@ -50,6 +50,8 @@ def test_pass_through_controller(subtests):
     with tech_config_path.open() as file:
         tech_config = yaml.safe_load(file)
 
+    plant_config = {"plant": {"simulation": {"n_timesteps": 10}}}
+
     # Set up the OpenMDAO problem
     prob = om.Problem()
 
@@ -62,7 +64,7 @@ def test_pass_through_controller(subtests):
     prob.model.add_subsystem(
         "pass_through_controller",
         PassThroughOpenLoopController(
-            plant_config={}, tech_config=tech_config["technologies"]["h2_storage"]
+            plant_config=plant_config, tech_config=tech_config["technologies"]["h2_storage"]
         ),
         promotes=["*"],
     )
@@ -75,7 +77,7 @@ def test_pass_through_controller(subtests):
     with subtests.test("Check output"):
         assert pytest.approx(
             prob.get_val("hydrogen_set_point", units="kg/h"), rel=1e-3
-        ) == np.arange(10)
+        ) == np.arange(4.5, -5.5, -1)
 
     # Run the test
     with subtests.test("Check derivatives"):
@@ -152,7 +154,7 @@ def test_storage_demand_controller(subtests):
 
     # Run the test
     with subtests.test("Check output"):
-        assert pytest.approx([0.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) == prob.get_val(
+        assert pytest.approx(np.concat([np.array([0.5, 0.0, -0.5]), np.zeros(7)])) == prob.get_val(
             "hydrogen_set_point", units="kg/h"
         )
 
@@ -291,19 +293,19 @@ def test_generic_storage_demand_controller(subtests):
         "model_inputs": {
             "shared_parameters": {
                 "commodity": "hydrogen",
-                "commodity_rate_units": "kg",
+                "commodity_rate_units": "kg/h",
                 "max_capacity": 10.0,  # kg
                 "max_charge_rate": 1.0,  # fraction (0-1)
-            },
-            "control_parameters": {
                 "max_charge_fraction": 1.0,  # fraction (0-1)
                 "min_charge_fraction": 0.0,  # fraction (0-1)
                 "init_charge_fraction": 1.0,  # fraction (0-1)
-                "max_discharge_rate": 0.5,  # kg/time step
                 "charge_efficiency": 1.0,
+                "demand_profile": [1.0] * 10,  # Example: 10 time steps with 10 kg/time step demand
+            },
+            "control_parameters": {
+                "max_discharge_rate": 0.5,  # kg/time step
                 "charge_equals_discharge": False,
                 "discharge_efficiency": 1.0,
-                "demand_profile": [1.0] * 10,  # Example: 10 time steps with 10 kg/time step demand
             },
         },
     }
@@ -333,7 +335,7 @@ def test_generic_storage_demand_controller(subtests):
 
     # # Run the test
     with subtests.test("Check output"):
-        assert pytest.approx([0.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) == prob.get_val(
+        assert pytest.approx(np.concat([np.array([0.5, 0.0, -0.5]), np.zeros(7)])) == prob.get_val(
             "hydrogen_set_point"
         )
 
