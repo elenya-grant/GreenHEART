@@ -54,7 +54,7 @@ start_hour = 0
 end_hour = 200
 total_time_steps = model.prob.get_val("h2_storage.SOC").size
 demand_profile = [
-    model.technology_config["technologies"]["h2_storage"]["model_inputs"]["control_parameters"][
+    model.technology_config["technologies"]["h2_storage"]["model_inputs"]["shared_parameters"][
         "demand_profile"
     ]
     * 1e-3
