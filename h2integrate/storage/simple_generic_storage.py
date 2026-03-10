@@ -138,7 +138,7 @@ class SimpleGenericStorage(PerformanceModelBaseClass):
         if not self.config.charge_equals_discharge:
             self.add_input(
                 "max_discharge_rate",
-                val=0.0,
+                val=self.config.max_discharge_rate,
                 shape=1,
                 units=self.commodity_rate_units,
                 desc="Storage discharge rate",

@@ -7,6 +7,7 @@ import pytest
 import openmdao.api as om
 from pytest import fixture
 
+from h2integrate.storage.simple_generic_storage import SimpleGenericStorage
 from h2integrate.control.control_strategies.passthrough_openloop_controller import (
     PassThroughOpenLoopController,
 )
@@ -91,13 +92,15 @@ def test_storage_demand_controller(subtests):
     with tech_config_path.open() as file:
         tech_config = yaml.safe_load(file)
 
-    plant_config = {"plant": {"simulation": {"n_timesteps": 10}}}
+    # plant_config = {"plant": {"simulation": {"n_timesteps": 10, "dt": 3600}}}
 
     tech_config["technologies"]["h2_storage"]["control_strategy"]["model"] = (
         "DemandOpenLoopStorageController"
     )
 
-    tech_config["technologies"]["h2_storage"]["model_inputs"]["control_parameters"] = {
+    shared_parameters = {
+        "commodity": "hydrogen",
+        "commodity_rate_units": "kg/h",
         "max_capacity": 10.0,  # kg
         "max_charge_fraction": 1.0,  # fraction (0-1)
         "min_charge_fraction": 0.0,  # fraction (0-1)
@@ -109,21 +112,32 @@ def test_storage_demand_controller(subtests):
         "discharge_efficiency": 1.0,
         "demand_profile": [1.0] * 10,  # Example: 10 time steps with 10 kg/time step demand
     }
+    tech_config["technologies"]["h2_storage"]["model_inputs"]["shared_parameters"] = (
+        shared_parameters
+    )
 
-    plant_config = {"plant": {"plant_life": 30, "simulation": {"n_timesteps": 10}}}
+    plant_config = {"plant": {"plant_life": 30, "simulation": {"n_timesteps": 10, "dt": 3600}}}
 
     # Set up the OpenMDAO problem
     prob = om.Problem()
 
     prob.model.add_subsystem(
         name="IVC",
-        subsys=om.IndepVarComp(name="hydrogen_in", val=np.arange(10)),
+        subsys=om.IndepVarComp(name="hydrogen_in", val=np.arange(10), units="kg/h"),
         promotes=["*"],
     )
 
     prob.model.add_subsystem(
         "demand_open_loop_storage_controller",
         DemandOpenLoopStorageController(
+            plant_config=plant_config, tech_config=tech_config["technologies"]["h2_storage"]
+        ),
+        promotes=["*"],
+    )
+
+    prob.model.add_subsystem(
+        "h2_storage",
+        SimpleGenericStorage(
             plant_config=plant_config, tech_config=tech_config["technologies"]["h2_storage"]
         ),
         promotes=["*"],
@@ -136,22 +150,22 @@ def test_storage_demand_controller(subtests):
     # Run the test
     with subtests.test("Check output"):
         assert pytest.approx(np.concat([np.array([0.5, 0.0, -0.5]), np.zeros(7)])) == prob.get_val(
-            "hydrogen_set_point", units="kg/h"
+            "demand_open_loop_storage_controller.hydrogen_set_point", units="kg/h"
         )
 
     with subtests.test("Check curtailment"):
         assert pytest.approx([0.0, 0.0, 0.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]) == prob.get_val(
-            "hydrogen_unused_commodity", units="kg/h"
+            "unused_hydrogen_out", units="kg/h"
         )
 
     with subtests.test("Check soc"):
         assert pytest.approx([0.95, 0.95, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) == prob.get_val(
-            "hydrogen_soc", units="unitless"
+            "SOC", units="unitless"
         )
 
     with subtests.test("Check missed load"):
         assert pytest.approx([0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) == prob.get_val(
-            "hydrogen_unmet_demand", units="kg/h"
+            "unmet_hydrogen_demand_out", units="kg/h"
         )
 
 
@@ -167,12 +181,12 @@ def test_storage_demand_controller_round_trip_efficiency(subtests):
     with tech_config_path.open() as file:
         tech_config = yaml.safe_load(file)
 
-    plant_config = {"plant": {"simulation": {"n_timesteps": 10}}}
-
     tech_config["technologies"]["h2_storage"]["control_strategy"]["model"] = (
         "DemandOpenLoopStorageController"
     )
-    tech_config["technologies"]["h2_storage"]["model_inputs"]["control_parameters"] = {
+    tech_config["technologies"]["h2_storage"]["model_inputs"]["shared_parameters"] = {
+        "commodity": "hydrogen",
+        "commodity_rate_units": "kg/h",
         "max_capacity": 10.0,  # kg
         "max_charge_fraction": 1.0,  # fraction (0-1)
         "min_charge_fraction": 0.0,  # fraction (0-1)
@@ -186,7 +200,9 @@ def test_storage_demand_controller_round_trip_efficiency(subtests):
     }
 
     tech_config_rte = deepcopy(tech_config)
-    tech_config_rte["technologies"]["h2_storage"]["model_inputs"]["control_parameters"] = {
+    tech_config_rte["technologies"]["h2_storage"]["model_inputs"]["shared_parameters"] = {
+        "commodity": "hydrogen",
+        "commodity_rate_units": "kg/h",
         "max_capacity": 10.0,  # kg
         "max_charge_fraction": 1.0,  # fraction (0-1)
         "min_charge_fraction": 0.0,  # fraction (0-1)
@@ -198,7 +214,7 @@ def test_storage_demand_controller_round_trip_efficiency(subtests):
         "demand_profile": [1.0] * 10,  # Example: 10 time steps with 10 kg/time step demand
     }
 
-    plant_config = {"plant": {"plant_life": 30, "simulation": {"n_timesteps": 10}}}
+    plant_config = {"plant": {"plant_life": 30, "simulation": {"n_timesteps": 10, "dt": 3600}}}
 
     def set_up_and_run_problem(config):
         # Set up the OpenMDAO problem
@@ -206,7 +222,7 @@ def test_storage_demand_controller_round_trip_efficiency(subtests):
 
         prob.model.add_subsystem(
             name="IVC",
-            subsys=om.IndepVarComp(name="hydrogen_in", val=np.arange(10)),
+            subsys=om.IndepVarComp(name="hydrogen_in", val=np.arange(10), units="kg/h"),
             promotes=["*"],
         )
 
@@ -214,6 +230,14 @@ def test_storage_demand_controller_round_trip_efficiency(subtests):
             "demand_openloop_controller",
             DemandOpenLoopStorageController(
                 plant_config=plant_config, tech_config=config["technologies"]["h2_storage"]
+            ),
+            promotes=["*"],
+        )
+
+        prob.model.add_subsystem(
+            "h2_storage",
+            SimpleGenericStorage(
+                plant_config=plant_config, tech_config=tech_config["technologies"]["h2_storage"]
             ),
             promotes=["*"],
         )
@@ -235,18 +259,18 @@ def test_storage_demand_controller_round_trip_efficiency(subtests):
 
     with subtests.test("Check curtailment"):
         assert pytest.approx(
-            prob_ioe.get_val("hydrogen_unused_commodity", units="kg/h")
-        ) == prob_rte.get_val("hydrogen_unused_commodity", units="kg/h")
+            prob_ioe.get_val("unused_hydrogen_out", units="kg/h")
+        ) == prob_rte.get_val("unused_hydrogen_out", units="kg/h")
 
     with subtests.test("Check soc"):
-        assert pytest.approx(
-            prob_ioe.get_val("hydrogen_soc", units="unitless")
-        ) == prob_rte.get_val("hydrogen_soc", units="unitless")
+        assert pytest.approx(prob_ioe.get_val("SOC", units="unitless")) == prob_rte.get_val(
+            "SOC", units="unitless"
+        )
 
     with subtests.test("Check missed load"):
         assert pytest.approx(
-            prob_ioe.get_val("hydrogen_unmet_demand", units="kg/h")
-        ) == prob_rte.get_val("hydrogen_unmet_demand", units="kg/h")
+            prob_ioe.get_val("unmet_hydrogen_demand_out", units="kg/h")
+        ) == prob_rte.get_val("unmet_hydrogen_demand_out", units="kg/h")
 
 
 @pytest.mark.regression
@@ -282,16 +306,16 @@ def test_generic_storage_demand_controller(subtests):
                 "init_charge_fraction": 1.0,  # fraction (0-1)
                 "charge_efficiency": 1.0,
                 "demand_profile": [1.0] * 10,  # Example: 10 time steps with 10 kg/time step demand
-            },
-            "control_parameters": {
                 "max_discharge_rate": 0.5,  # kg/time step
                 "charge_equals_discharge": False,
                 "discharge_efficiency": 1.0,
             },
+            # "control_parameters": {
+            # },
         },
     }
 
-    plant_config = {"plant": {"plant_life": 30, "simulation": {"n_timesteps": 10}}}
+    plant_config = {"plant": {"plant_life": 30, "simulation": {"n_timesteps": 10, "dt": 3600}}}
 
     # Set up OpenMDAO problem
     prob = om.Problem()
@@ -310,6 +334,14 @@ def test_generic_storage_demand_controller(subtests):
         promotes=["*"],
     )
 
+    prob.model.add_subsystem(
+        "h2_storage",
+        SimpleGenericStorage(
+            plant_config=plant_config, tech_config=tech_config["technologies"]["h2_storage"]
+        ),
+        promotes=["*"],
+    )
+
     prob.setup()
 
     prob.run_model()
@@ -322,17 +354,17 @@ def test_generic_storage_demand_controller(subtests):
 
     with subtests.test("Check curtailment"):
         assert pytest.approx([0.0, 0.0, 0.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]) == prob.get_val(
-            "hydrogen_unused_commodity"
+            "unused_hydrogen_out"
         )
 
     with subtests.test("Check soc"):
         assert pytest.approx([0.95, 0.95, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) == prob.get_val(
-            "hydrogen_soc"
+            "SOC", units="unitless"
         )
 
     with subtests.test("Check missed load"):
         assert pytest.approx([0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) == prob.get_val(
-            "hydrogen_unmet_demand"
+            "unmet_hydrogen_demand_out"
         )
 
 
