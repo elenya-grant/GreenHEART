@@ -308,17 +308,27 @@ class DemandOpenLoopStorageController(om.ExplicitComponent):
             )
             raise UserWarning(msg)
 
-        max_capacity = inputs["max_capacity"].item()
-        max_charge_fraction = self.config.max_charge_fraction
-        min_charge_fraction = self.config.min_charge_fraction
+        # Pre-compute scalar constants to avoid repeated attribute lookups
+        # and redundant divisions inside the per-timestep loop.
+        charge_eff = float(self.config.charge_efficiency)
+        discharge_eff = float(self.config.discharge_efficiency)
+        soc_max = self.config.max_charge_fraction
+        soc_min = self.config.min_charge_fraction
+
         init_charge_fraction = self.config.init_charge_fraction
-        max_charge_rate = inputs["max_charge_rate"].item()
+        charge_rate = inputs["max_charge_rate"].item()
         if self.config.charge_equals_discharge:
-            max_discharge_rate = inputs["max_charge_rate"].item()
+            discharge_rate = inputs["max_charge_rate"].item()
         else:
-            max_discharge_rate = inputs["max_discharge_rate"].item()
-        charge_efficiency = float(self.config.charge_efficiency)
-        discharge_efficiency = float(self.config.discharge_efficiency)
+            discharge_rate = inputs["max_discharge_rate"].item()
+
+        # max_charge_input / max_discharge_input are the hardware rate limits
+        # expressed in *pre-efficiency* rate units so they can be compared
+        # directly against the SOC headroom and the raw command magnitude.
+        # max_charge_input = charge_rate / charge_eff
+        # max_discharge_input = discharge_rate / discharge_eff
+
+        max_capacity = inputs["max_capacity"].item()
 
         # Initialize time-step state of charge prior to loop so the loop starts with
         # the previous time step's value
@@ -327,10 +337,7 @@ class DemandOpenLoopStorageController(om.ExplicitComponent):
         demand_profile = inputs[f"{commodity}_demand"]
 
         # initialize outputs
-        np.zeros(self.n_timesteps)
-        np.zeros(self.n_timesteps)
         output_array = np.zeros(self.n_timesteps)
-        np.zeros(self.n_timesteps)
         total_output_array = np.zeros(self.n_timesteps)
 
         # Loop through each time step
@@ -339,8 +346,8 @@ class DemandOpenLoopStorageController(om.ExplicitComponent):
             input_flow = inputs[f"{commodity}_in"][t]
 
             # Calculate the available charge/discharge capacity
-            available_charge = float((max_charge_fraction - soc) * max_capacity)
-            available_discharge = float((soc - min_charge_fraction) * max_capacity)
+            available_charge = float((soc_max - soc) * max_capacity)
+            available_discharge = float((soc - soc_min) * max_capacity)
 
             # Initialize persistent variables for curtailment and missed load
             unused_input = 0.0
@@ -350,22 +357,22 @@ class DemandOpenLoopStorageController(om.ExplicitComponent):
             if demand_t > input_flow:
                 # Discharge storage to meet demand.
                 # `discharge_needed` is as seen by the storage
-                discharge_needed = (demand_t - input_flow) / discharge_efficiency
+                discharge_needed = (demand_t - input_flow) / discharge_eff
                 # `discharge` is as seen by the storage, but `max_discharge_rate` is as observed
                 # outside the storage
                 discharge = (
                     min(
                         discharge_needed,
                         available_discharge,
-                        max_discharge_rate / discharge_efficiency,
+                        discharge_rate / discharge_eff,
                     )
-                    * discharge_efficiency
+                    * discharge_eff
                 )
 
                 soc -= discharge / max_capacity  # soc is a ratio with value between 0 and 1
                 # output is as observed outside the storage, so we need to adjust `discharge` by
                 # applying `discharge_efficiency`.
-                total_output_array[t] = input_flow + discharge * discharge_efficiency
+                total_output_array[t] = input_flow + discharge
                 output_array[t] = discharge
             else:
                 # Charge storage with unused input
@@ -375,10 +382,7 @@ class DemandOpenLoopStorageController(om.ExplicitComponent):
                 # `charge` is as seen by the storage, but the things being compared should all be as
                 # seen outside the storage so we need to adjust `available_charge` outside the
                 # storage view and the final result back into the storage view.
-                charge = (
-                    min(unused_input, available_charge / charge_efficiency, max_charge_rate)
-                    * charge_efficiency
-                )
+                charge = min(unused_input, available_charge / charge_eff, charge_rate) * charge_eff
 
                 output_array[t] = -1 * charge
                 total_output_array[t] = demand_t
@@ -386,7 +390,7 @@ class DemandOpenLoopStorageController(om.ExplicitComponent):
                 soc += charge / max_capacity  # soc is a ratio with value between 0 and 1
 
             # Ensure SOC stays within bounds
-            soc = max(min_charge_fraction, min(max_charge_fraction, soc))
+            soc = max(soc_min, min(soc_max, soc))
 
             # Record the SOC for the current time step
             # soc_array[t] = deepcopy(soc)
