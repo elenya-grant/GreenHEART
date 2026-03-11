@@ -230,9 +230,9 @@ class DemandOpenLoopStorageController(om.ExplicitComponent):
         )
 
         self.add_input(
-            "max_capacity",
+            "max_capacity",  # TODO: rename to storage_capacity
             val=self.config.max_capacity,
-            units=self.config.commodity_rate_units + "*h",
+            units=self.config.commodity_rate_units + "*h",  # TODO: update to commodity_amount_units
             desc="Maximum storage capacity",
         )
 
@@ -330,8 +330,8 @@ class DemandOpenLoopStorageController(om.ExplicitComponent):
 
         max_capacity = inputs["max_capacity"].item()
 
-        # Initialize time-step state of charge prior to loop so the loop starts with
-        # the previous time step's value
+        # Initialize time-step state of charge prior to loop so the loop starts
+        # with the initial SOC
         soc = deepcopy(init_charge_fraction)
 
         demand_profile = inputs[f"{commodity}_demand"]

@@ -163,7 +163,7 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
 
         # Output the calculated storage capacities
         self.add_output(
-            "max_capacity",  # TODO: rename to max_capacity
+            "max_capacity",  # TODO: rename to storage_capacity
             val=0.0,
             shape=1,
             units=f"({self.commodity_rate_units})*h",  # TODO: update to commodity_amount_units
