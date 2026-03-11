@@ -21,7 +21,7 @@ For an example of how to use the heuristic Pyomo control framework with the `Heu
 
 (optimized-load-following-controller)=
 ## Optimized Load Following Controller
-The optimized dispatch method is specified by setting the storage control to  `OptimizedDispatchController`. Unlike the heuristic method, the optimized dispatch method does not use `dispatch_rule_set` as in input in the `tech_config`. This method maximizes the load met while minimizing the cost of the system (operating cost) over each specified time window.
+The optimized dispatch method is specified by setting the storage control to  `OptimizedDispatchController`. Unlike the heuristic method, the optimized dispatch method does not use `dispatch_rule_set` as an input in the `tech_config`. The `OptimizedDispatchController` method maximizes the load met while minimizing the cost of the system (operating cost) over each specified time window.
 
 The optimized dispatch using Pyomo is implemented differently than the heuristic dispatch in order to be able to properly aggregate the individual Pyomo technology models into a cohesive Pyomo plant model for the optimization solver. Practically, this means that the Pyomo elements of the dispatch (including the individual technology models and the plant model) are not exposed to the main H2I code flow, and do not appear in the N2 diagram. The figure below shows a flow diagram of how the dispatch is implemented. The green blocks below represent what is represented in the N2 diagram of the system. The dispatch routine is currently self-contained within the storage technology of the system, though it includes solving an aggregated plant model in the optimization
 
