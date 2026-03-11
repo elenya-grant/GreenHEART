@@ -109,7 +109,7 @@ class PyomoControllerBaseClass(om.ExplicitComponent):
     def setup(self):
         """Register per-technology dispatch rule inputs and expose the solver callable.
 
- Adds discrete output 'pyomo_dispatch_solver' that will hold the assembled
+        Adds discrete output 'pyomo_dispatch_solver' that will hold the assembled
         callable after compute().
         """
 
