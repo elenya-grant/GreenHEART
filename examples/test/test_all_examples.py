@@ -1517,7 +1517,7 @@ def test_windard_pv_battery_dispatch_example(subtests, temp_copy_of_example):
     # Subtest for electricity curtailed
     with subtests.test("Check electricity curtailed"):
         electricity_curtailed = model.prob.get_val(
-            "battery.electricity_unused_commodity", units="MW"
+            "battery.unused_electricity_out", units="MW"
         ).sum()
 
         # import pdb; pdb.set_trace()
