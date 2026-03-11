@@ -366,7 +366,7 @@ class DemandOpenLoopStorageController(om.ExplicitComponent):
                 # output is as observed outside the storage, so we need to adjust `discharge` by
                 # applying `discharge_efficiency`.
                 total_output_array[t] = input_flow + discharge * discharge_efficiency
-                output_array[t] = discharge * discharge_efficiency
+                output_array[t] = discharge
             else:
                 # Charge storage with unused input
                 # `unused_input` is as seen outside the storage
@@ -380,7 +380,7 @@ class DemandOpenLoopStorageController(om.ExplicitComponent):
                     * charge_efficiency
                 )
 
-                output_array[t] = -1 * charge * charge_efficiency
+                output_array[t] = -1 * charge
                 total_output_array[t] = demand_t
 
                 soc += charge / max_capacity  # soc is a ratio with value between 0 and 1
