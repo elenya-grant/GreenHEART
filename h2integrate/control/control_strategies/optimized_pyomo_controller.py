@@ -233,9 +233,7 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
             window_start_indices = list(range(0, self.n_timesteps, self.config.n_control_window))
 
             # Initialize parameters for optimized dispatch strategy
-            self.initialize_parameters(
-                inputs[f"{commodity_name}_in"], inputs[f"{commodity_name}_demand"]
-            )
+            self.initialize_parameters(inputs)
 
             # loop over all control windows, where t is the starting index of each window
             for t in window_start_indices:
@@ -292,12 +290,14 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
 
         return pyomo_dispatch_solver
 
-    def initialize_parameters(self, commodity_in, commodity_demand):
+    def initialize_parameters(self, inputs):
         """Initialize parameters for optimization model
 
         Args:
-            commodity_in (list): List of generated commodity in for this time slice.
-            commodity_demand (list): The demanded commodity for this time slice.
+            inputs (dict):
+                Dictionary of numpy arrays (length = self.n_timesteps) containing at least:
+                    f"{commodity}_in"       : Available generated commodity profile.
+                    f"{commodity}_demand"   : Demanded commodity output profile.
 
         """
         # Where pyomo model communicates with the rest of the controller
@@ -314,9 +314,7 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
 
         # hybrid_dispatch_rule is the thing where you can access variables and hybrid_rule \
         #  functions from
-        self.hybrid_dispatch_rule.initialize_parameters(
-            commodity_in, commodity_demand, self.dispatch_inputs
-        )
+        self.hybrid_dispatch_rule.initialize_parameters(inputs, self.dispatch_inputs)
 
     def update_time_series_parameters(
         self, commodity_in=None, commodity_demand=None, updated_initial_soc=None
