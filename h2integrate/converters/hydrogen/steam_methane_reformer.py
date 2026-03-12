@@ -251,7 +251,8 @@ class SteamMethaneReformerCostModel(CostModelBaseClass):
 
     Outputs:
         CapEx (float): Total capital expenditure in USD
-        OpEx (float): Total operating expenditure in USD/year
+        OpEx (float): Total fixed operating expenditure in USD/year
+        VarOpEx (float): Total variable operating expenditure in USD/year
         cost_year (int): Dollar year for the costs
     """
 
@@ -266,13 +267,6 @@ class SteamMethaneReformerCostModel(CostModelBaseClass):
         super().setup()
 
         # Add inputs specific to the cost model with config values as defaults
-        # self.add_input(
-        #     "hydrogen_out",
-        #     val=0.0,
-        #     shape=n_timesteps,
-        #     units="kg/h",
-        #     desc="Hourly hydrogen output from performance model",
-        # )
         self.add_input(
             "annual_hydrogen_produced",
             val=0.0,
