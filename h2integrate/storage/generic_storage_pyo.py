@@ -498,8 +498,6 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
         # max_charge_input / max_discharge_input are the hardware rate limits
         # expressed in *pre-efficiency* rate units so they can be compared
         # directly against the SOC headroom and the raw command magnitude.
-        max_charge_input = charge_rate / charge_eff
-        max_discharge_input = discharge_rate / discharge_eff
 
         commands = np.asarray(storage_dispatch_commands, dtype=float)
         soc = float(self.current_soc)
@@ -514,23 +512,33 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                 # Clip to the most restrictive limit, then apply efficiency.
                 # max(0, ...) guards against negative headroom when SOC
                 # slightly exceeds soc_max.
-                actual_charge = max(0.0, min(headroom, max_charge_input, -cmd)) * charge_eff
+                actual_charge = max(0.0, min(headroom / charge_eff, charge_rate, -cmd)) * charge_eff
 
                 # Update SOC (actual_charge is in post-efficiency units)
                 soc += actual_charge / storage_capacity
-                storage_commodity_out_timesteps[t] = -actual_charge
+
+                # Update the amount of commodity used to charge from the input stream
+                # If charge_eff<1, more commodity is pulled from the input stream than
+                # the commodity that goes into the storage.
+                storage_commodity_out_timesteps[t] = -actual_charge / charge_eff
             else:
                 # --- Discharging ---
                 # headroom: how much commodity can still be drawn before
                 # hitting the minimum SOC, expressed as a rate.
                 headroom = (soc - soc_min) * storage_capacity / self.dt_hr
 
-                # Clip and apply discharge efficiency.
-                actual_discharge = max(0.0, min(headroom, max_discharge_input, cmd)) * discharge_eff
+                # Clip to the most restrictive limit without applied efficiency.
+                actual_discharge = max(
+                    0.0, min(headroom, discharge_rate / discharge_eff, cmd / discharge_eff)
+                )
 
-                # Update SOC (actual_discharge is in post-efficiency units)
+                # Update SOC (actual_discharge is in pre-efficiency units)
                 soc -= actual_discharge / storage_capacity
-                storage_commodity_out_timesteps[t] = actual_discharge
+
+                # Amount discharged is in post-efficiency units
+                # If discharge_eff<1, then less commodity is output from the storage
+                # than the commodity discharged from storage
+                storage_commodity_out_timesteps[t] = actual_discharge * discharge_eff
 
             soc_timesteps[t] = soc * 100.0
 
