@@ -42,7 +42,7 @@ technologies:
     model_inputs:
       performance_parameters:
         system_capacity_tonnes_per_day: 170  # Based on 360 MW electrolyzer capacity
-        natural_gas_usage_mmbtu_per_kg: 0.192
+        natural_gas_usage_mmbtu_per_kg: 0.192  # 56.256 kWh/kg
         electricity_usage_kwh_per_kg: 0.88
       cost_parameters:
         # Linear interpolated to technology year 2027

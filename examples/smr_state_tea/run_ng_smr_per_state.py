@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+import pandas as pd
+
 from h2integrate.core.dict_utils import update_defaults
 from h2integrate.core.file_utils import check_file_format_for_csv_generator
 from h2integrate.core.h2integrate_model import H2IntegrateModel
@@ -47,3 +49,10 @@ h2i.run()
 
 # Post-process the results
 h2i.post_process(summarize_sql=True)
+
+csv_fpath = Path(str(h2i.recorder_path).replace(".sql", ".csv"))
+df = pd.read_csv(csv_fpath)
+df["finance_subgroup_hydrogen.LCOH (USD/kg)"].mean()
+print(f"min LCOH is: {df['finance_subgroup_hydrogen.LCOH (USD/kg)'].min()}")
+print(f"average LCOH is: {df['finance_subgroup_hydrogen.LCOH (USD/kg)'].mean()}")
+print(f"max LCOH is: {df['finance_subgroup_hydrogen.LCOH (USD/kg)'].max()}")

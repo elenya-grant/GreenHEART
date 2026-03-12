@@ -1,9 +1,9 @@
 import numpy as np
 from attrs import field, define
+from openmdao.utils import units
 
 from h2integrate.core.utilities import BaseConfig, merge_shared_inputs
 from h2integrate.core.validators import gt_zero, gte_zero
-from h2integrate.tools.constants import HHV_H2_MJ_PER_KG
 from h2integrate.core.model_baseclasses import (
     CostModelBaseClass,
     CostModelBaseConfig,
@@ -144,6 +144,14 @@ class SteamMethaneReformerPerformanceModel(PerformanceModelBaseClass):
             desc="Unmet hydrogen demand for SMR plant",
         )
 
+        self.add_output(
+            "energy_conversion_ratio",
+            val=0.0,
+            shape=1,
+            units="kW*h/kg",
+            desc="Net energy conversion ratio",
+        )
+
     def compute(self, inputs, outputs):
         """
         Compute hydrogen output from natural gas input.
@@ -208,9 +216,16 @@ class SteamMethaneReformerPerformanceModel(PerformanceModelBaseClass):
         outputs["rated_hydrogen_production"] = system_capacity_kg_per_hour  # kg/h
 
         # Convert HHV of H2 from MJ/kg to kW*h/kg
-        hhv_h2_kWh_per_kg = HHV_H2_MJ_PER_KG / (3600.0 * 0.001)
+        energy_conversion_ratio_ng = units.convert_units(
+            inputs["natural_gas_usage_rate"], "MMBtu/kg", "kW*h/kg"
+        )
+        total_energy_conversion_ratio = (
+            energy_conversion_ratio_ng + inputs["electricity_usage_rate"]
+        )
+        # hhv_ch4_kWh_per_kg = HHV_CH4_MJ_PER_KG / (3600.0 * 0.001)
+        # hhv_h2_kWh_per_kg = inputs["electricity_usage_rate"] #HHV_H2_MJ_PER_KG / (3600.0 * 0.001)
         outputs["electrical_rated_hydrogen_production"] = (
-            system_capacity_kg_per_hour * hhv_h2_kWh_per_kg
+            system_capacity_kg_per_hour * total_energy_conversion_ratio
         ) / 1000  # convert kg/h to MW using HHV of hydrogen
 
         max_production = system_capacity_kg_per_hour * len(hydrogen_out) * (self.dt / 3600)
@@ -223,6 +238,7 @@ class SteamMethaneReformerPerformanceModel(PerformanceModelBaseClass):
             1 / self.fraction_of_year_simulated
         )
         outputs["unmet_hydrogen_demand"] = inputs["hydrogen_demand"] - hydrogen_out
+        outputs["energy_conversion_ratio"] = total_energy_conversion_ratio
 
 
 @define(kw_only=True)
@@ -275,6 +291,12 @@ class SteamMethaneReformerCostModel(CostModelBaseClass):
             desc="Annual hydrogen output from performance model",
         )
         self.add_input(
+            "total_energy_conversion_ratio",
+            val=0.0,
+            units="(kW*h)/kg",
+            desc="Plant electricity usage rate in kWh/kg",
+        )
+        self.add_input(
             "electrical_rated_hydrogen_production",
             val=0.0,
             units="kW",
@@ -320,11 +342,11 @@ class SteamMethaneReformerCostModel(CostModelBaseClass):
         hydrogen_out = inputs["annual_hydrogen_produced"]  # kg/year annual profile
 
         # Convert HHV of H2 from MJ/kg to kW*h/kg
-        hhv_h2_kWh_per_kg = HHV_H2_MJ_PER_KG / (3600.0 * 0.001)
+        # hhv_h2_kWh_per_kg = inputs["electricity_usage_rate"] #HHV_H2_MJ_PER_KG / (3600.0 * 0.001)
 
         # Convert the variable O&M from USD/kWh to USD/kg using the HHV of H2
         # USD/kW*h * kW*h/kg = USD/kg
-        variable_opex_per_kg = variable_opex_per_kwh * hhv_h2_kWh_per_kg
+        variable_opex_per_kg = variable_opex_per_kwh * inputs["total_energy_conversion_ratio"][0]
 
         # Calculate variable operating expenses over project life
         variable_om = variable_opex_per_kg * hydrogen_out
