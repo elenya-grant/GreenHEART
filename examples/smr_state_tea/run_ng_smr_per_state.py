@@ -32,7 +32,7 @@ driver_config["driver"].update(updated_driver)
 
 # Load plant and tech configs
 plant_config = load_plant_yaml("plant_config.yaml")
-tech_config = load_tech_yaml("tech_config.yaml")
+tech_config = load_tech_yaml("tech_config_h2a.yaml")
 
 h2i_config = {
     "name": "H2Integrate_config",
