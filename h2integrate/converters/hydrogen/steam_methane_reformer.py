@@ -206,12 +206,17 @@ class SteamMethaneReformerPerformanceModel(PerformanceModelBaseClass):
         outputs["electricity_consumed"] = electricity_consumed
 
         outputs["rated_hydrogen_production"] = system_capacity_kg_per_hour  # kg/h
+
+        # Convert HHV of H2 from MJ/kg to kW*h/kg
+        hhv_h2_kWh_per_kg = HHV_H2_MJ_PER_KG / (3600.0 * 0.001)
         outputs["electrical_rated_hydrogen_production"] = (
-            system_capacity_kg_per_hour * HHV_H2_MJ_PER_KG / (3600.0 * 0.001)
+            system_capacity_kg_per_hour * hhv_h2_kWh_per_kg
         ) / 1000  # convert kg/h to MW using HHV of hydrogen
 
         max_production = system_capacity_kg_per_hour * len(hydrogen_out) * (self.dt / 3600)
 
+        # Sum hourly hydrogen output to get annual hydrogen production
+        # hydrogen_out is in kg/h, so sum gives kg for hourly data
         outputs["total_hydrogen_produced"] = np.sum(hydrogen_out) * (self.dt / 3600)
         outputs["capacity_factor"] = outputs["total_hydrogen_produced"].sum() / max_production
         outputs["annual_hydrogen_produced"] = outputs["total_hydrogen_produced"] * (
@@ -255,22 +260,30 @@ class SteamMethaneReformerCostModel(CostModelBaseClass):
             merge_shared_inputs(self.options["tech_config"]["model_inputs"], "cost"),
             additional_cls_name=self.__class__.__name__,
         )
-        n_timesteps = self.options["plant_config"]["plant"]["simulation"]["n_timesteps"]
+        self.options["plant_config"]["plant"]["simulation"]["n_timesteps"]
+        plant_life = self.options["plant_config"]["plant"]["plant_life"]
 
         super().setup()
 
         # Add inputs specific to the cost model with config values as defaults
+        # self.add_input(
+        #     "hydrogen_out",
+        #     val=0.0,
+        #     shape=n_timesteps,
+        #     units="kg/h",
+        #     desc="Hourly hydrogen output from performance model",
+        # )
         self.add_input(
-            "hydrogen_out",
+            "annual_hydrogen_produced",
             val=0.0,
-            shape=n_timesteps,
-            units="kg/h",
-            desc="Hourly hydrogen output from performance model",
+            shape=plant_life,
+            units="kg/year",
+            desc="Annual hydrogen output from performance model",
         )
         self.add_input(
             "electrical_rated_hydrogen_production",
             val=0.0,
-            units="MW",
+            units="kW",
             desc="Electrical equivalent rated hydrogen production from performance model",
         )
         self.add_input(
@@ -296,22 +309,10 @@ class SteamMethaneReformerCostModel(CostModelBaseClass):
         """
         Compute capital and operating costs for the hydrogen SMR plant.
         """
-        plant_capacity_kw = (
-            inputs["electrical_rated_hydrogen_production"] * 1000
-        )  # Convert MW to kW
-        hydrogen_out = inputs["hydrogen_out"]  # kg/h hourly profile
-        electricity_equivalent_out = (hydrogen_out * HHV_H2_MJ_PER_KG) / (
-            3600.0 * 0.001
-        )  # Convert kg/h to kW
+        plant_capacity_kw = inputs["electrical_rated_hydrogen_production"]
+
         capex_per_kw = inputs["unit_capex"]
         fixed_opex_per_kw_per_year = inputs["fixed_opex"]
-        variable_opex_per_kwh = inputs["variable_opex"]
-
-        # Sum hourly electricity output to get annual generation
-        # electricity_out is in MW, so sum gives MWh for hourly data
-        dt = self.options["plant_config"]["plant"]["simulation"]["dt"]
-        delivered_electricity_MWdt = electricity_equivalent_out.sum()
-        delivered_electricity_MWh = delivered_electricity_MWdt * dt / 3600
 
         # Calculate capital expenditure
         capex = capex_per_kw * plant_capacity_kw
@@ -319,10 +320,20 @@ class SteamMethaneReformerCostModel(CostModelBaseClass):
         # Calculate fixed operating expenses over project life
         fixed_om = fixed_opex_per_kw_per_year * plant_capacity_kw
 
+        # Calculate variable O&M over project life
+        variable_opex_per_kwh = inputs["variable_opex"]
+
+        hydrogen_out = inputs["annual_hydrogen_produced"]  # kg/year annual profile
+
+        # Convert HHV of H2 from MJ/kg to kW*h/kg
+        hhv_h2_kWh_per_kg = HHV_H2_MJ_PER_KG / (3600.0 * 0.001)
+
+        # Convert the variable O&M from USD/kWh to USD/kg using the HHV of H2
+        # USD/kW*h * kW*h/kg = USD/kg
+        variable_opex_per_kg = variable_opex_per_kwh * hhv_h2_kWh_per_kg
+
         # Calculate variable operating expenses over project life
-        variable_om = (
-            variable_opex_per_kwh * delivered_electricity_MWh * 1000
-        )  # convert MWh to kWh for variable O&M calculation
+        variable_om = variable_opex_per_kg * hydrogen_out
 
         outputs["CapEx"] = capex
         outputs["OpEx"] = fixed_om

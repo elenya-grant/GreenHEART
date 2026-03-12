@@ -241,5 +241,5 @@ def test_h2_smr_cost(smr_performance_params, smr_cost_params, plant_config, subt
 
     with subtests.test("var opex value"):
         assert pytest.approx(prob.get_val("cost_comp.VarOpEx", units="USD/year"), rel=1e-6) == (
-            3451926666.666666 * 1000 * 0.05  # variable opex
+            3451926666.666666 * 0.05  # variable opex
         )
