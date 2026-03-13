@@ -61,6 +61,10 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
         time_duration (float):
             The duration of each time step in the Pyomo model in hours.
             The default of this parameter is 1.0 (i.e., 1 hour time steps).
+        max_system_capacity (float):
+            Maximum amount the storage can charge (i.e. transmission limit for grid charging)
+        allow_grid_charging (bool):
+            This sets whether the storage can buy commodity to charge or not
     """
 
     max_charge_rate: int | float = field()
@@ -72,6 +76,9 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
     commodity_met_value: float = field(default=None)
     time_weighting_factor: float = field(validator=range_val(0, 1), default=0.995)
     time_duration: float = field(default=1.0)  # hours
+    # Can we set this to interconnection? do we want to?
+    max_system_capacity: float = field(default=None)
+    allow_grid_charging: bool = field(default=False)
 
     def make_dispatch_inputs(self):
         dispatch_keys = [
@@ -85,6 +92,8 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
             "charge_efficiency",
             "discharge_efficiency",
             "max_charge_rate",
+            "max_system_capacity",
+            "allow_grid_charging",
         ]
 
         dispatch_inputs = {k: self.as_dict()[k] for k in dispatch_keys}
@@ -237,20 +246,23 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
 
             # loop over all control windows, where t is the starting index of each window
             for t in window_start_indices:
+                time_update_inputs = self.create_time_update_dictionary(inputs, t)
                 # get the inputs over the current control window
                 commodity_in = inputs[f"{self.config.commodity}_in"][
                     t : t + self.config.n_control_window
                 ]
                 demand_in = inputs[f"{commodity_name}_demand"][t : t + self.config.n_control_window]
 
+                if self.config.allow_grid_charging:
+                    inputs[f"{commodity_name}_met_value_in"][t : t + self.config.n_control_window]
+                    inputs[f"{commodity_name}_buy_price_in"][t : t + self.config.n_control_window]
                 # Progress report
                 if t % (self.n_timesteps // 4) < self.n_control_window:
                     percentage = round((t / self.n_timesteps) * 100)
                     print(f"{percentage}% done with optimal dispatch")
                 # Update time series parameters for the optimization method
                 self.update_time_series_parameters(
-                    commodity_in=commodity_in,
-                    commodity_demand=demand_in,
+                    time_update_inputs,
                     updated_initial_soc=self.updated_initial_soc,
                 )
                 # Run dispatch optimization to minimize costs while meeting demand
@@ -315,6 +327,12 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
         # hybrid_dispatch_rule is the thing where you can access variables and hybrid_rule \
         #  functions from
         self.hybrid_dispatch_rule.initialize_parameters(inputs, self.dispatch_inputs)
+
+    def create_time_update_dictionary(self, inputs, t):
+        time_update_inputs = {
+            k: self.as_dict()[k][t : t + self.config.n_control_window] for k in inputs.keys()
+        }
+        return time_update_inputs
 
     def update_time_series_parameters(
         self, commodity_in=None, commodity_demand=None, updated_initial_soc=None
