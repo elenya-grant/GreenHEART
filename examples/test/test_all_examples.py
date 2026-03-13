@@ -88,7 +88,7 @@ def test_steel_example(subtests, temp_copy_of_example):
 
     with subtests.test("Check H2 Storage capacity"):
         assert (
-            pytest.approx(model.prob.get_val("h2_storage.max_capacity", units="kg"), rel=1e-3)
+            pytest.approx(model.prob.get_val("h2_storage.storage_capacity", units="kg"), rel=1e-3)
             == 2559669.7759292
         )
 

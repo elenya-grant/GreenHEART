@@ -9,6 +9,8 @@ from h2integrate.core.utilities import BaseConfig, merge_shared_inputs
 class PassThroughOpenLoopControllerConfig(BaseConfig):
     commodity: str = field()
     commodity_rate_units: str = field()
+    demand_profile: int | float | list = field(default=0.0)
+    set_demand_as_avg_commodity_in: bool = field(default=True)
 
 
 class PassThroughOpenLoopController(om.ExplicitComponent):
@@ -37,11 +39,21 @@ class PassThroughOpenLoopController(om.ExplicitComponent):
             additional_cls_name=self.__class__.__name__,
         )
 
+        self.n_timesteps = self.options["plant_config"]["plant"]["simulation"]["n_timesteps"]
+
         self.add_input(
             f"{self.config.commodity}_in",
             shape_by_conn=True,
             units=self.config.commodity_rate_units,
             desc=f"{self.config.commodity} input timeseries from production to storage",
+        )
+
+        self.add_input(
+            f"{self.config.commodity}_demand",
+            units=f"{self.config.commodity_rate_units}",
+            val=self.config.demand_profile,
+            shape=self.n_timesteps,
+            desc=f"{self.config.commodity} demand profile timeseries",
         )
 
         self.add_output(
@@ -62,31 +74,40 @@ class PassThroughOpenLoopController(om.ExplicitComponent):
                 - {commodity}_out: Output commodity flow, equal to the input flow.
         """
 
-        # Assign the input to the output
-        outputs[f"{self.config.commodity}_set_point"] = inputs[f"{self.config.commodity}_in"]
+        if self.config.set_demand_as_avg_commodity_in:
+            commodity_demand = np.mean(inputs[f"{self.config.commodity}_in"]) * np.ones(
+                self.n_timesteps
+            )
+        else:
+            commodity_demand = inputs[f"{self.config.commodity}_demand"]
 
-    def setup_partials(self):
-        """
-        Declare partial derivatives as unity throughout the design space.
-
-        This method specifies that the derivative of the output with respect to the input is
-        always 1.0, consistent with the pass-through behavior.
-
-        Note:
-        This method is not currently used and isn't strictly needed if you're creating other
-        controllers; it is included as a nod towards potential future development enabling
-        more derivative information passing.
-        """
-
-        # Get the size of the input/output array
-        size = self._get_var_meta(f"{self.config.commodity}_in", "size")
-
-        # Declare partials sparsely for all elements as an identity matrix
-        # (diagonal elements are 1.0, others are 0.0)
-        self.declare_partials(
-            of=f"{self.config.commodity}_set_point",
-            wrt=f"{self.config.commodity}_in",
-            rows=np.arange(size),
-            cols=np.arange(size),
-            val=np.ones(size),  # Diagonal elements are 1.0
+        # Assign the set point as the difference between the demand and the input commodity
+        outputs[f"{self.config.commodity}_set_point"] = (
+            commodity_demand - inputs[f"{self.config.commodity}_in"]
         )
+
+    # def setup_partials(self):
+    #     """
+    #     Declare partial derivatives as unity throughout the design space.
+
+    #     This method specifies that the derivative of the output with respect to the input is
+    #     always 1.0, consistent with the pass-through behavior.
+
+    #     Note:
+    #     This method is not currently used and isn't strictly needed if you're creating other
+    #     controllers; it is included as a nod towards potential future development enabling
+    #     more derivative information passing.
+    #     """
+
+    #     # Get the size of the input/output array
+    #     size = self._get_var_meta(f"{self.config.commodity}_in", "size")
+
+    #     # Declare partials sparsely for all elements as an identity matrix
+    #     # (diagonal elements are 1.0, others are 0.0)
+    #     self.declare_partials(
+    #         of=f"{self.config.commodity}_set_point",
+    #         wrt=f"{self.config.commodity}_in",
+    #         rows=np.arange(size),
+    #         cols=np.arange(size),
+    #         val=np.ones(size),  # Diagonal elements are 1.0
+    #     )
