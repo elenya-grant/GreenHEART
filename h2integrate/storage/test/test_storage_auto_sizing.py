@@ -22,7 +22,9 @@ def test_storage_autosizing_basic_performance_no_losses(plant_config, subtests):
         "discharge_efficiency": 1.0,
     }
 
-    commodity_in = np.concat([np.zeros(3), np.cumsum(np.ones(15)), np.full(6, 4.0)])
+    commodity_in = np.concat(
+        [np.full(3, 12.0), np.cumsum(np.ones(15)), np.full(3, 4.0), np.zeros(3)]
+    )
     commodity_demand = np.full(24, np.mean(commodity_in))
 
     prob = om.Problem()
@@ -132,3 +134,11 @@ def test_storage_autosizing_basic_performance_no_losses(plant_config, subtests):
     with subtests.test("Cumulative charge/discharge does not exceed storage capacity"):
         assert np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).max() <= capacity
         assert np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).min() >= -1 * capacity
+
+    # Check that demand is fully met, this is because this test starts off with charging the storage
+    # enough. In cases where the storage is not charged enough at the start, the demand may not
+    # fully be met
+    with subtests.test("Demand is fully met"):
+        np.testing.assert_allclose(
+            prob.get_val("hydrogen_out", units="kg/h"), commodity_demand, rtol=1e-6, atol=1e-10
+        )
