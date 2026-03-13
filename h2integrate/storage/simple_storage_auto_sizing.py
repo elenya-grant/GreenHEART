@@ -18,7 +18,9 @@ class StorageSizingModelConfig(BaseConfig):
 
     min_charge_fraction: float = field(validator=range_val(0, 1))
     max_charge_fraction: float = field(validator=range_val(0, 1))
-    # init_charge_fraction: float = field(validator=range_val(0, 1)) #not used in sizing calc yet
+
+    # TODO: add in logic for having different discharge rate
+    # charge_equals_discharge: bool = field(default=True)
 
     demand_profile: int | float | list = field(default=0.0)
     set_demand_as_avg_commodity_in: bool = field(default=True)
@@ -159,6 +161,8 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
             shape=1,
             units=self.commodity_rate_units,
         )
+        # TODO: add output for max_discharge_rate
+
         self.add_output(
             "storage_duration",
             units=f"({self.commodity_amount_units})/({self.commodity_rate_units})",
@@ -225,15 +229,18 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
             np.max(inputs[f"{self.commodity}_in"]) / self.config.charge_efficiency
         )
 
+        # NOTE: maybe should replace usage of inputs[f"{self.commodity}_in"] - commodity_demand
+        # with -1*inputs["commodity_set_point"]
+
         # Set the demand profile
         if self.config.set_demand_as_avg_commodity_in:
             commodity_demand = np.mean(inputs[f"{self.commodity}_in"]) * np.ones(self.n_timesteps)
         else:
             commodity_demand = inputs[f"{self.commodity}_demand"]
 
-        # NOTE: commodity_storage_soc is just an absolute value and is not a percentage.
-        # Ideally would calculate as shortfall in future.
         # Size the storage capacity to meet the demand as much as possible
+
+        # NOTE: commodity_storage_soc is just an absolute value and is not a percentage.
         commodity_storage_soc = np.cumsum(inputs[f"{self.commodity}_in"] - commodity_demand)
         minimum_soc = np.min(commodity_storage_soc)
 
@@ -252,6 +259,7 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         )
 
         # Estimate the initial SOC
+
         soc_amount = np.cumsum(inputs[f"{self.commodity}_in"] - commodity_demand)
         if np.min(soc_amount) < 0:
             soc_amount = soc_amount + np.abs(minimum_soc)
