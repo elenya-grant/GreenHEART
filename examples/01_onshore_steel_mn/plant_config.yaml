@@ -6,7 +6,7 @@ sites:
     longitude: -92.5366
     resources:
       wind_resource:
-        resource_model: WTKNRELDeveloperAPIWindResource
+        resource_model: WTKNLRDeveloperAPIWindResource
         resource_parameters:
           resource_year: 2013
       solar_resource:
@@ -25,7 +25,6 @@ technology_interconnections:
   - [battery, electrolyzer, electricity, cable]
   - [electrolyzer, h2_storage, hydrogen, pipe]
   - [finance_subgroup_hydrogen, steel, [LCOH_delivered, LCOH]]
-  - [combiner, steel, electricity, cable]
   # etc
 tech_to_dispatch_connections:
   - [combiner, battery]

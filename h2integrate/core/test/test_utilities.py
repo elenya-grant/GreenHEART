@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 import yaml
@@ -7,14 +8,9 @@ import pytest
 from attrs import field, define
 
 from h2integrate import ROOT_DIR, EXAMPLE_DIR, RESOURCE_DEFAULT_DIR
-from h2integrate.core.utilities import (
-    BaseConfig,
-    get_path,
-    find_file,
-    load_yaml,
-    make_unique_case_name,
-    dict_to_yaml_formatting,
-)
+from h2integrate.core.utilities import BaseConfig
+from h2integrate.core.dict_utils import dict_to_yaml_formatting
+from h2integrate.core.file_utils import get_path, find_file, load_yaml, make_unique_case_name
 from h2integrate.core.inputs.validation import load_tech_yaml
 
 
@@ -522,8 +518,8 @@ def test_yaml_no_duplicate_keys(subtests):
     with subtests.test("Check for duplicate in original file"):
         fn = "duplicate_keys.yaml"
         msg = (
-            f"Duplicate key found in {inputs / fn}:"
-            " Duplicate 'performance_parameters' key found at line 97"
+            f"Duplicate key found in {re.escape(str(inputs / fn))}:"
+            " Duplicate 'performance_parameters' key found at line 95"
         )
         with pytest.raises(ValueError, match=msg):
             load_yaml(inputs / fn)
@@ -532,7 +528,7 @@ def test_yaml_no_duplicate_keys(subtests):
         fn = "no_duplicates_use_include.yaml"
         fn_err = "duplicate_keys_included.yaml"
         msg = (
-            f"Duplicate key found in {inputs / fn_err}:"
+            f"Duplicate key found in {re.escape(str(inputs / fn_err))}:"
             " Duplicate 'wake_velocity_parameters' key found at line 70"
         )
         with pytest.raises(ValueError, match=msg):
