@@ -42,11 +42,11 @@ technologies:
     model_inputs:
       performance_parameters:
         system_capacity_tonnes_per_day: 170  # Based on 360 MW electrolyzer capacity
-        natural_gas_usage_mmbtu_per_kg: 0.192  # 56.256 kWh/kg
-        electricity_usage_kwh_per_kg: 0.88
+        natural_gas_usage_mmbtu_per_kg: 0.175  # 56.256 kWh/kg H2A lite 2024
+        electricity_usage_kwh_per_kg: 0.13  # H2A lite 2024
       cost_parameters:
         # Linear interpolated to technology year 2027
-        capex_per_kw: 642  # $/kW based on ReEDS https://natlabrockies.github.io/ReEDS-2.0/model_documentation.html#hydrogen-production-assumptions
-        fixed_opex_per_kw_per_year: 20.67  # $/kW/year based on ReEDS https://natlabrockies.github.io/ReEDS-2.0/model_documentation.html#hydrogen-production-assumptions
-        variable_opex_per_kwh: 0.087  # $/kWh based on ReEDS https://natlabrockies.github.io/ReEDS-2.0/model_documentation.html#hydrogen-production-assumptions
-        cost_year: 2022
+        capex_per_kw: 412.67  # $/kW based on H2A lite  2024
+        fixed_opex_per_kw_per_year: 12.29  # $/kW/year based on 2024 H2A lite
+        variable_opex_per_kwh: 0.000449  # $/kWh based on 2024 H2A lite
+        cost_year: 2023

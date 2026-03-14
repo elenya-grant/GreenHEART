@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+import pandas as pd
+
 from h2integrate.core.dict_utils import update_defaults
 from h2integrate.core.file_utils import check_file_format_for_csv_generator
 from h2integrate.core.h2integrate_model import H2IntegrateModel
@@ -24,13 +26,13 @@ new_csv_filename = check_file_format_for_csv_generator(
 updated_driver = update_defaults(
     driver_config["driver"],
     "filename",
-    new_csv_filename.name,
+    new_csv_filename,
 )
 driver_config["driver"].update(updated_driver)
 
 # Load plant and tech configs
 plant_config = load_plant_yaml("plant_config.yaml")
-tech_config = load_tech_yaml("tech_config.yaml")
+tech_config = load_tech_yaml("tech_config_h2a.yaml")
 
 h2i_config = {
     "name": "H2Integrate_config",
@@ -47,3 +49,10 @@ h2i.run()
 
 # Post-process the results
 h2i.post_process(summarize_sql=True)
+
+csv_fpath = Path(str(h2i.recorder_path).replace(".sql", ".csv"))
+df = pd.read_csv(csv_fpath)
+df["finance_subgroup_hydrogen.LCOH (USD/kg)"].mean()
+print(f"min LCOH is: {df['finance_subgroup_hydrogen.LCOH (USD/kg)'].min()}")
+print(f"average LCOH is: {df['finance_subgroup_hydrogen.LCOH (USD/kg)'].mean()}")
+print(f"max LCOH is: {df['finance_subgroup_hydrogen.LCOH (USD/kg)'].max()}")

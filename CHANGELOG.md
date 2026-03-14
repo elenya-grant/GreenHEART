@@ -10,9 +10,16 @@
   `min_charge_fraction`, `max_charge_fraction`, and `init_charge_fraction` across all
   configuration classes, YAML configs, tests, and examples. These values are fractions
   between 0 and 1, so the previous "percent" naming was misleading. [PR 581](https://github.com/NatLabRockies/H2Integrate/pull/581)
+- Added a test and docs for sql to csv. [PR 582](https://github.com/NatLabRockies/H2Integrate/pull/582)
+- Fixed docs/example drift in design of experiments case. [PR 584](https://github.com/NatLabRockies/H2Integrate/pull/584)
 - Switch to using NLR instead of NREL throughout, especially for API key usage for resource acquisition. [PR 583](https://github.com/NatLabRockies/H2Integrate/pull/583)
 - Reorganized utilities, split them out to appropriate modules [PR 586](https://github.com/NatLabRockies/H2Integrate/pull/586)
 - Added a generic storage model that is compatible with the Pyomo controllers [PR 571](https://github.com/NatLabRockies/H2Integrate/pull/571)
+- Fixed a bug within the H2 storage cost models that used max rate instead of average for H2 flows [PR 588](https://github.com/NatLabRockies/H2Integrate/pull/588)
+- Add hydrogen steam methane reforming (SMR) performance and cost converter [PR 594](https://github.com/NatLabRockies/H2Integrate/pull/594)
+- Fixed a bug in the discrete variable instantiation within the iron processing stack that caused a failure with OpenMDAO v3.43 [PR 595](https://github.com/NatLabRockies/H2Integrate/pull/595)
+- Fixed a bug in model setup where transporters were added to the system at the end of the system instead after their source [PR 591](https://github.com/NatLabRockies/H2Integrate/pull/591)
+- Fixed a bug in example 1 (steel) where a cable was included between the combiner to steel, but steel uses an internal grid connection [PR 591](https://github.com/NatLabRockies/H2Integrate/pull/591)
 
 ## 0.7 [March 3, 2026]
 

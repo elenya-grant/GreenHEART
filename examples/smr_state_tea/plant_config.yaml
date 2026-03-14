@@ -15,36 +15,36 @@ plant:
     timezone: 0
 finance_parameters:
   finance_groups:
-    optimistic:
-      finance_model: ProFastLCO
-      model_inputs:
-        params:
-          analysis_start_year: 2027
-          installation_time: 36  # months
-          inflation_rate: 0.0  # 0 for nominal analysis
-          discount_rate: 0.0948
-          debt_equity_ratio: 1.72
-          property_tax_and_insurance: 0.015
-          total_income_tax_rate: 0.2574
-          capital_gains_tax_rate: 0.15
-          sales_tax_rate: 0.00
-          debt_interest_rate: 0.046
-          debt_type: Revolving debt   # can be "Revolving debt" or "One time loan"
-          loan_period_if_used: 0 # Not used for "Revolving debt"
-          cash_onhand_months: 1
-          admin_expense: 0.00  # percent of sales
-          non_depr_assets: 250000
-          end_of_proj_sale_non_depr_assets: 250000
-        capital_items:
-          depr_type: MACRS   # can be "MACRS" or "Straight line"
-          depr_period: 7  # 7  years
-          refurb: [0.]
+    # optimistic:
+    finance_model: ProFastLCO
+    model_inputs:
+      params:
+        analysis_start_year: 2027
+        installation_time: 36  # months
+        inflation_rate: 0.0  # 0 for nominal analysis
+        discount_rate: 0.0948
+        debt_equity_ratio: 1.72
+        property_tax_and_insurance: 0.015
+        total_income_tax_rate: 0.2574
+        capital_gains_tax_rate: 0.15
+        sales_tax_rate: 0.00
+        debt_interest_rate: 0.046
+        debt_type: Revolving debt   # can be "Revolving debt" or "One time loan"
+        loan_period_if_used: 0 # Not used for "Revolving debt"
+        cash_onhand_months: 1
+        admin_expense: 0.00  # percent of sales
+        non_depr_assets: 250000
+        end_of_proj_sale_non_depr_assets: 250000
+      capital_items:
+        depr_type: MACRS   # can be "MACRS" or "Straight line"
+        depr_period: 7  # 7  years
+        refurb: [0.]
   finance_subgroups:
-    electricity:
+    hydrogen:
       commodity: hydrogen
       commodity_stream: smr
-      finance_groups: [optimistic]
-      technologies: [ng_feedstock, smr]
+      # finance_groups: [optimistic]
+      technologies: [ng_feedstock, smr, grid_feedstock]
   cost_adjustment_parameters:
     cost_year_adjustment_inflation: 0.025  # used to adjust modeled costs to target_dollar_year
     target_dollar_year: 2022

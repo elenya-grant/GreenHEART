@@ -22,17 +22,17 @@ design_variables:
       units: deg
       lower: -180.0
       upper: 180.0
-    ng_feedstock:
-      price:
-        flag: true
-        units: USD/MMBtu
-        lower: 0.0
-        upper: 25.0
+  ng_feedstock:
+    price:
+      flag: true
+      units: USD/MMBtu
+      lower: 0.0
+      upper: 25.0
 objective:
   name: finance_subgroup_hydrogen.LCOH
 recorder:
   file: cases.sql
-  overwrite_recorder: true
+  overwrite_recorder: false
   flag: true
   includes: ['*']
   excludes: ['*wind_resource*']
