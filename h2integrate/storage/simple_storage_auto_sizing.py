@@ -10,7 +10,30 @@ from h2integrate.core.model_baseclasses import PerformanceModelBaseClass
 class StorageSizingModelConfig(BaseConfig):
     """Configuration class for the StorageAutoSizingModel.
 
-    Fields include `commodity`, `commodity_rate_units`, and `demand_profile`.
+    Attributes:
+        commodity (str): name of commodity
+        commodity_rate_units (str): Units of the commodity (e.g., kW or kg/h).
+        min_charge_fraction (float): Minimum allowable state of charge as a fraction (0 to 1).
+        max_charge_fraction (float): Maximum allowable state of charge as a fraction (0 to 1).
+        set_demand_as_avg_commodity_in (bool, optional): If True, assume the demand is
+            equal to the mean input commodity. If False, uses the demand input.
+            Defaults to True.
+        demand_profile (int | float | list, optional): Demand values for each timestep, in
+            the same units as `commodity_rate_units`. May be a scalar for constant
+            demand or a list/array for time-varying demand.
+            Only used if `set_demand_as_avg_commodity_in` is False. Defaults to 0.
+        charge_efficiency (float | None, optional): Efficiency of charging the storage, represented
+            as a decimal between 0 and 1 (e.g., 0.9 for 90% efficiency). Optional if
+            `round_trip_efficiency` is provided.
+        discharge_efficiency (float | None, optional): Efficiency of discharging the storage,
+            represented as a decimal between 0 and 1 (e.g., 0.9 for 90% efficiency). Optional if
+            `round_trip_efficiency` is provided.
+        round_trip_efficiency (float | None, optional): Combined efficiency of charging and
+            discharging the storage, represented as a decimal between 0 and 1 (e.g., 0.81 for
+            81% efficiency). Optional if `charge_efficiency` and `discharge_efficiency` are
+            provided.
+        commodity_amount_units (str | None, optional): Units of the commodity as an amount
+            (i.e., kW*h or kg). If not provided, defaults to commodity_rate_units*h.
     """
 
     commodity: str = field(converter=(str.strip, str.lower))
@@ -161,7 +184,13 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
             shape=1,
             units=self.commodity_rate_units,
         )
-        # TODO: add output for max_discharge_rate
+
+        self.add_output(
+            "max_discharge_rate",
+            val=0.0,
+            shape=1,
+            units=self.commodity_rate_units,
+        )
 
         self.add_output(
             "storage_duration",
@@ -228,6 +257,11 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         storage_max_fill_rate = (
             np.max(inputs[f"{self.commodity}_in"]) / self.config.charge_efficiency
         )
+        # Auto-size the unfill rate as the max of the input commodity adjusted for
+        # discharge efficiency
+        storage_max_unfill_rate = (
+            np.max(inputs[f"{self.commodity}_in"]) / self.config.discharge_efficiency
+        )
 
         # NOTE: maybe should replace usage of inputs[f"{self.commodity}_in"] - commodity_demand
         # with -1*inputs["commodity_set_point"]
@@ -276,7 +310,7 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         storage_commodity_out, soc = self.simulate(
             inputs[f"{self.commodity}_set_point"],
             storage_max_fill_rate,
-            storage_max_fill_rate,
+            storage_max_unfill_rate,
             rated_storage_capacity,
         )
         storage_commodity_out = np.array(storage_commodity_out)
@@ -311,8 +345,9 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
 
         # Output the calculated storage sizes (charge rate and capacity)
         outputs["max_charge_rate"] = storage_max_fill_rate
+        outputs["max_discharge_rate"] = storage_max_unfill_rate
         outputs["storage_capacity"] = rated_storage_capacity
-        outputs["storage_duration"] = outputs["storage_capacity"] / outputs["max_charge_rate"]
+        outputs["storage_duration"] = outputs["storage_capacity"] / outputs["max_discharge_rate"]
 
         # The rated_commodity_production is based on the discharge rate
         # (which is assumed equal to the charge rate)

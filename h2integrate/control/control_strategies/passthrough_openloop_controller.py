@@ -7,6 +7,21 @@ from h2integrate.core.utilities import BaseConfig, merge_shared_inputs
 
 @define(kw_only=True)
 class PassThroughOpenLoopControllerConfig(BaseConfig):
+    """Configuration class for the PassThroughOpenLoopController
+
+    Attributes:
+        commodity (str): name of commodity
+        commodity_rate_units (str): Units of the commodity (e.g., kW or kg/h).
+        set_demand_as_avg_commodity_in (bool, optional): If True, assume the demand is
+            equal to the mean input commodity. If False, uses the demand input.
+            Defaults to True.
+        demand_profile (int | float | list, optional): Demand values for each timestep, in
+            the same units as `commodity_rate_units`. May be a scalar for constant
+            demand or a list/array for time-varying demand.
+            Only used if `set_demand_as_avg_commodity_in` is False. Defaults to 0.
+
+    """
+
     commodity: str = field()
     commodity_rate_units: str = field()
     demand_profile: int | float | list = field(default=0.0)
@@ -17,10 +32,10 @@ class PassThroughOpenLoopController(om.ExplicitComponent):
     """
     A simple pass-through controller for open-loop systems.
 
-    This controller directly passes the input commodity flow to the output without any
-    modifications. It is useful for testing, as a placeholder for more complex controllers,
-    and for maintaining consistency between controlled and uncontrolled frameworks as this
-    'controller' does not alter the system output in any way.
+    This controller directly sets a storage control set point as the difference between the
+    demand and the available input commodity. It is useful for testing, as a placeholder for
+    more complex storage controllers, and for maintaining consistency between controlled and
+    uncontrolled frameworks.
     """
 
     def initialize(self):
@@ -65,16 +80,21 @@ class PassThroughOpenLoopController(om.ExplicitComponent):
 
     def compute(self, inputs, outputs):
         """
-        Pass through input to output flows.
+        Simple controller.
 
         Args:
             inputs (dict): Dictionary of input values.
                 - {commodity}_in: Input commodity flow.
+                - {commodity}_demand: Commodity demand profile.
+                Only used if `set_demand_as_avg_commodity_in` is False.
             outputs (dict): Dictionary of output values.
-                - {commodity}_out: Output commodity flow, equal to the input flow.
+                - {commodity}_set_point: Dispatch set-points for each timestep
+                in `commodity_rate_units`. Negative values command charging;
+                positive values command discharging.
         """
 
         if self.config.set_demand_as_avg_commodity_in:
+            # Assume the demand is the average of the input commodity
             commodity_demand = np.mean(inputs[f"{self.config.commodity}_in"]) * np.ones(
                 self.n_timesteps
             )
@@ -85,29 +105,3 @@ class PassThroughOpenLoopController(om.ExplicitComponent):
         outputs[f"{self.config.commodity}_set_point"] = (
             commodity_demand - inputs[f"{self.config.commodity}_in"]
         )
-
-    # def setup_partials(self):
-    #     """
-    #     Declare partial derivatives as unity throughout the design space.
-
-    #     This method specifies that the derivative of the output with respect to the input is
-    #     always 1.0, consistent with the pass-through behavior.
-
-    #     Note:
-    #     This method is not currently used and isn't strictly needed if you're creating other
-    #     controllers; it is included as a nod towards potential future development enabling
-    #     more derivative information passing.
-    #     """
-
-    #     # Get the size of the input/output array
-    #     size = self._get_var_meta(f"{self.config.commodity}_in", "size")
-
-    #     # Declare partials sparsely for all elements as an identity matrix
-    #     # (diagonal elements are 1.0, others are 0.0)
-    #     self.declare_partials(
-    #         of=f"{self.config.commodity}_set_point",
-    #         wrt=f"{self.config.commodity}_in",
-    #         rows=np.arange(size),
-    #         cols=np.arange(size),
-    #         val=np.ones(size),  # Diagonal elements are 1.0
-    #     )
