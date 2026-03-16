@@ -3,6 +3,9 @@ import pytest
 import openmdao.api as om
 
 from h2integrate.storage.simple_storage_auto_sizing import StorageAutoSizingModel
+from h2integrate.control.control_strategies.passthrough_openloop_controller import (
+    PassThroughOpenLoopController,
+)
 
 
 @pytest.mark.regression
@@ -409,6 +412,98 @@ def test_storage_autosizing_losses(plant_config, subtests):
         np.testing.assert_allclose(
             prob.get_val("storage_hydrogen_discharge", units="kg/h"),
             expected_discharge,
+            rtol=1e-6,
+            atol=1e-10,
+        )
+
+
+@pytest.mark.regression
+@pytest.mark.parametrize("n_timesteps", [24])
+def test_storage_autosizing_with_passthrough_controller(plant_config, subtests):
+    # Basic test to ensure that storage performance model
+    # works as-expected with the PassThroughOpenLoopController.
+    # This test should have the same results as test_storage_autosizing_basic_performance_no_losses
+
+    tech_config = {
+        "shared_parameters": {
+            "commodity": "hydrogen",
+            "commodity_rate_units": "kg/h",
+            "set_demand_as_avg_commodity_in": True,
+        },
+        "performance_parameters": {
+            "min_charge_fraction": 0.0,
+            "max_charge_fraction": 1.0,
+            "commodity_amount_units": "kg",
+            "charge_efficiency": 1.0,
+            "discharge_efficiency": 1.0,
+        },
+    }
+
+    commodity_in = np.concat(
+        [np.full(3, 12.0), np.cumsum(np.ones(15)), np.full(3, 4.0), np.zeros(3)]
+    )
+    commodity_demand = np.full(24, np.mean(commodity_in))
+
+    prob = om.Problem()
+
+    prob.model.add_subsystem(
+        name="IVC1",
+        subsys=om.IndepVarComp(name="hydrogen_in", val=commodity_in, units="kg/h"),
+        promotes=["*"],
+    )
+
+    prob.model.add_subsystem(
+        "controller",
+        PassThroughOpenLoopController(
+            plant_config=plant_config,
+            tech_config={"model_inputs": tech_config},
+        ),
+        promotes=["*"],
+    )
+
+    prob.model.add_subsystem(
+        "storage",
+        StorageAutoSizingModel(
+            plant_config=plant_config,
+            tech_config={"model_inputs": tech_config},
+        ),
+        promotes=["*"],
+    )
+
+    prob.setup()
+
+    prob.run_model()
+
+    charge_rate = prob.get_val("storage.max_charge_rate", units="kg/h")[0]
+    capacity = prob.get_val("storage.storage_capacity", units="kg")[0]
+
+    with subtests.test("Charge rate value"):
+        assert pytest.approx(charge_rate, rel=1e-6) == np.max(commodity_in)
+
+    with subtests.test("Storage capacity value"):
+        soc_kg = np.cumsum(commodity_demand - commodity_in)
+        soc_kg_adj = soc_kg + np.abs(np.min(soc_kg))
+        expected_capacity = np.max(soc_kg_adj) - np.min(soc_kg_adj)
+        assert pytest.approx(capacity, rel=1e-6) == expected_capacity
+
+    with subtests.test("Discharge Profile"):
+        expected_discharge = np.concat(
+            [np.zeros(3), np.arange(6, 0, -1), np.zeros(9), np.full(3, 3.0), np.full(3, 7.0)]
+        )
+        np.testing.assert_allclose(
+            prob.get_val("storage_hydrogen_discharge", units="kg/h"),
+            expected_discharge,
+            rtol=1e-6,
+            atol=1e-10,
+        )
+
+    with subtests.test("Charge Profile"):
+        expected_charge = np.concat(
+            [np.full(3, -5), np.zeros(7), np.arange(-1, -8, -1), np.array([-3]), np.zeros(6)]
+        )
+        np.testing.assert_allclose(
+            prob.get_val("storage_hydrogen_charge", units="kg/h"),
+            expected_charge,
             rtol=1e-6,
             atol=1e-10,
         )
