@@ -68,6 +68,14 @@ def test_storage_autosizing_basic_performance_no_losses(plant_config, subtests):
         expected_capacity = np.max(soc_kg_adj) - np.min(soc_kg_adj)
         assert pytest.approx(capacity, rel=1e-6) == expected_capacity
 
+    # TODO: add test for storage duration
+    with subtests.test("Storage duration"):
+        expected_storage_duration = expected_capacity / np.max(commodity_in)
+        assert (
+            pytest.approx(prob.get_val("storage_duration", units="h"), rel=1e-6)
+            == expected_storage_duration
+        )
+
     # Basic sanity-check unit tests on storage performance
     with subtests.test("Discharge is always positive"):
         assert np.all(prob.get_val("storage.storage_hydrogen_discharge", units="kg/h") >= 0)
@@ -142,3 +150,17 @@ def test_storage_autosizing_basic_performance_no_losses(plant_config, subtests):
         np.testing.assert_allclose(
             prob.get_val("hydrogen_out", units="kg/h"), commodity_demand, rtol=1e-6, atol=1e-10
         )
+
+    # TODO: add subtests for unmet demand, and excess commodity, etc
+
+
+@pytest.mark.regression
+@pytest.mark.parametrize("n_timesteps", [24])
+def test_storage_autosizing_soc_bounds(plant_config, subtests):
+    pass
+
+
+@pytest.mark.regression
+@pytest.mark.parametrize("n_timesteps", [24])
+def test_storage_autosizing_charge_losses(plant_config, subtests):
+    pass
