@@ -151,7 +151,40 @@ def test_storage_autosizing_basic_performance_no_losses(plant_config, subtests):
             prob.get_val("hydrogen_out", units="kg/h"), commodity_demand, rtol=1e-6, atol=1e-10
         )
 
-    # TODO: add subtests for unmet demand, and excess commodity, etc
+    with subtests.test("Unmet demand"):
+        np.testing.assert_allclose(
+            prob.get_val("unmet_hydrogen_demand_out", units="kg/h"),
+            np.zeros(len(commodity_demand)),
+            rtol=1e-6,
+            atol=1e-10,
+        )
+
+    with subtests.test("Discharge Profile"):
+        expected_discharge = np.concat(
+            [np.zeros(3), np.arange(6, 0, -1), np.zeros(9), np.full(3, 3.0), np.full(3, 7.0)]
+        )
+        np.testing.assert_allclose(
+            prob.get_val("storage_hydrogen_discharge", units="kg/h"),
+            expected_discharge,
+            rtol=1e-6,
+            atol=1e-10,
+        )
+
+    with subtests.test("Charge Profile"):
+        expected_charge = np.concat(
+            [np.full(3, -5), np.zeros(7), np.arange(-1, -8, -1), np.array([-3]), np.zeros(6)]
+        )
+        np.testing.assert_allclose(
+            prob.get_val("storage_hydrogen_charge", units="kg/h"),
+            expected_charge,
+            rtol=1e-6,
+            atol=1e-10,
+        )
+
+    with subtests.test("Total unused commodity"):
+        assert (
+            pytest.approx(prob.get_val("unused_hydrogen_out", units="kg/h").sum(), rel=1e-6) == 5.0
+        )
 
 
 @pytest.mark.regression
@@ -350,3 +383,32 @@ def test_storage_autosizing_losses(plant_config, subtests):
         "Discharge efficiency: commodity to available < commodity from storage when discharging"
     ):
         assert np.allclose(discharge_losses, 1 - discharge_eff, rtol=1e-6, atol=1e-10)
+
+    with subtests.test("Charge Profile"):
+        expected_charge = np.concat(
+            [np.full(3, -5), np.zeros(7), np.arange(-1, -9, -1), np.zeros(6)]
+        )
+        np.testing.assert_allclose(
+            prob.get_val("storage_hydrogen_charge", units="kg/h"),
+            expected_charge,
+            rtol=1e-6,
+            atol=1e-10,
+        )
+
+    with subtests.test("Discharge Profile"):
+        expected_discharge = np.concat(
+            [
+                np.zeros(3),
+                np.arange(6, 3, -1),
+                np.array([2.25]),
+                np.zeros(11),
+                np.full(3, 3.0),
+                np.array([7, 5.6, 0.0]),
+            ]
+        )
+        np.testing.assert_allclose(
+            prob.get_val("storage_hydrogen_discharge", units="kg/h"),
+            expected_discharge,
+            rtol=1e-6,
+            atol=1e-10,
+        )
