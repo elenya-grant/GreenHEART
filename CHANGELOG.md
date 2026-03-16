@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Update energy conversion ratio in H2 SMR model [PR 606](https://github.com/NatLabRockies/H2Integrate/pull/606)
 - Update iron models and examples [PR 601](https://github.com/NatLabRockies/H2Integrate/pull/601)
   - Remove outdated iron files
   - Consolidate iron examples into a single main folder
