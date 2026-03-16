@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+- Update iron models and examples [PR 601](https://github.com/NatLabRockies/H2Integrate/pull/601)
+  - Remove outdated iron files
+  - Consolidate iron examples into a single main folder
+  - Add documentation for Rosner iron DRI and steel EAF models
+
 ## 0.7.1 [March 13, 2026]
 
 ### Updates
