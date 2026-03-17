@@ -340,7 +340,10 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
 
         # 5. Calculate the demand profile
         if self.config.set_demand_as_avg_commodity_in:
-            commodity_demand = np.mean(inputs[f"{self.commodity}_in"]) * np.ones(self.n_timesteps)
+            if inputs[f"{self.commodity}_demand"].sum() > 0:
+                commodity_demand = np.mean(inputs[f"{self.commodity}_in"]) * np.ones(
+                    self.n_timesteps
+                )
         else:
             commodity_demand = inputs[f"{self.commodity}_demand"]
 
@@ -503,7 +506,7 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
                 headroom = (soc - soc_min) * storage_capacity / self.dt_hr
 
                 # Clip to the most restrictive limit without applied efficiency.
-                # Efficiency losses occur as energy leaves storage.
+                # Discharge efficiency losses occur as energy leaves storage.
                 actual_discharge = max(
                     0.0, min(headroom, discharge_rate / discharge_eff, cmd / discharge_eff)
                 )
