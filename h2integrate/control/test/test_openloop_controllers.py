@@ -1,13 +1,13 @@
 from copy import deepcopy
 from pathlib import Path
 
-import yaml
 import numpy as np
 import pytest
 import openmdao.api as om
 from pytest import fixture
 from openmdao.utils.assert_utils import assert_check_totals
 
+from h2integrate.core.file_utils import load_yaml
 from h2integrate.storage.simple_generic_storage import SimpleGenericStorage
 from h2integrate.control.control_strategies.passthrough_openloop_controller import (
     PassThroughOpenLoopController,
@@ -48,8 +48,7 @@ def test_pass_through_controller(subtests):
     tech_config_path = current_dir / "inputs" / "tech_config.yaml"
 
     # Load the technology configuration
-    with tech_config_path.open() as file:
-        tech_config = yaml.safe_load(file)
+    tech_config = load_yaml(tech_config_path)
 
     # Set up the OpenMDAO problem
     prob = om.Problem()
@@ -74,9 +73,9 @@ def test_pass_through_controller(subtests):
 
     # Run the test
     with subtests.test("Check output"):
-        assert pytest.approx(
+        assert np.arange(10) == pytest.approx(
             prob.get_val("hydrogen_set_point", units="kg/h"), rel=1e-3
-        ) == np.arange(10)
+        )
 
     # Run the test
     with subtests.test("Check derivatives"):
@@ -106,8 +105,7 @@ def test_storage_demand_controller(subtests):
     tech_config_path = current_dir / "inputs" / "tech_config.yaml"
 
     # Load the technology configuration
-    with tech_config_path.open() as file:
-        tech_config = yaml.safe_load(file)
+    tech_config = load_yaml(tech_config_path)
 
     tech_config["technologies"]["h2_storage"]["model_inputs"]["shared_parameters"] = {
         "commodity": "hydrogen",
@@ -156,28 +154,29 @@ def test_storage_demand_controller(subtests):
 
     # Run the test
     with subtests.test("Check output"):
-        assert pytest.approx([0.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) == prob.get_val(
-            "hydrogen_out", units="kg/h"
+        assert prob.get_val("hydrogen_out", units="kg/h") == pytest.approx(
+            [0.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
         )
 
     with subtests.test("Check curtailment"):
-        assert pytest.approx([0.0, 0.0, 0.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]) == prob.get_val(
-            "unused_hydrogen_out", units="kg/h"
+        assert prob.get_val("unused_hydrogen_out", units="kg/h") == pytest.approx(
+            [0.0, 0.0, 0.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
         )
 
     with subtests.test("Check soc"):
-        assert pytest.approx([0.95, 0.95, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) == prob.get_val(
-            "SOC", units="unitless"
+        assert prob.get_val("SOC", units="unitless") == pytest.approx(
+            [0.95, 0.95, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
         )
 
     with subtests.test("Check missed load"):
-        assert pytest.approx([0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) == prob.get_val(
-            "unmet_hydrogen_demand_out", units="kg/h"
+        assert prob.get_val("unmet_hydrogen_demand_out", units="kg/h") == pytest.approx(
+            [0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         )
 
 
 @pytest.mark.unit
 def test_storage_demand_controller_round_trip_efficiency(subtests):
+    # This tests the behavior of storage efficiencies when the storage is charging and discharging
     # Get the directory of the current script
     current_dir = Path(__file__).parent
 
@@ -185,8 +184,7 @@ def test_storage_demand_controller_round_trip_efficiency(subtests):
     tech_config_path = current_dir / "inputs" / "tech_config.yaml"
 
     # Load the technology configuration
-    with tech_config_path.open() as file:
-        tech_config = yaml.safe_load(file)
+    tech_config = load_yaml(tech_config_path)
 
     tech_config["technologies"]["h2_storage"]["model_inputs"]["shared_parameters"] = {
         "commodity": "hydrogen",
@@ -256,24 +254,174 @@ def test_storage_demand_controller_round_trip_efficiency(subtests):
 
     # Run the test
     with subtests.test("Check output"):
-        assert pytest.approx(prob_ioe.get_val("hydrogen_out", units="kg/h")) == prob_rte.get_val(
-            "hydrogen_out", units="kg/h"
+        assert prob_rte.get_val("hydrogen_out", units="kg/h") == pytest.approx(
+            prob_ioe.get_val("hydrogen_out", units="kg/h")
         )
 
     with subtests.test("Check curtailment"):
-        assert pytest.approx(
+        assert prob_rte.get_val("unused_hydrogen_out", units="kg/h") == pytest.approx(
             prob_ioe.get_val("unused_hydrogen_out", units="kg/h")
-        ) == prob_rte.get_val("unused_hydrogen_out", units="kg/h")
+        )
 
     with subtests.test("Check soc"):
-        assert pytest.approx(prob_ioe.get_val("SOC", units="unitless")) == prob_rte.get_val(
-            "SOC", units="unitless"
+        assert prob_rte.get_val("SOC", units="unitless") == pytest.approx(
+            prob_ioe.get_val("SOC", units="unitless")
         )
 
     with subtests.test("Check missed load"):
-        assert pytest.approx(
+        assert prob_rte.get_val("unmet_hydrogen_demand_out", units="kg/h") == pytest.approx(
             prob_ioe.get_val("unmet_hydrogen_demand_out", units="kg/h")
-        ) == prob_rte.get_val("unmet_hydrogen_demand_out", units="kg/h")
+        )
+
+
+@pytest.mark.unit
+def test_storage_demand_controller_round_trip_with_non_one_efficiencies(subtests):
+    # Get the directory of the current script
+    current_dir = Path(__file__).parent
+
+    # Resolve the paths to the configuration files
+    tech_config_path = current_dir / "inputs" / "tech_config.yaml"
+
+    # Load the technology configuration
+    tech_config = load_yaml(tech_config_path)
+
+    tech_config["technologies"]["h2_storage"]["control_strategy"]["model"] = (
+        "DemandOpenLoopStorageController"
+    )
+
+    tech_config["technologies"]["h2_storage"]["performance_model"]["model"] = "SimpleGenericStorage"
+
+    tech_config["technologies"]["h2_storage"]["model_inputs"]["shared_parameters"] = {
+        "commodity": "hydrogen",
+        "commodity_rate_units": "kg/h",
+        "max_capacity": 10.0,  # kg
+        "max_charge_fraction": 1.0,  # fraction (0-1)
+        "min_charge_fraction": 0.0,  # fraction (0-1)
+        "init_charge_fraction": 0.75,  # fraction (0-1)
+        "max_charge_rate": 1.0,  # kg/time step
+        "max_discharge_rate": 1.0,  # kg/time step
+        "charge_equals_discharge": False,
+        "charge_efficiency": 0.5,
+        "discharge_efficiency": 0.5,
+        "demand_profile": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            2.0,
+        ],  # Example: 10 time steps
+    }
+
+    tech_config_rte = deepcopy(tech_config)
+    tech_config_rte["technologies"]["h2_storage"]["model_inputs"]["shared_parameters"] = {
+        "commodity": "hydrogen",
+        "commodity_rate_units": "kg/h",
+        "max_capacity": 10.0,  # kg
+        "max_charge_fraction": 1.0,  # fraction (0-1)
+        "min_charge_fraction": 0.0,  # fraction (0-1)
+        "init_charge_fraction": 0.75,  # fraction (0-1)
+        "max_charge_rate": 1.0,  # kg/time step
+        "max_discharge_rate": 1.0,  # kg/time step
+        "charge_equals_discharge": False,
+        "round_trip_efficiency": 0.5**2,
+        "demand_profile": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            2.0,
+        ],  # Example: 10 time steps with 10 kg/time step demand
+    }
+
+    plant_config = {"plant": {"plant_life": 30, "simulation": {"n_timesteps": 10, "dt": 3600}}}
+
+    def set_up_and_run_problem(config):
+        # Set up the OpenMDAO problem
+        prob = om.Problem()
+
+        prob.model.add_subsystem(
+            name="IVC",
+            subsys=om.IndepVarComp(
+                name="hydrogen_in", val=[2.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            ),
+            promotes=["*"],
+        )
+
+        prob.model.add_subsystem(
+            "demand_openloop_controller",
+            DemandOpenLoopStorageController(
+                plant_config=plant_config, tech_config=config["technologies"]["h2_storage"]
+            ),
+            promotes=["*"],
+        )
+        prob.model.add_subsystem(
+            "storage",
+            SimpleGenericStorage(
+                plant_config=plant_config, tech_config=tech_config["technologies"]["h2_storage"]
+            ),
+            promotes=["*"],
+        )
+
+        prob.setup()
+
+        prob.run_model()
+
+        return prob
+
+    prob_ioe = set_up_and_run_problem(tech_config)
+    prob_rte = set_up_and_run_problem(tech_config_rte)
+
+    # Run the comparison tests between charge/discharge and round trip efficiencies
+    with subtests.test("Check output match"):
+        assert prob_rte.get_val("hydrogen_out", units="kg/h") == pytest.approx(
+            prob_ioe.get_val("hydrogen_out", units="kg/h")
+        )
+
+    with subtests.test("Check curtailment match"):
+        assert prob_rte.get_val("unused_hydrogen_out", units="kg/h") == pytest.approx(
+            prob_ioe.get_val("unused_hydrogen_out", units="kg/h")
+        )
+
+    with subtests.test("Check soc match"):
+        assert prob_rte.get_val("SOC", units="unitless") == pytest.approx(
+            prob_ioe.get_val("SOC", units="unitless")
+        )
+
+    with subtests.test("Check missed load match"):
+        assert prob_rte.get_val("unmet_hydrogen_demand_out", units="kg/h") == pytest.approx(
+            prob_ioe.get_val("unmet_hydrogen_demand_out", units="kg/h")
+        )
+
+    # Run the absolute value tests for charge/discharge and round trip efficiencies
+    with subtests.test("Check output value"):
+        assert prob_rte.get_val("hydrogen_out", units="kg/h") == pytest.approx(
+            np.array([0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+        )
+
+    with subtests.test("Check curtailment value"):
+        assert prob_rte.get_val("unused_hydrogen_out", units="kg/h") == pytest.approx(
+            np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        )
+
+    with subtests.test("Check soc value"):
+        assert prob_rte.get_val("SOC", units="unitless") == pytest.approx(
+            np.array([0.8, 0.85, 0.9, 0.95, 1.0, 0.8, 0.6, 0.4, 0.2, 0.0])
+        )
+
+    with subtests.test("Check missed load value"):
+        assert prob_rte.get_val("unmet_hydrogen_demand_out", units="kg/h") == pytest.approx(
+            np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
+        )
 
 
 @pytest.mark.regression
@@ -288,8 +436,7 @@ def test_generic_storage_demand_controller(subtests):
     tech_config_path = current_dir / "inputs" / "tech_config.yaml"
 
     # Load the technology configuration
-    with tech_config_path.open() as file:
-        tech_config = yaml.safe_load(file)
+    tech_config = load_yaml(tech_config_path)
 
     tech_config["technologies"]["h2_storage"] = {
         "performance_model": {
@@ -301,7 +448,7 @@ def test_generic_storage_demand_controller(subtests):
         "model_inputs": {
             "shared_parameters": {
                 "commodity": "hydrogen",
-                "commodity_rate_units": "kg",
+                "commodity_rate_units": "kg/h",
                 "max_capacity": 10.0,  # kg
                 "max_charge_rate": 1.0,  # fraction (0-1)
                 "max_charge_fraction": 1.0,  # fraction (0-1)
@@ -349,23 +496,23 @@ def test_generic_storage_demand_controller(subtests):
 
     # # Run the test
     with subtests.test("Check output"):
-        assert pytest.approx([0.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) == prob.get_val(
-            "hydrogen_out"
+        assert prob.get_val("hydrogen_out", units="kg/h") == pytest.approx(
+            [0.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
         )
 
     with subtests.test("Check curtailment"):
-        assert pytest.approx([0.0, 0.0, 0.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]) == prob.get_val(
-            "unused_hydrogen_out"
+        assert prob.get_val("unused_hydrogen_out", units="kg/h") == pytest.approx(
+            [0.0, 0.0, 0.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
         )
 
     with subtests.test("Check soc"):
-        assert pytest.approx([0.95, 0.95, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) == prob.get_val(
-            "SOC", units="unitless"
+        assert prob.get_val("SOC", units="unitless") == pytest.approx(
+            [0.95, 0.95, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
         )
 
     with subtests.test("Check missed load"):
-        assert pytest.approx([0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]) == prob.get_val(
-            "unmet_hydrogen_demand_out"
+        assert prob.get_val("unmet_hydrogen_demand_out", units="kg/h") == pytest.approx(
+            [0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         )
 
 
@@ -381,8 +528,7 @@ def test_demand_converter_controller(subtests):
     tech_config_path = current_dir / "inputs" / "tech_config.yaml"
 
     # Load the technology configuration
-    with tech_config_path.open() as file:
-        tech_config = yaml.safe_load(file)
+    tech_config = load_yaml(tech_config_path)
 
     tech_config["technologies"]["load"] = {
         "control_strategy": {
@@ -422,18 +568,18 @@ def test_demand_converter_controller(subtests):
 
     # # Run the test
     with subtests.test("Check output"):
-        assert pytest.approx([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 5.0, 5.0, 5.0]) == prob.get_val(
-            "hydrogen_set_point"
+        assert prob.get_val("hydrogen_set_point") == pytest.approx(
+            [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 5.0, 5.0, 5.0]
         )
 
     with subtests.test("Check curtailment"):
-        assert pytest.approx([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0]) == prob.get_val(
-            "hydrogen_unused_commodity"
+        assert prob.get_val("hydrogen_unused_commodity") == pytest.approx(
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0]
         )
 
     with subtests.test("Check missed load"):
-        assert pytest.approx([5.0, 4.0, 3.0, 2.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0]) == prob.get_val(
-            "hydrogen_unmet_demand"
+        assert prob.get_val("hydrogen_unmet_demand") == pytest.approx(
+            [5.0, 4.0, 3.0, 2.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         )
 
 
@@ -449,8 +595,7 @@ def test_flexible_demand_converter_controller(subtests, variable_h2_production_p
     tech_config_path = current_dir / "inputs" / "tech_config.yaml"
 
     # Load the technology configuration
-    with tech_config_path.open() as file:
-        tech_config = yaml.safe_load(file)
+    tech_config = load_yaml(tech_config_path)
 
     end_use_rated_demand = 10.0  # kg/h
     ramp_up_rate_kg = 4.0
@@ -510,10 +655,7 @@ def test_flexible_demand_converter_controller(subtests, variable_h2_production_p
         assert np.all(flexible_total_demand <= end_use_rated_demand)
 
     with subtests.test("Check curtailment"):  # failed
-        assert (
-            pytest.approx(np.sum(prob.get_val("hydrogen_unused_commodity", units="kg")), rel=1e-3)
-            == 6.6
-        )
+        assert np.sum(prob.get_val("hydrogen_unused_commodity", units="kg")) == pytest.approx(6.6)
 
     # check ramping constraints and turndown constraints are met
     with subtests.test("Check turndown ratio constraint"):
@@ -525,17 +667,17 @@ def test_flexible_demand_converter_controller(subtests, variable_h2_production_p
     ramping_up = np.where(np.diff(flexible_total_demand) > 0, np.diff(flexible_total_demand), 0)
 
     with subtests.test("Check ramping down constraint"):
-        assert pytest.approx(np.max(ramping_down), rel=1e-6) == ramp_down_rate_kg
+        assert np.max(ramping_down) == pytest.approx(ramp_down_rate_kg, rel=1e-6)
 
     with subtests.test("Check ramping up constraint"):  # failed
-        assert pytest.approx(np.max(ramping_up), rel=1e-6) == ramp_up_rate_kg
+        assert np.max(ramping_up) == pytest.approx(ramp_up_rate_kg, rel=1e-6)
 
     with subtests.test("Check min utilization constraint"):
         assert np.sum(flexible_total_demand) / rated_production >= 0.1
 
     with subtests.test("Check min utilization value"):
         flexible_demand_utilization = np.sum(flexible_total_demand) / rated_production
-        assert pytest.approx(flexible_demand_utilization, rel=1e-6) == 0.5822142857142857
+        assert flexible_demand_utilization == pytest.approx(0.5822142857142857, rel=1e-6)
 
     # flexible_demand_profile[i] >= commodity_in[i] (as long as you are not curtailing
     # any commodity in)
@@ -563,8 +705,7 @@ def test_flexible_demand_converter_controller_min_utilization(
     tech_config_path = current_dir / "inputs" / "tech_config.yaml"
 
     # Load the technology configuration
-    with tech_config_path.open() as file:
-        tech_config = yaml.safe_load(file)
+    tech_config = load_yaml(tech_config_path)
 
     end_use_rated_demand = 10.0  # kg/h
     ramp_up_rate_kg = 4.0
@@ -626,4 +767,4 @@ def test_flexible_demand_converter_controller_min_utilization(
         assert flexible_demand_utilization >= 0.8
 
     with subtests.test("Check min utilization value"):
-        assert pytest.approx(flexible_demand_utilization, rel=1e-6) == 0.8010612244
+        assert flexible_demand_utilization == pytest.approx(0.8010612244, rel=1e-6)
