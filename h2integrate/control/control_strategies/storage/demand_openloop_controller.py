@@ -364,7 +364,7 @@ class DemandOpenLoopStorageController(om.ExplicitComponent):
                 )
                 soc += charge / max_capacity  # soc is a ratio with value between 0 and 1
                 combined_output_array[t] = demand_t
-                set_point_array[t] = -1 * charge
+                set_point_array[t] = -1 * charge / charge_eff
 
             # Ensure SOC stays within bounds
             soc = max(soc_min, min(soc_max, soc))
