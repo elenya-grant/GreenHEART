@@ -290,7 +290,10 @@ class SimpleGenericStorage(PerformanceModelBaseClass):
             storage_commodity_out > 0, storage_commodity_out, 0
         )
 
-        outputs["storage_duration"] = inputs["storage_capacity"][0] / max_discharge_rate
+        if max_discharge_rate > 0:
+            outputs["storage_duration"] = inputs["storage_capacity"][0] / max_discharge_rate
+        else:
+            outputs["storage_duration"] = 0.0
         outputs[f"unmet_{self.commodity}_demand_out"] = unmet_demand
         outputs[f"unused_{self.commodity}_out"] = unused_commodity
         outputs[f"storage_{self.commodity}_out"] = storage_commodity_out
