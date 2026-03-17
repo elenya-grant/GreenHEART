@@ -42,7 +42,7 @@ class PassThroughOpenLoopControllerConfig(BaseConfig):
                 " The provided demand profile will not be used, the demand profile will be "
                 f"calculated as the mean of ``{self.commodity}_in``. "
             )
-            warnings.warn(msg, UserWarning)
+            raise ValueError(msg)
 
 
 class PassThroughOpenLoopController(om.ExplicitComponent):

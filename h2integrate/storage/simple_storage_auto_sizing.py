@@ -283,11 +283,8 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         """
         # Part 1: Auto-size the storage to meet the demand
 
-        # 1. Auto-size the fill rate as the max of the input commodity adjusted for
-        # charge efficiency
-        storage_max_fill_rate = (
-            np.max(inputs[f"{self.commodity}_in"]) / self.config.charge_efficiency
-        )
+        # 1. Auto-size the fill rate as the max of the input commodity
+        storage_max_fill_rate = np.max(inputs[f"{self.commodity}_in"])
         # Auto-size the empty rate as the max of the input commodity adjusted for
         # discharge efficiency
         storage_max_empty_rate = (
@@ -489,10 +486,15 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
                 # Clip to the most restrictive limit, then apply efficiency.
                 # max(0, ...) guards against negative headroom when SOC
                 # slightly exceeds soc_max.
+                # correct headroom to not include charge_eff.
                 actual_charge = max(0.0, min(headroom / charge_eff, charge_rate, -cmd)) * charge_eff
 
                 # Update SOC (actual_charge is in post-efficiency units)
                 soc += actual_charge / storage_capacity
+
+                # Update the amount of commodity used to charge from the input stream
+                # If charge_eff<1, more commodity is pulled from the input stream than
+                # the commodity that goes into the storage.
                 storage_commodity_out_timesteps[t] = -actual_charge / charge_eff
             else:
                 # --- Discharging ---
@@ -500,13 +502,17 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
                 # hitting the minimum SOC, expressed as a rate.
                 headroom = (soc - soc_min) * storage_capacity / self.dt_hr
 
-                # Clip and apply discharge efficiency.
+                # Clip to the most restrictive limit without applied efficiency.
+                # Efficiency losses occur after energy has left storage.
                 actual_discharge = max(
                     0.0, min(headroom, discharge_rate / discharge_eff, cmd / discharge_eff)
                 )
 
-                # Update SOC (actual_discharge is in post-efficiency units)
+                # Update SOC (actual_discharge is before efficiency losses are applied.)
                 soc -= actual_discharge / storage_capacity
+
+                # If discharge_eff<1, then less commodity is output from the storage
+                # than the commodity discharged from storage
                 storage_commodity_out_timesteps[t] = actual_discharge * discharge_eff
 
             soc_timesteps[t] = soc * 100.0
