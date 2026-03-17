@@ -330,6 +330,7 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         self.current_soc = commodity_storage_soc[0] / rated_storage_capacity
 
         # 4. Simulate the storage performance using the `simulate()`
+        # soc output from `simulate()`` is represented as a percentage
         storage_commodity_out, soc = self.simulate(
             inputs[f"{self.commodity}_set_point"],
             storage_max_fill_rate,
@@ -341,6 +342,13 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         # 5. Calculate the demand profile
         if self.config.set_demand_as_avg_commodity_in:
             if inputs[f"{self.commodity}_demand"].sum() > 0:
+                msg = (
+                    "A non-zero demand profile was input but set_demand_as_avg_commodity_in is "
+                    "True. The input demand profile will not be used, the demand profile will be "
+                    f"calculated as the mean of ``{self.config.commodity}_in``. "
+                )
+                ValueError(msg)
+            else:
                 commodity_demand = np.mean(inputs[f"{self.commodity}_in"]) * np.ones(
                     self.n_timesteps
                 )
