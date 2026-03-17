@@ -495,10 +495,6 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
         soc_max = self.config.max_charge_fraction
         soc_min = self.config.min_charge_fraction
 
-        # max_charge_input / max_discharge_input are the hardware rate limits
-        # expressed in *pre-efficiency* rate units so they can be compared
-        # directly against the SOC headroom and the raw command magnitude.
-
         commands = np.asarray(storage_dispatch_commands, dtype=float)
         soc = float(self.current_soc)
 
@@ -512,6 +508,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                 # Clip to the most restrictive limit, then apply efficiency.
                 # max(0, ...) guards against negative headroom when SOC
                 # slightly exceeds soc_max.
+                # correct headroom to not include charge_eff.
                 actual_charge = max(0.0, min(headroom / charge_eff, charge_rate, -cmd)) * charge_eff
 
                 # Update SOC (actual_charge is in post-efficiency units)
@@ -528,14 +525,14 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                 headroom = (soc - soc_min) * storage_capacity / self.dt_hr
 
                 # Clip to the most restrictive limit without applied efficiency.
+                # Efficiency losses occur after energy has left storage.
                 actual_discharge = max(
                     0.0, min(headroom, discharge_rate / discharge_eff, cmd / discharge_eff)
                 )
 
-                # Update SOC (actual_discharge is in pre-efficiency units)
+                # Update SOC (actual_discharge is before efficiency losses are applied.)
                 soc -= actual_discharge / storage_capacity
 
-                # Amount discharged is in post-efficiency units
                 # If discharge_eff<1, then less commodity is output from the storage
                 # than the commodity discharged from storage
                 storage_commodity_out_timesteps[t] = actual_discharge * discharge_eff
