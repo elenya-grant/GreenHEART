@@ -251,6 +251,42 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         self.dt_hr = self.dt / 3600  # convert from seconds to hours
 
     def compute(self, inputs, outputs):
+        """First calculate the storage sizes (charge rate, discharge rate, and capacity)
+        needed to meet the demand. The steps to do this are:
+
+        1) Estimate the demand profile from either the input `commodity_demand` or assume
+            the demand is the average of the `commodity_in` profile.
+        2) Calculate the max charge and discharge rate as the maximum of the `commodity_in`
+            profile and oversize to account for charge/discharge efficiencies.
+        3) Estimate the storage SOC (in `commodity_amount_units`) as the cumulative summation of
+            the difference between the input commodity and the demand.
+        4) If needed, adjust the SOC profile from Step 3 so that the minimum SOC is positive
+        5) Calculate the usable storage capacity as the difference between the
+            maximum SOC and minimum SOC from Steps 3 and 4.
+        6) Calculate the rated storage capacity as the usable storage capacity
+            (calculated in Step 5) divided by
+            `config.max_charge_fraction - config.min_charge_fraction`
+
+        Then, simulate the performance of that storage model. The steps of this are:
+
+        1) Estimate the storage SOC (in `commodity_amount_units`). This is done by re-doing Step 3
+            and Step 4 from the above section.
+        2) Calculate the minimum storage SOC as a fraction (divide the SOC profile from Step 1
+            by the storage capacity)
+        3) If the minimum SOC fraction is less than config.min_charge_fraction, adjust the storage
+            SOC profile so that the minimum SOC equal to config.min_charge_fraction.
+        4) Estimate the starting SOC (as a fraction) at the start of the simulation.
+            Take the first value in the SOC profile (in `commodity_amount_units`)
+            and divide by the storage capacity
+        5) Simulate the storage performance using the `simulate()` method with the
+            dispatch command input `commodity_set_point`
+        6) Calculate the unmet demand, unused commodity, SOC, combined commodity output, etc.
+
+
+        Args:
+            inputs (_type_): _description_
+            outputs (_type_): _description_
+        """
         # Step 1: Auto-size the storage to meet the demand
 
         # Auto-size the fill rate as the max of the input commodity
@@ -282,7 +318,7 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         if minimum_soc < 0:
             commodity_storage_soc = [x + np.abs(minimum_soc) for x in commodity_storage_soc]
 
-        # Calculate the maximum usable hydrogen storage capacity needed to meet the demand
+        # Calculate the maximum usable storage capacity needed to meet the demand
         commodity_storage_capacity_kg = np.max(commodity_storage_soc) - np.min(
             commodity_storage_soc
         )
