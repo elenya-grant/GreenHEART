@@ -1208,11 +1208,16 @@ class H2IntegrateModel:
             if tech_name == dispatching_tech_name:
                 continue
             else:
-                # Connect the dispatch rules output to the dispatching_tech_name input
-                self.model.connect(
-                    f"{tech_name}.dispatch_block_rule_function",
-                    f"{dispatching_tech_name}.dispatch_block_rule_function_{tech_name}",
+                # Only connect dispatch rules if they are defined in the tech_config
+                tech_dispatch_rule = self.technology_config.get(tech_name, {}).get(
+                    "dispatch_rule_set", False
                 )
+                if tech_dispatch_rule:
+                    # Connect the dispatch rules output to the dispatching_tech_name input
+                    self.model.connect(
+                        f"{tech_name}.dispatch_block_rule_function",
+                        f"{dispatching_tech_name}.dispatch_block_rule_function_{tech_name}",
+                    )
 
         if (pyxdsm is not None) and (len(technology_interconnections) > 0):
             try:
@@ -1251,23 +1256,25 @@ class H2IntegrateModel:
 
         self.prob.run_driver()
 
-    def post_process(self, summarize_sql=False, show_plots=False):
+    def post_process(self, print_results=True, summarize_sql=False, show_plots=False):
+        """Post-process the results of the OpenMDAO model.
+
+        Prints the inputs and outputs to all systems in the model, excluding any
+        variables with "resource_data" in the name since those are large dictionary
+        variables that are not correctly formatted when printing.
+
+        Args:
+            print_results (bool): If True, print a summary of all model inputs
+                and outputs. Defaults to True.
+            summarize_sql (bool): If True and a recorder file was written,
+                convert the SQL recorder file to a CSV summary. Defaults to False.
+            show_plots (bool): If True, run post-processing plots for any
+                performance models that support them. Defaults to False.
         """
-        Post-process the results of the OpenMDAO model.
-
-        Right now, this means printing the inputs and outputs to all systems in the model.
-        We currently exclude any variables with "resource_data" in the name, since those
-        are large dictionary variables that are not correctly formatted when printing.
-
-        If `summarize_sql` is set to True and a recorder file was written, the results
-        in the recorder file will be summarized and saved as a .csv file.
-
-        Also, if `show_plots` is set to True, then any performance models with post-processing
-        plots available will be run and shown.
-        """
-        # Use custom summary printer instead of OpenMDAO's built-in printing so we can
-        # suppress internal value printing and display only mean values.
-        self.print_results(self.prob.model, excludes=["*resource_data"])
+        if print_results:
+            # Use custom summary printer instead of OpenMDAO's built-in printing so we can
+            # suppress internal value printing and display only mean values.
+            self.print_results(self.prob.model, excludes=["*resource_data"])
 
         if summarize_sql and self.recorder_path is not None:
             convert_sql_to_csv_summary(self.recorder_path, save_to_file=True)
