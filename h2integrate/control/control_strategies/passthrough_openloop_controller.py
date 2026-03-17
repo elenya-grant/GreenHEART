@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import openmdao.api as om
 from attrs import field, define
@@ -26,6 +28,22 @@ class PassThroughOpenLoopControllerConfig(BaseConfig):
     commodity_rate_units: str = field()
     demand_profile: int | float | list = field(default=0.0)
     set_demand_as_avg_commodity_in: bool = field(default=True)
+
+    def __attrs_post_init__(self):
+        if isinstance(self.demand_profile, list | np.ndarray):
+            user_input_dmd = True if sum(self.demand_profile) > 0 else False
+        else:
+            user_input_dmd = True if self.demand_profile > 0 else False
+
+        if self.set_demand_as_avg_commodity_in and user_input_dmd:
+            # If using the average commodity in as the demand,
+            # warn users if they input the demand profile
+            msg = (
+                "A non-zero demand profile was provided but set_demand_as_avg_commodity_in is True."
+                " The provided demand profile will not be used, the demand profile will be "
+                f"calculated as the mean of ``{self.commodity}_in``. "
+            )
+            warnings.warn(msg, UserWarning)
 
 
 class PassThroughOpenLoopController(om.ExplicitComponent):
@@ -102,6 +120,8 @@ class PassThroughOpenLoopController(om.ExplicitComponent):
             commodity_demand = inputs[f"{self.config.commodity}_demand"]
 
         # Assign the set point as the difference between the demand and the input commodity
+        # when demand > input, the set point is positive to command discharging
+        # when demand < input, the set point is negative to command charging
         outputs[f"{self.config.commodity}_set_point"] = (
             commodity_demand - inputs[f"{self.config.commodity}_in"]
         )
