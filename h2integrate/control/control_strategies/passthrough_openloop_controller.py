@@ -110,6 +110,17 @@ class PassThroughOpenLoopController(om.ExplicitComponent):
                 positive values command discharging.
         """
 
+        if (
+            self.config.set_demand_as_avg_commodity_in
+            and inputs[f"{self.config.commodity}_demand"].sum() > 0
+        ):
+            msg = (
+                "A non-zero demand profile was input but set_demand_as_avg_commodity_in is True."
+                " The input demand profile will not be used, the demand profile will be "
+                f"calculated as the mean of ``{self.config.commodity}_in``. "
+            )
+            warnings.warn(msg, UserWarning)
+
         if self.config.set_demand_as_avg_commodity_in:
             # Assume the demand is the average of the input commodity
             commodity_demand = np.mean(inputs[f"{self.config.commodity}_in"]) * np.ones(

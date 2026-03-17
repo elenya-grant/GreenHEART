@@ -267,20 +267,18 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
 
         Part 2: Simulate the performance of that storage model. The steps of this are:
 
-        1) Estimate the storage SOC (in `commodity_amount_units`). This is done by re-doing Step 2
-            and Step 3 from the above section.
-        2) Calculate the minimum storage SOC as a fraction (divide the SOC profile from Step 1
-            by the storage capacity)
-        3) If the minimum SOC fraction is less than config.min_charge_fraction, adjust the storage
+        1) Calculate the minimum storage SOC as a fraction (divide the SOC profile from Step 2-3
+            in Part 1 by the storage capacity)
+        2) If the minimum SOC fraction is less than config.min_charge_fraction, adjust the storage
             SOC profile so that the minimum SOC equal to config.min_charge_fraction.
-        4) Estimate the starting SOC (as a fraction) at the start of the simulation.
+        3) Estimate the starting SOC (as a fraction) at the start of the simulation.
             Take the first value in the SOC profile (in `commodity_amount_units`)
             and divide by the storage capacity
-        5) Simulate the storage performance using the `simulate()` method with the
+        4) Simulate the storage performance using the `simulate()` method with the
             dispatch command input `commodity_set_point`
-        6) Estimate the demand profile from either the input `commodity_demand` or assume
+        5) Estimate the demand profile from either the input `commodity_demand` or assume
             the demand is the average of the `commodity_in` profile.
-        7) Calculate the unmet demand, unused commodity, SOC, combined commodity output, etc.
+        6) Calculate the unmet demand, unused commodity, SOC, combined commodity output, etc.
 
         """
         # Part 1: Auto-size the storage to meet the demand
@@ -309,7 +307,7 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
 
         # Adjust soc so it's not negative.
         if minimum_soc < 0:
-            commodity_storage_soc = [x + np.abs(minimum_soc) for x in commodity_storage_soc]
+            commodity_storage_soc = commodity_storage_soc + np.abs(minimum_soc)
 
         # 4. Calculate the maximum usable storage capacity needed to meet the demand
         commodity_storage_capacity_kg = np.max(commodity_storage_soc) - np.min(
@@ -324,25 +322,19 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         # Part 2: Simulate the storage performance based on the sizes calculated
         # Estimate the initial SOC
 
-        # 1. Estimate the storage SOC in `commodity_amount_units`
-        soc_amount = np.cumsum(-1 * inputs[f"{self.commodity}_set_point"])
-        if np.min(soc_amount) < 0:
-            # If needed, adjust the SOC profile so that the minimum SOC is positive
-            soc_amount = soc_amount + np.abs(minimum_soc)
-            # Adjust soc so it's never below the minimum
-            # 2. Calculate the minimum SOC as a fraction
-            min_soc_fraction = np.min(soc_amount) / rated_storage_capacity
-            if min_soc_fraction < self.config.min_charge_fraction:
-                # 3. adjust the storage SOC profile so that the minimum SOC equal
-                # to config.min_charge_fraction
-                soc_adjustment = (
-                    self.config.min_charge_fraction - min_soc_fraction
-                ) * rated_storage_capacity
-                soc_amount = soc_amount + soc_adjustment
-        # 4. Estimate the starting SOC (as a fraction) at the start of the simulation.
-        self.current_soc = soc_amount[0] / rated_storage_capacity
+        # 1. Calculate the minimum SOC as a fraction
+        min_soc_fraction = np.min(commodity_storage_soc) / rated_storage_capacity
+        if min_soc_fraction < self.config.min_charge_fraction:
+            # 2. adjust the storage SOC profile so that the minimum SOC equal
+            # to config.min_charge_fraction
+            soc_adjustment = (
+                self.config.min_charge_fraction - min_soc_fraction
+            ) * rated_storage_capacity
+            commodity_storage_soc = commodity_storage_soc + soc_adjustment
+        # 3. Estimate the starting SOC (as a fraction) at the start of the simulation.
+        self.current_soc = commodity_storage_soc[0] / rated_storage_capacity
 
-        # 5. Simulate the storage performance using the `simulate()`
+        # 4. Simulate the storage performance using the `simulate()`
         storage_commodity_out, soc = self.simulate(
             inputs[f"{self.commodity}_set_point"],
             storage_max_fill_rate,
@@ -351,13 +343,13 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         )
         storage_commodity_out = np.array(storage_commodity_out)
 
-        # 6. Calculate the demand profile
+        # 5. Calculate the demand profile
         if self.config.set_demand_as_avg_commodity_in:
             commodity_demand = np.mean(inputs[f"{self.commodity}_in"]) * np.ones(self.n_timesteps)
         else:
             commodity_demand = inputs[f"{self.commodity}_demand"]
 
-        # 7. Calculate outputs
+        # 6. Calculate outputs
 
         # calculate combined commodity out from inflow source and storage
         # (note: storage_commodity_out is negative when charging)
