@@ -15,9 +15,8 @@ class StorageSizingModelConfig(BaseConfig):
         commodity_rate_units (str): Units of the commodity (e.g., kW or kg/h).
         min_charge_fraction (float): Minimum allowable state of charge as a fraction (0 to 1).
         max_charge_fraction (float): Maximum allowable state of charge as a fraction (0 to 1).
-        set_demand_as_avg_commodity_in (bool, optional): If True, assume the demand is
+        set_demand_as_avg_commodity_in (bool): If True, assume the demand is
             equal to the mean input commodity. If False, uses the demand input.
-            Defaults to True.
         demand_profile (int | float | list, optional): Demand values for each timestep, in
             the same units as `commodity_rate_units`. May be a scalar for constant
             demand or a list/array for time-varying demand.
@@ -44,9 +43,8 @@ class StorageSizingModelConfig(BaseConfig):
 
     # TODO: add in logic for having different discharge rate
     # charge_equals_discharge: bool = field(default=True)
-
+    set_demand_as_avg_commodity_in: bool = field()
     demand_profile: int | float | list = field(default=0.0)
-    set_demand_as_avg_commodity_in: bool = field(default=True)
 
     charge_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
     discharge_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))

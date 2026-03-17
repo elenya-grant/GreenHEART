@@ -82,24 +82,6 @@ def test_pass_through_controller(subtests):
             == expected_set_point
         )
 
-    # # Run the test
-    # with subtests.test("Check derivatives"):
-    #     # check total derivatives using OpenMDAO's check_totals and assert tools
-    #     assert_check_totals(
-    #         prob.check_totals(
-    #             of=[
-    #                 "hydrogen_set_point",
-    #             ],
-    #             wrt=[
-    #                 "hydrogen_in",
-    #             ],
-    #             step=1e-6,
-    #             form="central",
-    #             show_only_incorrect=False,
-    #             out_stream=None,
-    #         )
-    #     )
-
 
 @pytest.mark.regression
 def test_storage_demand_controller(subtests):

@@ -14,9 +14,8 @@ class PassThroughOpenLoopControllerConfig(BaseConfig):
     Attributes:
         commodity (str): name of commodity
         commodity_rate_units (str): Units of the commodity (e.g., kW or kg/h).
-        set_demand_as_avg_commodity_in (bool, optional): If True, assume the demand is
+        set_demand_as_avg_commodity_in (bool): If True, assume the demand is
             equal to the mean input commodity. If False, uses the demand input.
-            Defaults to True.
         demand_profile (int | float | list, optional): Demand values for each timestep, in
             the same units as `commodity_rate_units`. May be a scalar for constant
             demand or a list/array for time-varying demand.
@@ -26,8 +25,8 @@ class PassThroughOpenLoopControllerConfig(BaseConfig):
 
     commodity: str = field()
     commodity_rate_units: str = field()
+    set_demand_as_avg_commodity_in: bool = field()
     demand_profile: int | float | list = field(default=0.0)
-    set_demand_as_avg_commodity_in: bool = field(default=True)
 
     def __attrs_post_init__(self):
         if isinstance(self.demand_profile, list | np.ndarray):
