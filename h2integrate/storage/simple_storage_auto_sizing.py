@@ -251,26 +251,26 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         self.dt_hr = self.dt / 3600  # convert from seconds to hours
 
     def compute(self, inputs, outputs):
-        """First calculate the storage sizes (charge rate, discharge rate, and capacity)
+        """Part 1: calculate the storage sizes (charge rate, discharge rate, and capacity)
         needed to meet the demand. The steps to do this are:
 
         1) Calculate the max charge and discharge rate as the maximum of the `commodity_in`
             profile and oversize to account for charge/discharge efficiencies.
-        2) Estimate the demand profile from either the input `commodity_demand` or assume
-            the demand is the average of the `commodity_in` profile.
-        3) Estimate the storage SOC (in `commodity_amount_units`) as the cumulative summation of
-            the difference between the input commodity and the demand.
-        4) If needed, adjust the SOC profile from Step 3 so that the minimum SOC is positive
-        5) Calculate the usable storage capacity as the difference between the
-            maximum SOC and minimum SOC from Steps 3 and 4.
-        6) Calculate the rated storage capacity as the usable storage capacity
-            (calculated in Step 5) divided by
+        2) Estimate the storage SOC (in `commodity_amount_units`) as the cumulative summation of
+            the negative of `commodity_set_point` input. The `commodity_set_point` input is
+            negative when charging and positive when discharging. The SOC increases when charging
+            and decreases when discharging, which is why the negative is used to estimate SOC.
+        3) If needed, adjust the SOC profile from Step 2 so that the minimum SOC is positive
+        4) Calculate the usable storage capacity as the difference between the
+            maximum SOC and minimum SOC from Steps 2 and 3.
+        5) Calculate the rated storage capacity as the usable storage capacity
+            (calculated in Step 4) divided by
             `config.max_charge_fraction - config.min_charge_fraction`
 
-        Then, simulate the performance of that storage model. The steps of this are:
+        Part 2: Simulate the performance of that storage model. The steps of this are:
 
-        1) Estimate the storage SOC (in `commodity_amount_units`). This is done by re-doing Step 3
-            and Step 4 from the above section.
+        1) Estimate the storage SOC (in `commodity_amount_units`). This is done by re-doing Step 2
+            and Step 3 from the above section.
         2) Calculate the minimum storage SOC as a fraction (divide the SOC profile from Step 1
             by the storage capacity)
         3) If the minimum SOC fraction is less than config.min_charge_fraction, adjust the storage
@@ -280,16 +280,14 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
             and divide by the storage capacity
         5) Simulate the storage performance using the `simulate()` method with the
             dispatch command input `commodity_set_point`
-        6) Calculate the unmet demand, unused commodity, SOC, combined commodity output, etc.
+        6) Estimate the demand profile from either the input `commodity_demand` or assume
+            the demand is the average of the `commodity_in` profile.
+        7) Calculate the unmet demand, unused commodity, SOC, combined commodity output, etc.
 
-
-        Args:
-            inputs (_type_): _description_
-            outputs (_type_): _description_
         """
         # Part 1: Auto-size the storage to meet the demand
 
-        # 1) Auto-size the fill rate as the max of the input commodity adjusted for
+        # 1. Auto-size the fill rate as the max of the input commodity adjusted for
         # charge efficiency
         storage_max_fill_rate = (
             np.max(inputs[f"{self.commodity}_in"]) / self.config.charge_efficiency
@@ -300,33 +298,27 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
             np.max(inputs[f"{self.commodity}_in"]) / self.config.discharge_efficiency
         )
 
-        # NOTE: maybe should replace usage of inputs[f"{self.commodity}_in"] - commodity_demand
-        # with -1*inputs["commodity_set_point"]
-
-        # 2. Set the demand profile
-        if self.config.set_demand_as_avg_commodity_in:
-            commodity_demand = np.mean(inputs[f"{self.commodity}_in"]) * np.ones(self.n_timesteps)
-        else:
-            commodity_demand = inputs[f"{self.commodity}_demand"]
-
         # Auto-size the storage capacity to meet the demand as much as possible
-        # 3. Estimate the storage SOC in `commodity_amount_units`
+        # 2. Estimate the storage SOC in `commodity_amount_units`
         # NOTE: commodity_storage_soc is just an absolute value and is not a percentage.
-        commodity_storage_soc = np.cumsum(inputs[f"{self.commodity}_in"] - commodity_demand)
+        # `{self.commodity}_set_point` is negative when charging and positive when discharging,
+        # the negative of `{self.commodity}_set_point` can be used to estimate the SOC
+        # (which increases when charging and decreases when discharging)
+        commodity_storage_soc = np.cumsum(-1 * inputs[f"{self.commodity}_set_point"])
 
-        # 4. If needed, adjust the SOC profile from Step 3 so that the minimum SOC is positive
+        # 3. If needed, adjust the SOC profile from Step 2 so that the minimum SOC is positive
         minimum_soc = np.min(commodity_storage_soc)
 
         # Adjust soc so it's not negative.
         if minimum_soc < 0:
             commodity_storage_soc = [x + np.abs(minimum_soc) for x in commodity_storage_soc]
 
-        # 5. Calculate the maximum usable storage capacity needed to meet the demand
+        # 4. Calculate the maximum usable storage capacity needed to meet the demand
         commodity_storage_capacity_kg = np.max(commodity_storage_soc) - np.min(
             commodity_storage_soc
         )
 
-        # 6. Calculate the storage capacity to account for SOC limits
+        # 5. Calculate the storage capacity to account for SOC limits
         rated_storage_capacity = commodity_storage_capacity_kg / (
             self.config.max_charge_fraction - self.config.min_charge_fraction
         )
@@ -335,7 +327,7 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         # Estimate the initial SOC
 
         # 1. Estimate the storage SOC in `commodity_amount_units`
-        soc_amount = np.cumsum(inputs[f"{self.commodity}_in"] - commodity_demand)
+        soc_amount = np.cumsum(-1 * inputs[f"{self.commodity}_set_point"])
         if np.min(soc_amount) < 0:
             # If needed, adjust the SOC profile so that the minimum SOC is positive
             soc_amount = soc_amount + np.abs(minimum_soc)
@@ -361,7 +353,13 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         )
         storage_commodity_out = np.array(storage_commodity_out)
 
-        # 6. Calculate outputs
+        # 6. Calculate the demand profile
+        if self.config.set_demand_as_avg_commodity_in:
+            commodity_demand = np.mean(inputs[f"{self.commodity}_in"]) * np.ones(self.n_timesteps)
+        else:
+            commodity_demand = inputs[f"{self.commodity}_demand"]
+
+        # 7. Calculate outputs
 
         # calculate combined commodity out from inflow source and storage
         # (note: storage_commodity_out is negative when charging)
