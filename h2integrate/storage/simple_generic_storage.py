@@ -327,7 +327,7 @@ class SimpleGenericStorage(PerformanceModelBaseClass):
         storage_capacity: float,
         sim_start_index: int = 0,
     ):
-        """Run the storage model over a control window
+        """Run the storage model over a control window of ``n_control_window`` timesteps.
 
         Iterates through ``storage_dispatch_commands`` one timestep at a time.
         A negative command requests charging; a positive command requests
@@ -354,7 +354,7 @@ class SimpleGenericStorage(PerformanceModelBaseClass):
             storage_dispatch_commands (array_like[float]):
                 Dispatch set-points for each timestep in ``commodity_rate_units``.
                 Negative values command charging; positive values command
-                discharging.
+                discharging.  Length must equal ``config.n_control_window``.
             charge_rate (float):
                 Maximum commodity input rate to storage in
                 ``commodity_rate_units`` (before charge efficiency is applied).
@@ -408,10 +408,15 @@ class SimpleGenericStorage(PerformanceModelBaseClass):
                 # Clip to the most restrictive limit, then apply efficiency.
                 # max(0, ...) guards against negative headroom when SOC
                 # slightly exceeds soc_max.
+                # correct headroom to not include charge_eff.
                 actual_charge = max(0.0, min(headroom / charge_eff, charge_rate, -cmd)) * charge_eff
 
                 # Update SOC (actual_charge is in post-efficiency units)
                 soc += actual_charge / storage_capacity
+
+                # Update the amount of commodity used to charge from the input stream
+                # If charge_eff<1, more commodity is pulled from the input stream than
+                # the commodity that goes into the storage.
                 storage_commodity_out_timesteps[t] = -actual_charge / charge_eff
             else:
                 # --- Discharging ---
@@ -419,15 +424,18 @@ class SimpleGenericStorage(PerformanceModelBaseClass):
                 # hitting the minimum SOC, expressed as a rate.
                 headroom = (soc - soc_min) * storage_capacity / self.dt_hr
 
-                # Clip and apply discharge efficiency.
-                actual_discharge = (
-                    max(0.0, min(headroom, discharge_rate / discharge_eff, cmd / discharge_eff))
-                    * discharge_eff
+                # Clip to the most restrictive limit without applied efficiency.
+                # Efficiency losses occur after energy has left storage.
+                actual_discharge = max(
+                    0.0, min(headroom, discharge_rate / discharge_eff, cmd / discharge_eff)
                 )
 
-                # Update SOC (actual_discharge is in post-efficiency units)
+                # Update SOC (actual_discharge is before efficiency losses are applied.)
                 soc -= actual_discharge / storage_capacity
-                storage_commodity_out_timesteps[t] = actual_discharge
+
+                # If discharge_eff<1, then less commodity is output from the storage
+                # than the commodity discharged from storage
+                storage_commodity_out_timesteps[t] = actual_discharge * discharge_eff
 
             soc_timesteps[t] = soc * 100.0
 
