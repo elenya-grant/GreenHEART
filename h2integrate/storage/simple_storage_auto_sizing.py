@@ -254,10 +254,10 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         """First calculate the storage sizes (charge rate, discharge rate, and capacity)
         needed to meet the demand. The steps to do this are:
 
-        1) Estimate the demand profile from either the input `commodity_demand` or assume
-            the demand is the average of the `commodity_in` profile.
-        2) Calculate the max charge and discharge rate as the maximum of the `commodity_in`
+        1) Calculate the max charge and discharge rate as the maximum of the `commodity_in`
             profile and oversize to account for charge/discharge efficiencies.
+        2) Estimate the demand profile from either the input `commodity_demand` or assume
+            the demand is the average of the `commodity_in` profile.
         3) Estimate the storage SOC (in `commodity_amount_units`) as the cumulative summation of
             the difference between the input commodity and the demand.
         4) If needed, adjust the SOC profile from Step 3 so that the minimum SOC is positive
@@ -287,69 +287,81 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
             inputs (_type_): _description_
             outputs (_type_): _description_
         """
-        # Step 1: Auto-size the storage to meet the demand
+        # Part 1: Auto-size the storage to meet the demand
 
-        # Auto-size the fill rate as the max of the input commodity
+        # 1) Auto-size the fill rate as the max of the input commodity adjusted for
+        # charge efficiency
         storage_max_fill_rate = (
             np.max(inputs[f"{self.commodity}_in"]) / self.config.charge_efficiency
         )
-        # Auto-size the unfill rate as the max of the input commodity adjusted for
+        # Auto-size the empty rate as the max of the input commodity adjusted for
         # discharge efficiency
-        storage_max_unfill_rate = (
+        storage_max_empty_rate = (
             np.max(inputs[f"{self.commodity}_in"]) / self.config.discharge_efficiency
         )
 
         # NOTE: maybe should replace usage of inputs[f"{self.commodity}_in"] - commodity_demand
         # with -1*inputs["commodity_set_point"]
 
-        # Set the demand profile
+        # 2. Set the demand profile
         if self.config.set_demand_as_avg_commodity_in:
             commodity_demand = np.mean(inputs[f"{self.commodity}_in"]) * np.ones(self.n_timesteps)
         else:
             commodity_demand = inputs[f"{self.commodity}_demand"]
 
-        # Size the storage capacity to meet the demand as much as possible
-
+        # Auto-size the storage capacity to meet the demand as much as possible
+        # 3. Estimate the storage SOC in `commodity_amount_units`
         # NOTE: commodity_storage_soc is just an absolute value and is not a percentage.
         commodity_storage_soc = np.cumsum(inputs[f"{self.commodity}_in"] - commodity_demand)
+
+        # 4. If needed, adjust the SOC profile from Step 3 so that the minimum SOC is positive
         minimum_soc = np.min(commodity_storage_soc)
 
         # Adjust soc so it's not negative.
         if minimum_soc < 0:
             commodity_storage_soc = [x + np.abs(minimum_soc) for x in commodity_storage_soc]
 
-        # Calculate the maximum usable storage capacity needed to meet the demand
+        # 5. Calculate the maximum usable storage capacity needed to meet the demand
         commodity_storage_capacity_kg = np.max(commodity_storage_soc) - np.min(
             commodity_storage_soc
         )
 
-        # Calculate the storage capacity to account for SOC limits
+        # 6. Calculate the storage capacity to account for SOC limits
         rated_storage_capacity = commodity_storage_capacity_kg / (
             self.config.max_charge_fraction - self.config.min_charge_fraction
         )
 
+        # Part 2: Simulate the storage performance based on the sizes calculated
         # Estimate the initial SOC
 
+        # 1. Estimate the storage SOC in `commodity_amount_units`
         soc_amount = np.cumsum(inputs[f"{self.commodity}_in"] - commodity_demand)
         if np.min(soc_amount) < 0:
+            # If needed, adjust the SOC profile so that the minimum SOC is positive
             soc_amount = soc_amount + np.abs(minimum_soc)
             # Adjust soc so it's never below the minimum
+            # 2. Calculate the minimum SOC as a fraction
             min_soc_fraction = np.min(soc_amount) / rated_storage_capacity
             if min_soc_fraction < self.config.min_charge_fraction:
+                # 3. adjust the storage SOC profile so that the minimum SOC equal
+                # to config.min_charge_fraction
                 soc_adjustment = (
                     self.config.min_charge_fraction - min_soc_fraction
                 ) * rated_storage_capacity
                 soc_amount = soc_amount + soc_adjustment
+        # 4. Estimate the starting SOC (as a fraction) at the start of the simulation.
         self.current_soc = soc_amount[0] / rated_storage_capacity
 
-        # Step 2: Simulate the storage performance based on the sizes calculated
+        # 5. Simulate the storage performance using the `simulate()`
         storage_commodity_out, soc = self.simulate(
             inputs[f"{self.commodity}_set_point"],
             storage_max_fill_rate,
-            storage_max_unfill_rate,
+            storage_max_empty_rate,
             rated_storage_capacity,
         )
         storage_commodity_out = np.array(storage_commodity_out)
+
+        # 6. Calculate outputs
 
         # calculate combined commodity out from inflow source and storage
         # (note: storage_commodity_out is negative when charging)
@@ -381,7 +393,7 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
 
         # Output the calculated storage sizes (charge rate and capacity)
         outputs["max_charge_rate"] = storage_max_fill_rate
-        outputs["max_discharge_rate"] = storage_max_unfill_rate
+        outputs["max_discharge_rate"] = storage_max_empty_rate
         outputs["storage_capacity"] = rated_storage_capacity
         outputs["storage_duration"] = outputs["storage_capacity"] / outputs["max_discharge_rate"]
 
