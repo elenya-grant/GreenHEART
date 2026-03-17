@@ -1,24 +1,27 @@
 from copy import deepcopy
 
 import numpy as np
+import openmdao.api as om
 from attrs import field, define
 
-from h2integrate.core.utilities import merge_shared_inputs
+from h2integrate.core.utilities import BaseConfig, merge_shared_inputs
 from h2integrate.core.validators import gte_zero, range_val, range_val_or_none
-from h2integrate.control.control_strategies.demand_openloop_controller import (
-    DemandOpenLoopControlBase,
-    DemandOpenLoopControlBaseConfig,
-)
 
 
 @define(kw_only=True)
-class DemandOpenLoopStorageControllerConfig(DemandOpenLoopControlBaseConfig):
+class DemandOpenLoopStorageControllerConfig(BaseConfig):
     """
     Configuration class for the DemandOpenLoopStorageController.
 
     This class defines the parameters required to configure the `DemandOpenLoopStorageController`.
 
     Attributes:
+        commodity_rate_units (str): Units of the commodity (e.g., "kg/h").
+        commodity (str): Name of the commodity being controlled
+            (e.g., "hydrogen"). Converted to lowercase and stripped of whitespace.
+        demand_profile (int | float | list): Demand values for each timestep, in
+            the same units as `commodity_rate_units`. May be a scalar for constant
+            demand or a list/array for time-varying demand.
         max_capacity (float): Maximum storage capacity of the commodity (in non-rate units,
             e.g., "kg" if `commodity_rate_units` is "kg/h").
         max_charge_fraction (float): Maximum allowable state of charge (SOC) as a fraction
@@ -47,6 +50,9 @@ class DemandOpenLoopStorageControllerConfig(DemandOpenLoopControlBaseConfig):
             provided.
     """
 
+    commodity_rate_units: str = field(converter=str.strip)
+    commodity: str = field(converter=(str.strip, str.lower))
+    demand_profile: int | float | list = field()
     max_capacity: float = field()
     max_charge_fraction: float = field(validator=range_val(0, 1))
     min_charge_fraction: float = field(validator=range_val(0, 1))
@@ -57,6 +63,7 @@ class DemandOpenLoopStorageControllerConfig(DemandOpenLoopControlBaseConfig):
     charge_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
     discharge_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
     round_trip_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
+    commodity_amount_units: str = field(default=None)
 
     def __attrs_post_init__(self):
         """
@@ -99,8 +106,11 @@ class DemandOpenLoopStorageControllerConfig(DemandOpenLoopControlBaseConfig):
 
             self.max_discharge_rate = self.max_charge_rate
 
+        if self.commodity_amount_units is None:
+            self.commodity_amount_units = f"({self.commodity_rate_units})*h"
 
-class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
+
+class DemandOpenLoopStorageController(om.ExplicitComponent):
     """
     A controller that manages commodity flow based on demand and storage constraints.
 
@@ -121,26 +131,22 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
         {commodity}_in (float): Input commodity flow timeseries (e.g., hydrogen production).
             - Units: Defined in `commodity_rate_units` (e.g., "kg/h").
 
-    Outputs:
-        {commodity}_out (float): Output commodity flow timeseries after storage to meet demand.
-            - Units: Defined in `commodity_rate_units` (e.g., "kg/h").
-            - Note: the may include commodity from commodity_in that was never used to charge the
-                    storage system but was directly dispatched to meet demand.
-        {commodity}_soc (float): State of charge (SOC) timeseries for the storage system.
-            - Units: "unitless" (percentage of maximum capacity given as a ratio between 0 and 1).
-        {commodity}_unused_commodity (float): Curtailment timeseries for unused
-            input commodity.
-            - Units: Defined in `commodity_rate_units` (e.g., "kg/h").
-            - Note: curtailment in this case does not reduce what the converter produces, but
-                rather the system just does not use it (throws it away) because this controller is
-                specific to the storage technology and has no influence on other technologies in
-                the system.
-        {commodity}_unmet_demand (float): Unmet demand timeseries when demand exceeds supply.
-            Same meaning as missed load.
-            - Units: Defined in `commodity_rate_units` (e.g., "kg/h").
-        total_{commodity}_unmet_demand (float): Total unmet demand over the simulation period.
-            - Units: Defined in `commodity_rate_units` (e.g., "kg").
     """
+
+    def initialize(self):
+        """Declare component options.
+
+        Options:
+            driver_config (dict): Driver-level configuration parameters.
+            plant_config (dict): Plant-level configuration, including number of
+                simulation timesteps.
+            tech_config (dict): Technology-specific configuration, including
+                controller settings.
+
+        """
+        self.options.declare("driver_config", types=dict)
+        self.options.declare("plant_config", types=dict)
+        self.options.declare("tech_config", types=dict)
 
     def setup(self):
         """
@@ -164,6 +170,7 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
         Returns:
             None
         """
+
         self.config = DemandOpenLoopStorageControllerConfig.from_dict(
             merge_shared_inputs(self.options["tech_config"]["model_inputs"], "control"),
             strict=False,
@@ -183,24 +190,56 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
         )
 
         self.add_input(
-            "max_capacity",
+            "storage_capacity",
             val=self.config.max_capacity,
-            units=self.config.commodity_rate_units + "*h",
+            units=self.config.commodity_amount_units,
             desc="Maximum storage capacity",
         )
 
-        self.add_output(
-            f"{commodity}_soc",
-            copy_shape=f"{commodity}_in",
-            units="unitless",
-            desc=f"{commodity} state of charge timeseries for storage",
+        if not self.config.charge_equals_discharge:
+            self.add_input(
+                "max_discharge_rate",
+                val=self.config.max_discharge_rate,
+                units=self.config.commodity_rate_units,
+                desc="Storage discharge rate",
+            )
+
+        self.add_input(
+            f"{commodity}_demand",
+            val=self.config.demand_profile,
+            shape=self.n_timesteps,
+            units=self.config.commodity_rate_units,
+            desc=f"Demand profile of {commodity}",
+        )
+
+        self.add_input(
+            f"{commodity}_in",
+            val=0.0,
+            shape=self.n_timesteps,
+            units=self.config.commodity_rate_units,
+            desc=f"Amount of {commodity} demand that has already been supplied",
         )
 
         self.add_output(
-            "storage_duration",
-            units="h",
-            desc="Estimated storage duration based on max capacity and discharge rate",
+            f"{commodity}_set_point",
+            val=0.0,
+            shape=self.n_timesteps,
+            units=self.config.commodity_rate_units,
+            desc=f"Dispatch command profile of {commodity}",
         )
+
+        # self.add_output(
+        #     f"{commodity}_soc",
+        #     copy_shape=f"{commodity}_in",
+        #     units="unitless",
+        #     desc=f"{commodity} state of charge timeseries for storage",
+        # )
+
+        # self.add_output(
+        #     "storage_duration",
+        #     units="h",
+        #     desc="Estimated storage duration based on max capacity and discharge rate",
+        # )
 
     def compute(self, inputs, outputs):
         """
@@ -221,12 +260,8 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
             * ``max_capacity``: Maximum total storage capacity.
 
         Outputs populated:
-            * ``<commodity>_soc``: State-of-charge timeseries (unitless).
-            * ``<commodity>_out``: Output delivered to meet demand.
-            * ``<commodity>_unused_commodity``: Curtailment timeseries.
-            * ``<commodity>_unmet_demand``: Missed load timeseries.
-            * ``total_<commodity>_unmet_demand``: Aggregated unmet demand.
-            * ``storage_duration``: Estimated discharge duration at maximum rate (hours).
+            * ``<commodity>_set_point``: Dispatch command to storage,
+                negative when charging, positive when discharging.
 
         Control logic includes:
             * Enforcing SOC limits (min, max, and initial conditions).
@@ -251,24 +286,27 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
                 f"{inputs['max_charge_rate']}"
             )
             raise UserWarning(msg)
-        if inputs["max_capacity"][0] < 0:
+        if inputs["storage_capacity"][0] < 0:
             msg = (
-                f"max_capacity cannot be less than zero and has value of "
-                f"{inputs['max_capacity']}"
+                f"storage_capacity cannot be less than zero and has value of "
+                f"{inputs['storage_capacity']}"
             )
             raise UserWarning(msg)
 
-        max_capacity = inputs["max_capacity"].item()
-        max_charge_fraction = self.config.max_charge_fraction
-        min_charge_fraction = self.config.min_charge_fraction
-        init_charge_fraction = self.config.init_charge_fraction
+        max_capacity = inputs["storage_capacity"].item()
         max_charge_rate = inputs["max_charge_rate"].item()
+
         if self.config.charge_equals_discharge:
             max_discharge_rate = inputs["max_charge_rate"].item()
         else:
-            max_discharge_rate = float(self.config.max_discharge_rate)
-        charge_efficiency = float(self.config.charge_efficiency)
-        discharge_efficiency = float(self.config.discharge_efficiency)
+            max_discharge_rate = inputs["max_discharge_rate"].item()
+
+        soc_max = self.config.max_charge_fraction
+        soc_min = self.config.min_charge_fraction
+        init_charge_fraction = self.config.init_charge_fraction
+
+        charge_eff = float(self.config.charge_efficiency)
+        discharge_eff = float(self.config.discharge_efficiency)
 
         # Initialize time-step state of charge prior to loop so the loop starts with
         # the previous time step's value
@@ -277,10 +315,12 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
         demand_profile = inputs[f"{commodity}_demand"]
 
         # initialize outputs
-        soc_array = outputs[f"{commodity}_soc"]
-        unused_commodity_array = outputs[f"{commodity}_unused_commodity"]
-        output_array = outputs[f"{commodity}_set_point"]
-        unmet_demand_array = outputs[f"{commodity}_unmet_demand"]
+        soc_array = np.zeros(self.n_timesteps)
+        set_point_array = np.zeros(self.n_timesteps)
+        combined_output_array = np.zeros(self.n_timesteps)
+
+        # unused_commodity_array = outputs[f"{commodity}_unused_commodity"]
+        # unmet_demand_array = outputs[f"{commodity}_unmet_demand"]
 
         # Loop through each time step
         for t, demand_t in enumerate(demand_profile):
@@ -288,28 +328,29 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
             input_flow = inputs[f"{commodity}_in"][t]
 
             # Calculate the available charge/discharge capacity
-            available_charge = float((max_charge_fraction - soc) * max_capacity)
-            available_discharge = float((soc - min_charge_fraction) * max_capacity)
+            available_charge = float((soc_max - soc) * max_capacity)
+            available_discharge = float((soc - soc_min) * max_capacity)
 
             # Initialize persistent variables for curtailment and missed load
-            unused_input = 0.0
-            charge = 0.0
+            # unused_input = 0.0
+            # charge = 0.0
 
             # Determine the output flow based on demand_t and SOC
             if demand_t > input_flow:
                 # Discharge storage to meet demand.
                 # `discharge_needed` is as seen by the storage
-                discharge_needed = (demand_t - input_flow) / discharge_efficiency
+                discharge_needed = (demand_t - input_flow) / discharge_eff
                 # `discharge` is as seen by the storage, but `max_discharge_rate` is as observed
                 # outside the storage
                 discharge = min(
-                    discharge_needed, available_discharge, max_discharge_rate / discharge_efficiency
+                    discharge_needed, available_discharge, max_discharge_rate / discharge_eff
                 )
 
                 soc -= discharge / max_capacity  # soc is a ratio with value between 0 and 1
                 # output is as observed outside the storage, so we need to adjust `discharge` by
                 # applying `discharge_efficiency`.
-                output_array[t] = input_flow + discharge * discharge_efficiency
+                combined_output_array[t] = input_flow + discharge * discharge_eff
+                set_point_array[t] = discharge
             else:
                 # Charge storage with unused input
                 # `unused_input` is as seen outside the storage
@@ -319,38 +360,38 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
                 # seen outside the storage so we need to adjust `available_charge` outside the
                 # storage view and the final result back into the storage view.
                 charge = (
-                    min(unused_input, available_charge / charge_efficiency, max_charge_rate)
-                    * charge_efficiency
+                    min(unused_input, available_charge / charge_eff, max_charge_rate) * charge_eff
                 )
                 soc += charge / max_capacity  # soc is a ratio with value between 0 and 1
-                output_array[t] = demand_t
+                combined_output_array[t] = demand_t
+                set_point_array[t] = -1 * charge
 
             # Ensure SOC stays within bounds
-            soc = max(min_charge_fraction, min(max_charge_fraction, soc))
+            soc = max(soc_min, min(soc_max, soc))
 
             # Record the SOC for the current time step
             soc_array[t] = deepcopy(soc)
 
             # Record the curtailment at the current time step. Adjust `charge` from storage view to
             # outside view for curtailment
-            unused_commodity_array[t] = max(0.0, unused_input - charge / charge_efficiency)
+            # unused_commodity_array[t] = max(0.0, unused_input - charge / charge_eff)
 
-            # Record the missed load at the current time step
-            unmet_demand_array[t] = max(0.0, (demand_t - output_array[t]))
+            # # Record the missed load at the current time step
+            # unmet_demand_array[t] = max(0.0, (demand_t - output_array[t]))
 
-        outputs[f"{commodity}_set_point"] = output_array
+        outputs[f"{commodity}_set_point"] = set_point_array
 
-        # Return the SOC
-        outputs[f"{commodity}_soc"] = soc_array
+        # # Return the SOC
+        # outputs[f"{commodity}_soc"] = soc_array
 
-        # Return the unused commodity
-        outputs[f"{commodity}_unused_commodity"] = unused_commodity_array
+        # # Return the unused commodity
+        # outputs[f"{commodity}_unused_commodity"] = unused_commodity_array
 
-        # Return the unmet load demand
-        outputs[f"{commodity}_unmet_demand"] = unmet_demand_array
+        # # Return the unmet load demand
+        # outputs[f"{commodity}_unmet_demand"] = unmet_demand_array
 
-        # Calculate and return the total unmet demand over the simulation period
-        outputs[f"total_{commodity}_unmet_demand"] = np.sum(unmet_demand_array)
+        # # Calculate and return the total unmet demand over the simulation period
+        # outputs[f"total_{commodity}_unmet_demand"] = np.sum(unmet_demand_array)
 
-        # Output the storage duration in hours
-        outputs["storage_duration"] = max_capacity / max_discharge_rate
+        # # Output the storage duration in hours
+        # outputs["storage_duration"] = max_capacity / max_discharge_rate
