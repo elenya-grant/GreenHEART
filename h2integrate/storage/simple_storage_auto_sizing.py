@@ -310,12 +310,10 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
             commodity_storage_soc = commodity_storage_soc + np.abs(minimum_soc)
 
         # 4. Calculate the maximum usable storage capacity needed to meet the demand
-        commodity_storage_capacity_kg = np.max(commodity_storage_soc) - np.min(
-            commodity_storage_soc
-        )
+        max_usable_storage_capacity = np.max(commodity_storage_soc) - np.min(commodity_storage_soc)
 
         # 5. Calculate the storage capacity to account for SOC limits
-        rated_storage_capacity = commodity_storage_capacity_kg / (
+        rated_storage_capacity = max_usable_storage_capacity / (
             self.config.max_charge_fraction - self.config.min_charge_fraction
         )
 
