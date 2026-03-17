@@ -525,7 +525,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                 headroom = (soc - soc_min) * storage_capacity / self.dt_hr
 
                 # Clip to the most restrictive limit without applied efficiency.
-                # Efficiency losses occur after energy has left storage.
+                # Efficiency losses occur as energy leaves storage.
                 actual_discharge = max(
                     0.0, min(headroom, discharge_rate / discharge_eff, cmd / discharge_eff)
                 )
