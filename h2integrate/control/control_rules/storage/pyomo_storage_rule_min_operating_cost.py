@@ -131,12 +131,14 @@ class PyomoRuleStorageMinOperatingCosts:
         ##################################
         # Storage Parameters             #
         ##################################
-
-        pyo_commodity_storage_unit = eval(f"pyo.units.{self.commodity_storage_units}")
-        pyo_commodity_storage_unit_hrs = eval(f"pyo.units.{self.commodity_storage_units}h")
-        pyo_usd_per_commodity_storage_unit_hrs = eval(
-            f"pyo.units.USD / pyo.units.{self.commodity_storage_units}h"
+        rate_units_pyo_str = "/".join(
+            f"pyo.units.{u}" for u in self.commodity_storage_units.split("/")
         )
+        amount_units_pyo_str = f"({rate_units_pyo_str})*pyo.units.h"
+
+        pyo_commodity_storage_unit = eval(rate_units_pyo_str)
+        pyo_commodity_storage_unit_hrs = eval(amount_units_pyo_str)
+        pyo_usd_per_commodity_storage_unit_hrs = eval(f"pyo.units.USD / ({amount_units_pyo_str})")
         usd_pr_units_str = f"[$/{self.commodity_storage_units}]"
 
         pyomo_model.time_duration = pyo.Param(
@@ -262,6 +264,12 @@ class PyomoRuleStorageMinOperatingCosts:
         ##################################
         # Variables                      #
         ##################################
+        rate_units_pyo_str = "/".join(
+            f"pyo.units.{u}" for u in self.commodity_storage_units.split("/")
+        )
+
+        pyo_commodity_storage_unit = eval(rate_units_pyo_str)
+
         pyomo_model.is_charging = pyo.Var(
             doc=f"1 if {pyomo_model.name} is charging; 0 Otherwise [-]",
             domain=pyo.Binary,
@@ -288,12 +296,12 @@ class PyomoRuleStorageMinOperatingCosts:
         pyomo_model.charge_commodity = pyo.Var(
             doc=f"{self.commodity_name} into {pyomo_model.name} [{self.commodity_storage_units}]",
             domain=pyo.NonNegativeReals,
-            units=eval(f"pyo.units.{self.commodity_storage_units}"),
+            units=pyo_commodity_storage_unit,
         )
         pyomo_model.discharge_commodity = pyo.Var(
             doc=f"{self.commodity_name} out of {pyomo_model.name} [{self.commodity_storage_units}]",
             domain=pyo.NonNegativeReals,
-            units=eval(f"pyo.units.{self.commodity_storage_units}"),
+            units=pyo_commodity_storage_unit,
         )
         ##################################
         # System Variables               #
@@ -301,18 +309,18 @@ class PyomoRuleStorageMinOperatingCosts:
         pyomo_model.system_production = pyo.Var(
             doc=f"System generation [{self.commodity_storage_units}]",
             domain=pyo.NonNegativeReals,
-            units=eval(f"pyo.units.{self.commodity_storage_units}"),
+            units=pyo_commodity_storage_unit,
         )
         pyomo_model.system_load = pyo.Var(
             doc=f"System load [{self.commodity_storage_units}]",
             domain=pyo.NonNegativeReals,
-            units=eval(f"pyo.units.{self.commodity_storage_units}"),
+            units=pyo_commodity_storage_unit,
         )
         pyomo_model.commodity_out = pyo.Var(
             doc=f"Commodity out of the system [{self.commodity_storage_units}]",
             domain=pyo.NonNegativeReals,
             bounds=(0, pyomo_model.commodity_load_demand),
-            units=eval(f"pyo.units.{self.commodity_storage_units}"),
+            units=pyo_commodity_storage_unit,
         )
         pyomo_model.is_generating = pyo.Var(
             doc="System is producing commodity binary [-]",
@@ -539,7 +547,11 @@ class PyomoRuleStorageMinOperatingCosts:
         ##################################
         # System Variables               #
         ##################################
-        pyo_commodity_units = eval("pyo.units." + self.commodity_storage_units)
+        rate_units_pyo_str = "/".join(
+            f"pyo.units.{u}" for u in self.commodity_storage_units.split("/")
+        )
+
+        pyo_commodity_units = eval(rate_units_pyo_str)
 
         hybrid_model.system_production = pyo.Var(
             doc=f"System generation [{self.commodity_storage_units}]",
