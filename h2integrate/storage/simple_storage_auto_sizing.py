@@ -68,7 +68,7 @@ class StorageSizingModelConfig(BaseConfig):
             self.charge_efficiency = np.sqrt(self.round_trip_efficiency)
             self.discharge_efficiency = np.sqrt(self.round_trip_efficiency)
             self.round_trip_efficiency = None
-        if self.charge_efficiency is None and self.discharge_efficiency is None:
+        if self.charge_efficiency is None or self.discharge_efficiency is None:
             raise ValueError(
                 "Exactly one of the following sets of parameters must be set: (a) "
                 "`round_trip_efficiency`, or (b) both `charge_efficiency` "
