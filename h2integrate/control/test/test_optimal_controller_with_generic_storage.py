@@ -7,9 +7,6 @@ from h2integrate.storage.generic_storage_pyo import StoragePerformanceModel
 from h2integrate.control.control_strategies.optimized_pyomo_controller import (
     OptimizedDispatchController,
 )
-from h2integrate.control.control_rules.storage.pyomo_storage_rule_baseclass import (
-    PyomoRuleStorageBaseclass,
-)
 
 
 @fixture
@@ -79,14 +76,6 @@ def test_optimal_control_with_generic_storage(plant_config, tech_config_generic,
 
     # Setup the OpenMDAO problem and add subsystems
     prob = om.Problem()
-
-    prob.model.add_subsystem(
-        "PyomoRuleStorageBaseclass",
-        PyomoRuleStorageBaseclass(
-            plant_config=plant_config, tech_config=tech_config_generic["technologies"]["h2_storage"]
-        ),
-        promotes=["*"],
-    )
 
     prob.model.add_subsystem(
         "h2_storage_optimized_load_following_controller",
