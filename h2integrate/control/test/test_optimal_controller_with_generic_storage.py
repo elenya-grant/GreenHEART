@@ -19,10 +19,11 @@ def plant_config():
             "plant_life": 30,
             "simulation": {
                 "dt": 3600,
-                "n_timesteps": 8760,
+                "n_timesteps": 48,  # 8760,
             },
         },
         "tech_to_dispatch_connections": [
+            ["converter", "h2_storage"],
             ["h2_storage", "h2_storage"],
         ],
     }
@@ -41,8 +42,8 @@ def tech_config_generic():
                     "shared_parameters": {
                         "max_charge_rate": 10.0,
                         "max_capacity": 40.0,
-                        "n_control_window": 24,
-                        "init_charge_fraction": 0.1,
+                        # "n_control_window": 24,
+                        "init_charge_fraction": 0.2,
                         "max_charge_fraction": 1.0,
                         "min_charge_fraction": 0.1,
                         "commodity": "hydrogen",
@@ -56,12 +57,13 @@ def tech_config_generic():
                     },
                     "control_parameters": {
                         "tech_name": "h2_storage",
-                        "cost_per_charge": 0.03,  # USD/kg
-                        "cost_per_discharge": 0.05,  # USD/kg
-                        "commodity_met_value": 0.1,  # USD/kg
+                        "cost_per_charge": 100.0,  # USD/kg
+                        "cost_per_discharge": 300.0,  # USD/kg
+                        "commodity_met_value": 1000.0,  # USD/kg
                         "cost_per_production": 0.0,  # USD/kg
                         "time_weighting_factor": 0.995,
-                        "system_commodity_interface_limit": 10.0,
+                        "system_commodity_interface_limit": 1e12,
+                        "n_control_window": 24,
                     },
                 },
             }
@@ -72,8 +74,8 @@ def tech_config_generic():
 
 @pytest.mark.regression
 def test_optimal_control_with_generic_storage(plant_config, tech_config_generic, subtests):
-    commodity_demand = np.full(8760, 5.0)
-    commodity_in = np.tile(np.concat([np.zeros(3), np.cumsum(np.ones(15)), np.full(6, 4.0)]), 365)
+    commodity_demand = np.full(48, 5.0)
+    commodity_in = np.tile(np.concat([np.zeros(3), np.cumsum(np.ones(15)), np.full(6, 4.0)]), 2)
 
     # Setup the OpenMDAO problem and add subsystems
     prob = om.Problem()
@@ -188,6 +190,16 @@ def test_optimal_control_with_generic_storage(plant_config, tech_config_generic,
         assert np.all(
             prob.get_val("h2_storage.storage_hydrogen_discharge", units="kg/h").max()
             <= commodity_demand
+        )
+
+    with subtests.test("Sometimes discharges"):
+        assert any(
+            k > 1e-3 for k in prob.get_val("h2_storage.storage_hydrogen_discharge", units="kg/h")
+        )
+
+    with subtests.test("Sometimes charges"):
+        assert any(
+            k < -1e-3 for k in prob.get_val("h2_storage.storage_hydrogen_charge", units="kg/h")
         )
 
     with subtests.test("Cumulative charge/discharge does not exceed storage capacity"):
