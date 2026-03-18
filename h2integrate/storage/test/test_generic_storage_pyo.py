@@ -636,7 +636,10 @@ def test_generic_storage_without_controller_with_losses(plant_config, subtests):
         )
 
     with subtests.test("Cumulative charge/discharge does not exceed storage capacity"):
-        assert np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).max() <= capacity
+        assert (
+            np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).max()
+            <= capacity * discharge_eff
+        )
         assert (
             np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).min()
             >= -1 * capacity / charge_eff
@@ -836,7 +839,10 @@ def test_generic_storage_without_controller_with_losses_round_trip(plant_config,
         )
 
     with subtests.test("Cumulative charge/discharge does not exceed storage capacity"):
-        assert np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).max() <= capacity
+        assert (
+            np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).max()
+            <= capacity * discharge_eff
+        )
         assert (
             np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).min()
             >= -1 * capacity / charge_eff

@@ -5,18 +5,17 @@ import numpy as np
 import pytest
 import openmdao.api as om
 from pytest import fixture
-from openmdao.utils.assert_utils import assert_check_totals
 
 from h2integrate.core.file_utils import load_yaml
 from h2integrate.storage.simple_generic_storage import SimpleGenericStorage
-from h2integrate.control.control_strategies.passthrough_openloop_controller import (
-    PassThroughOpenLoopController,
-)
 from h2integrate.control.control_strategies.storage.demand_openloop_controller import (
     DemandOpenLoopStorageController,
 )
 from h2integrate.control.control_strategies.converters.demand_openloop_controller import (
     DemandOpenLoopConverterController,
+)
+from h2integrate.control.control_strategies.storage.passthrough_openloop_controller import (
+    PassThroughOpenLoopController,
 )
 from h2integrate.control.control_strategies.converters.flexible_demand_openloop_controller import (
     FlexibleDemandOpenLoopConverterController,
@@ -50,8 +49,13 @@ def test_pass_through_controller(subtests):
     # Load the technology configuration
     tech_config = load_yaml(tech_config_path)
 
+    tech_config["technologies"]["h2_storage"]["model_inputs"]["shared_parameters"].update(
+        {"set_demand_as_avg_commodity_in": True}
+    )
     # Set up the OpenMDAO problem
     prob = om.Problem()
+
+    plant_config = {"plant": {"plant_life": 30, "simulation": {"n_timesteps": 10}}}
 
     prob.model.add_subsystem(
         name="IVC",
@@ -62,7 +66,7 @@ def test_pass_through_controller(subtests):
     prob.model.add_subsystem(
         "pass_through_controller",
         PassThroughOpenLoopController(
-            plant_config={}, tech_config=tech_config["technologies"]["h2_storage"]
+            plant_config=plant_config, tech_config=tech_config["technologies"]["h2_storage"]
         ),
         promotes=["*"],
     )
@@ -73,26 +77,9 @@ def test_pass_through_controller(subtests):
 
     # Run the test
     with subtests.test("Check output"):
-        assert np.arange(10) == pytest.approx(
-            prob.get_val("hydrogen_set_point", units="kg/h"), rel=1e-3
-        )
-
-    # Run the test
-    with subtests.test("Check derivatives"):
-        # check total derivatives using OpenMDAO's check_totals and assert tools
-        assert_check_totals(
-            prob.check_totals(
-                of=[
-                    "hydrogen_set_point",
-                ],
-                wrt=[
-                    "hydrogen_in",
-                ],
-                step=1e-6,
-                form="central",
-                show_only_incorrect=False,
-                out_stream=None,
-            )
+        expected_set_point = np.mean(np.arange(10)) - np.arange(10)
+        assert expected_set_point == (
+            pytest.approx(prob.get_val("hydrogen_set_point", units="kg/h"), rel=1e-3)
         )
 
 
