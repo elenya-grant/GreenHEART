@@ -305,6 +305,14 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                 if any(intended_dispatch_tech in name for name in self.tech_group_name):
                     self.add_discrete_input("pyomo_dispatch_solver", val=dummy_function)
                     break
+        else:
+            # using open-loop controller
+            self.add_input(
+                f"{self.commodity}_set_point",
+                val=0.0,
+                shape=self.n_timesteps,
+                units=self.commodity_rate_units,
+            )
 
     def compute(self, inputs, outputs, discrete_inputs=[], discrete_outputs=[]):
         """Run the storage model.
@@ -341,57 +349,41 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                 "discharge_rate": max_discharge_rate,
                 "storage_capacity": inputs["storage_capacity"][0],
             }
-            (
-                total_commodity_out,
-                storage_commodity_out,
-                unmet_demand,
-                unused_commodity,
-                soc,
-            ) = dispatch(self.simulate, kwargs, inputs)
 
-            storage_commodity_out = np.array(storage_commodity_out)
+            storage_commodity_out, soc = dispatch(self.simulate, kwargs, inputs)
 
         else:
-            # Simulate the storage with provided inputs and no controller.
-            # This essentially asks for discharge when demand exceeds input
-            # and requests charge when input exceeds demand
-
-            # update the control window to be the number of timesteps in the simulation
-            self.config.n_control_window = self.n_timesteps
-
-            # estimate required dispatch commands
-            pseudo_commands = inputs[f"{self.commodity}_demand"] - inputs[f"{self.commodity}_in"]
+            # Simulate the storage with provided inputs using dispatch commands from
+            # an open-loop controller. The commodity_set_point should come from an
+            # open-loop controller. commodity_set_point is negative when commanding
+            # storage to charge and positive when commanding storage to discharge
 
             storage_commodity_out, soc = self.simulate(
-                storage_dispatch_commands=pseudo_commands,
+                storage_dispatch_commands=inputs[f"{self.commodity}_set_point"],
                 charge_rate=inputs["max_charge_rate"][0],
                 discharge_rate=max_discharge_rate,
                 storage_capacity=inputs["storage_capacity"][0],
             )
 
-            # determine storage charge and discharge
-            # storage_commodity_out is positive when the storage is discharged
-            # and negative when the storage is charged
-            storage_commodity_out = np.array(storage_commodity_out)
+        # determine storage charge and discharge
+        # storage_commodity_out is positive when the storage is discharged
+        # and negative when the storage is charged
+        storage_commodity_out = np.array(storage_commodity_out)
 
-            # calculate combined commodity out from inflow source and storage
-            # (note: storage_commodity_out is negative when charging)
-            combined_commodity_out = inputs[f"{self.commodity}_in"] + storage_commodity_out
+        # calculate combined commodity out from inflow source and storage
+        # (note: storage_commodity_out is negative when charging)
+        combined_commodity_out = inputs[f"{self.commodity}_in"] + storage_commodity_out
 
-            # find the total commodity out to meet demand
-            total_commodity_out = np.minimum(
-                inputs[f"{self.commodity}_demand"], combined_commodity_out
-            )
+        # find the total commodity out to meet demand
+        total_commodity_out = np.minimum(inputs[f"{self.commodity}_demand"], combined_commodity_out)
 
-            # determine how much of the inflow commodity was unused
-            unused_commodity = np.maximum(
-                0, combined_commodity_out - inputs[f"{self.commodity}_demand"]
-            )
+        # determine how much of the inflow commodity was unused
+        unused_commodity = np.maximum(
+            0, combined_commodity_out - inputs[f"{self.commodity}_demand"]
+        )
 
-            # determine how much demand was not met
-            unmet_demand = np.maximum(
-                0, inputs[f"{self.commodity}_demand"] - combined_commodity_out
-            )
+        # determine how much demand was not met
+        unmet_demand = np.maximum(0, inputs[f"{self.commodity}_demand"] - combined_commodity_out)
 
         outputs[f"storage_{self.commodity}_charge"] = np.where(
             storage_commodity_out < 0, storage_commodity_out, 0
@@ -478,7 +470,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                     (0-100).
         """
 
-        n = self.config.n_control_window
+        n = len(storage_dispatch_commands)
         storage_commodity_out_timesteps = np.zeros(n)
         soc_timesteps = np.zeros(n)
 

@@ -182,15 +182,9 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
                     self.config.commodity.
 
             Returns:
-                tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-                    total_commodity_out :
-                        Net commodity supplied to demand each timestep (min(demand, storage + gen)).
+                tuple[np.ndarray, np.ndarray]:
                     storage_commodity_out :
                         Commodity supplied (positive) by the storage asset each timestep.
-                    unmet_demand :
-                        Positive shortfall = demand - total_out (0 if fully met).
-                    unused_commodity :
-                        Surplus generation + storage discharge not used to meet demand.
                     soc :
                         State of charge trajectory (percent of capacity).
 
@@ -203,10 +197,7 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
             """
 
             # initialize outputs
-            unmet_demand = np.zeros(self.n_timesteps)
             storage_commodity_out = np.zeros(self.n_timesteps)
-            total_commodity_out = np.zeros(self.n_timesteps)
-            unused_commodity = np.zeros(self.n_timesteps)
             soc = np.zeros(self.n_timesteps)
 
             # get the starting index for each control window
@@ -249,15 +240,8 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
                     # simulation
                     storage_commodity_out[j] = storage_commodity_out_control_window[j - t]
                     soc[j] = soc_control_window[j - t]
-                    total_commodity_out[j] = np.minimum(
-                        demand_in[j - t], storage_commodity_out[j] + commodity_in[j - t]
-                    )
-                    unmet_demand[j] = np.maximum(0, demand_in[j - t] - total_commodity_out[j])
-                    unused_commodity[j] = np.maximum(
-                        0, storage_commodity_out[j] + commodity_in[j - t] - demand_in[j - t]
-                    )
 
-            return total_commodity_out, storage_commodity_out, unmet_demand, unused_commodity, soc
+            return storage_commodity_out, soc
 
         return pyomo_dispatch_solver
 

@@ -240,6 +240,14 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
                 if any(intended_dispatch_tech in name for name in self.tech_group_name):
                     self.add_discrete_input("pyomo_dispatch_solver", val=dummy_function)
                     break
+        # using open-loop controller
+        else:
+            self.add_input(
+                "electricity_set_point",
+                val=0.0,
+                shape=self.n_timesteps,
+                units="kW",
+            )
 
     def compute(self, inputs, outputs, discrete_inputs=[], discrete_outputs=[]):
         """Run the PySAM Battery model for one simulation step.
@@ -307,51 +315,39 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
                 "storage_capacity": inputs["storage_capacity"][0],
                 "control_variable": self.config.control_variable,
             }
-            (
-                total_power_out,
-                battery_power,
-                unmet_demand,
-                unused_commodity,
-                soc,
-            ) = dispatch(self.simulate, kwargs, inputs)
 
-            battery_power = np.array(battery_power)
+            battery_power, soc = dispatch(self.simulate, kwargs, inputs)
 
         else:
-            # Simulate the battery with provided inputs and no controller.
-            # This essentially asks for discharge when demand exceeds input
-            # and requests charge when input exceeds demand
-
-            # update the control window to be the number of timesteps in the simulation
-            self.config.n_control_window = self.n_timesteps
-
-            # estimate required dispatch commands
-            pseudo_commands = inputs["electricity_demand"] - inputs["electricity_in"]
+            # Simulate the storage with provided inputs using dispatch commands from
+            # an open-loop controller. The electricity_set_point should come from an
+            # open-loop controller. electricity_set_point is negative when commanding
+            # battery to charge and positive when commanding battery to discharge
 
             battery_power, soc = self.simulate(
-                storage_dispatch_commands=pseudo_commands,
+                storage_dispatch_commands=inputs["electricity_set_point"],
                 charge_rate=inputs["max_charge_rate"][0],
                 discharge_rate=inputs["max_charge_rate"][0],
                 storage_capacity=inputs["storage_capacity"][0],
                 control_variable=self.config.control_variable,
             )
 
-            # battery_power is positive when the battery is discharged
-            # and negative when the battery is charged
-            battery_power = np.array(battery_power)
+        # battery_power is positive when the battery is discharged
+        # and negative when the battery is charged
+        battery_power = np.array(battery_power)
 
-            # calculate combined power out from inflow source and battery (note: battery_power
-            # is negative when charging)
-            combined_power_out = inputs["electricity_in"] + np.array(battery_power)
+        # calculate combined power out from inflow source and battery (note: battery_power
+        # is negative when charging)
+        combined_power_out = inputs["electricity_in"] + np.array(battery_power)
 
-            # find the total power out to meet demand
-            total_power_out = np.minimum(inputs["electricity_demand"], combined_power_out)
+        # find the total power out to meet demand
+        total_power_out = np.minimum(inputs["electricity_demand"], combined_power_out)
 
-            # determine how much of the inflow electricity was unused
-            unused_commodity = np.maximum(0, combined_power_out - inputs["electricity_demand"])
+        # determine how much of the inflow electricity was unused
+        unused_commodity = np.maximum(0, combined_power_out - inputs["electricity_demand"])
 
-            # determine how much demand was not met
-            unmet_demand = np.maximum(0, inputs["electricity_demand"] - combined_power_out)
+        # determine how much demand was not met
+        unmet_demand = np.maximum(0, inputs["electricity_demand"] - combined_power_out)
 
         outputs["unmet_electricity_demand_out"] = unmet_demand
         outputs["unused_electricity_out"] = unused_commodity
@@ -418,8 +414,9 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
         self.system_model.value("dt_hr", self.dt_hr)
 
         # initialize outputs
-        storage_power_out_timesteps = np.zeros(self.config.n_control_window)
-        soc_timesteps = np.zeros(self.config.n_control_window)
+        n = len(storage_dispatch_commands)
+        storage_power_out_timesteps = np.zeros(n)
+        soc_timesteps = np.zeros(n)
 
         # get constant battery parameters needed during all time steps
         soc_max = self.system_model.value("maximum_SOC") / 100.0
