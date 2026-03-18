@@ -117,7 +117,7 @@ class PassThroughOpenLoopController(om.ExplicitComponent):
                 " The input demand profile will not be used, the demand profile will be "
                 f"calculated as the mean of ``{self.config.commodity}_in``. "
             )
-            ValueError(msg)
+            raise ValueError(msg)
 
         if self.config.set_demand_as_avg_commodity_in:
             # Assume the demand is the average of the input commodity
