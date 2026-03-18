@@ -144,9 +144,6 @@ from h2integrate.converters.hydrogen.geologic.templeton_serpentinization import 
 from h2integrate.control.control_rules.storage.pyomo_storage_rule_baseclass import (
     PyomoRuleStorageBaseclass,
 )
-from h2integrate.control.control_strategies.passthrough_openloop_controller import (
-    PassThroughOpenLoopController,
-)
 from h2integrate.resource.solar.nlr_developer_meteosat_prime_meridian_models import (
     MeteosatPrimeMeridianSolarAPI,
     MeteosatPrimeMeridianTMYSolarAPI,
@@ -156,6 +153,9 @@ from h2integrate.control.control_strategies.storage.demand_openloop_controller i
 )
 from h2integrate.control.control_strategies.converters.demand_openloop_controller import (
     DemandOpenLoopConverterController,
+)
+from h2integrate.control.control_strategies.storage.passthrough_openloop_controller import (
+    PassThroughOpenLoopController,
 )
 from h2integrate.control.control_rules.storage.pyomo_storage_rule_min_operating_cost import (
     PyomoRuleStorageMinOperatingCosts,
