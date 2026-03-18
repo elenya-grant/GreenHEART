@@ -3,7 +3,7 @@ import pytest
 import openmdao.api as om
 
 from h2integrate.storage.simple_storage_auto_sizing import StorageAutoSizingModel
-from h2integrate.control.control_strategies.storage.passthrough_openloop_controller import (
+from h2integrate.control.control_strategies.storage.simple_openloop_controller import (
     SimpleStorageOpenLoopController,
 )
 
