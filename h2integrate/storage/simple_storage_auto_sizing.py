@@ -281,11 +281,8 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
 
         # 1. Auto-size the fill rate as the max of the input commodity
         storage_max_fill_rate = np.max(inputs[f"{self.commodity}_in"])
-        # Auto-size the empty rate as the max of the input commodity adjusted for
-        # discharge efficiency
-        storage_max_empty_rate = (
-            np.max(inputs[f"{self.commodity}_in"]) / self.config.discharge_efficiency
-        )
+        # Auto-size the empty rate as the max of the input commodity
+        storage_max_empty_rate = np.max(inputs[f"{self.commodity}_in"])
 
         # Auto-size the storage capacity to meet the demand as much as possible
         # 2. Estimate the storage SOC in `commodity_amount_units`
