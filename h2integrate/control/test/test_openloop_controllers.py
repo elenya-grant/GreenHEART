@@ -14,7 +14,7 @@ from h2integrate.control.control_strategies.converters.demand_openloop_controlle
     DemandOpenLoopConverterController,
 )
 from h2integrate.control.control_strategies.storage.passthrough_openloop_controller import (
-    PassThroughOpenLoopController,
+    SimpleStorageOpenLoopController,
 )
 from h2integrate.control.control_strategies.converters.flexible_demand_openloop_controller import (
     FlexibleDemandOpenLoopConverterController,
@@ -64,7 +64,7 @@ def test_pass_through_controller(subtests):
 
     prob.model.add_subsystem(
         "pass_through_controller",
-        PassThroughOpenLoopController(
+        SimpleStorageOpenLoopController(
             plant_config=plant_config, tech_config=tech_config["technologies"]["h2_storage"]
         ),
         promotes=["*"],

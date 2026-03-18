@@ -119,7 +119,7 @@ technologies:
     performance_model:
       model: StorageAutoSizingModel
     control_strategy:
-      model: PassThroughOpenLoopController
+      model: SimpleStorageOpenLoopController
     cost_model:
       model: LinedRockCavernStorageCostModel
     model_inputs:

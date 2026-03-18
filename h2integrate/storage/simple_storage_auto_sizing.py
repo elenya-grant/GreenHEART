@@ -91,7 +91,7 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
     capacity calculated.
 
     Note: this storage performance model is intended to be used with the
-    `PassThroughOpenLoopController` controller and is not compatible with the
+    `SimpleStorageOpenLoopController` controller and is not compatible with the
     `DemandOpenLoopStorageController` controller.
 
     Inputs:

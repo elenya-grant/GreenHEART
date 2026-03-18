@@ -8,9 +8,9 @@ The open-loop storage controllers can be attached as the control strategy in the
 
 (pass-through-controller)=
 ### Pass-Through Controller
-The `PassThroughOpenLoopController` simply directly passes the input commodity flow to the output without any modifications. It is useful for testing, as a placeholder for more complex controllers, and for maintaining consistency between controlled and uncontrolled frameworks as this 'controller' does not alter the system output in any way.
+The `SimpleStorageOpenLoopController` simply directly passes the input commodity flow to the output without any modifications. It is useful for testing, as a placeholder for more complex controllers, and for maintaining consistency between controlled and uncontrolled frameworks as this 'controller' does not alter the system output in any way.
 
-For examples of how to use the `PassThroughOpenLoopController` open-loop control framework, see the following:
+For examples of how to use the `SimpleStorageOpenLoopController` open-loop control framework, see the following:
 - `examples/01_onshore_steel_mn`
 - `examples/02_texas_ammonia`
 - `examples/12_ammonia_synloop`

@@ -4,7 +4,7 @@ import openmdao.api as om
 
 from h2integrate.storage.simple_storage_auto_sizing import StorageAutoSizingModel
 from h2integrate.control.control_strategies.storage.passthrough_openloop_controller import (
-    PassThroughOpenLoopController,
+    SimpleStorageOpenLoopController,
 )
 
 
@@ -421,7 +421,7 @@ def test_storage_autosizing_losses(plant_config, subtests):
 @pytest.mark.parametrize("n_timesteps", [24])
 def test_storage_autosizing_with_passthrough_controller(plant_config, subtests):
     # Basic test to ensure that storage performance model
-    # works as-expected with the PassThroughOpenLoopController.
+    # works as-expected with the SimpleStorageOpenLoopController.
     # This test should have the same results as test_storage_autosizing_basic_performance_no_losses
 
     tech_config = {
@@ -454,7 +454,7 @@ def test_storage_autosizing_with_passthrough_controller(plant_config, subtests):
 
     prob.model.add_subsystem(
         "controller",
-        PassThroughOpenLoopController(
+        SimpleStorageOpenLoopController(
             plant_config=plant_config,
             tech_config={"model_inputs": tech_config},
         ),

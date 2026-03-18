@@ -4,7 +4,7 @@ import openmdao.api as om
 
 from h2integrate.storage.generic_storage_pyo import StoragePerformanceModel
 from h2integrate.control.control_strategies.storage.passthrough_openloop_controller import (
-    PassThroughOpenLoopController,
+    SimpleStorageOpenLoopController,
 )
 
 
@@ -50,7 +50,7 @@ def test_generic_storage_with_simple_control_dmd_lessthan_charge_rate(plant_conf
 
     prob.model.add_subsystem(
         "control",
-        PassThroughOpenLoopController(
+        SimpleStorageOpenLoopController(
             plant_config=plant_config,
             tech_config={"model_inputs": model_inputs},
         ),
@@ -227,7 +227,7 @@ def test_generic_storage_with_simple_control_charge_rate_lessthan_demand(plant_c
 
     prob.model.add_subsystem(
         "control",
-        PassThroughOpenLoopController(
+        SimpleStorageOpenLoopController(
             plant_config=plant_config,
             tech_config={"model_inputs": model_inputs},
         ),
@@ -419,7 +419,7 @@ def test_generic_storage_with_simple_control_zero_size(plant_config, subtests):
 
     prob.model.add_subsystem(
         "control",
-        PassThroughOpenLoopController(
+        SimpleStorageOpenLoopController(
             plant_config=plant_config,
             tech_config={"model_inputs": model_inputs},
         ),
@@ -583,7 +583,7 @@ def test_generic_storage_with_simple_control_with_losses(plant_config, subtests)
 
     prob.model.add_subsystem(
         "control",
-        PassThroughOpenLoopController(
+        SimpleStorageOpenLoopController(
             plant_config=plant_config,
             tech_config={"model_inputs": model_inputs},
         ),
@@ -806,7 +806,7 @@ def test_generic_storage_with_simple_control_with_losses_round_trip(plant_config
 
     prob.model.add_subsystem(
         "control",
-        PassThroughOpenLoopController(
+        SimpleStorageOpenLoopController(
             plant_config=plant_config,
             tech_config={"model_inputs": model_inputs},
         ),

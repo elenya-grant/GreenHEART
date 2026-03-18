@@ -155,7 +155,7 @@ from h2integrate.control.control_strategies.converters.demand_openloop_controlle
     DemandOpenLoopConverterController,
 )
 from h2integrate.control.control_strategies.storage.passthrough_openloop_controller import (
-    PassThroughOpenLoopController,
+    SimpleStorageOpenLoopController,
 )
 from h2integrate.control.control_rules.storage.pyomo_storage_rule_min_operating_cost import (
     PyomoRuleStorageMinOperatingCosts,
@@ -267,7 +267,7 @@ supported_models = {
     "GenericStorageCostModel": GenericStorageCostModel,
     "SimpleGenericStorage": SimpleGenericStorage,
     # Control
-    "PassThroughOpenLoopController": PassThroughOpenLoopController,
+    "SimpleStorageOpenLoopController": SimpleStorageOpenLoopController,
     "DemandOpenLoopStorageController": DemandOpenLoopStorageController,
     "HeuristicLoadFollowingController": HeuristicLoadFollowingController,
     "OptimizedDispatchController": OptimizedDispatchController,
