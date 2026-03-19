@@ -16,7 +16,7 @@ def plant_config():
             "plant_life": 30,
             "simulation": {
                 "dt": 3600,
-                "n_timesteps": 48,  # 8760,
+                "n_timesteps": 48,
             },
         },
         "tech_to_dispatch_connections": [
@@ -39,7 +39,6 @@ def tech_config_generic():
                     "shared_parameters": {
                         "max_charge_rate": 10.0,
                         "max_capacity": 40.0,
-                        # "n_control_window": 24,
                         "init_soc_fraction": 0.2,
                         "max_soc_fraction": 1.0,
                         "min_soc_fraction": 0.1,
@@ -55,12 +54,12 @@ def tech_config_generic():
                     },
                     "control_parameters": {
                         "tech_name": "h2_storage",
-                        "cost_per_charge": 100.0,  # USD/kg
-                        "cost_per_discharge": 300.0,  # USD/kg
-                        "commodity_met_value": 1000.0,  # USD/kg
+                        "cost_per_charge": 0.03,  # USD/kg
+                        "cost_per_discharge": 0.05,  # USD/kg
+                        "commodity_met_value": 0.1,  # USD/kg
                         "cost_per_production": 0.0,  # USD/kg
                         "time_weighting_factor": 0.995,
-                        "system_commodity_interface_limit": 1e12,
+                        "system_commodity_interface_limit": 10.0,
                         "n_control_window": 24,
                     },
                 },

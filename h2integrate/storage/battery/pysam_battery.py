@@ -246,8 +246,9 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
                 if any(intended_dispatch_tech in name for name in self.tech_group_name):
                     self.add_discrete_input("pyomo_dispatch_solver", val=dummy_function)
                     break
-        # using open-loop controller
+
         else:
+            # using an open-loop storage controller
             self.add_input(
                 "electricity_set_point",
                 val=0.0,

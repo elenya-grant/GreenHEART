@@ -308,7 +308,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
                     self.add_discrete_input("pyomo_dispatch_solver", val=dummy_function)
                     break
         else:
-            # using open-loop controller
+            # using an open-loop storage controller
             self.add_input(
                 f"{self.commodity}_set_point",
                 val=0.0,
