@@ -2490,3 +2490,31 @@ def test_pyomo_optimized_dispatch_example(subtests, temp_copy_of_example):
             "finance_subgroup_all_electricity.price_electricity", units="USD/(kW*h)"
         )[0]
         assert price == pytest.approx(0.134, rel=1e-3)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("example_folder,resource_example_folder", [("31_tidal", None)])
+def test_tidal_example(subtests, temp_copy_of_example):
+    example_folder = temp_copy_of_example
+
+    # Create the model
+    model = H2IntegrateModel(example_folder / "tidal.yaml")
+
+    # # Run the model
+    model.run()
+
+    with subtests.test("AEP"):
+        tidal_electricity = model.prob.get_val("tidal.electricity_out", units="GW")
+        assert tidal_electricity.sum() == pytest.approx(60.625515492, rel=1e-4)
+
+    with subtests.test("Capex"):
+        capex = model.prob.get_val("tidal.CapEx", units="USD")
+        assert capex == pytest.approx(123902868.63, rel=1e-4)
+
+    with subtests.test("OpEx"):
+        OpEx = model.prob.get_val("tidal.OpEx", units="USD/yr")
+        assert OpEx == pytest.approx(4498582.9, rel=1e-4)
+
+    with subtests.test("LCOE"):
+        lcoe = model.prob.get_val("finance_subgroup_default.LCOE", units="USD/(kW*h)")
+        assert lcoe == pytest.approx(0.287, rel=1e-4)

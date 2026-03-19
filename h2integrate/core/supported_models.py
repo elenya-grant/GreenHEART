@@ -1,4 +1,5 @@
 from h2integrate.resource.river import RiverResource
+from h2integrate.resource.tidal import TidalResource
 from h2integrate.core.feedstocks import FeedstockCostModel, FeedstockPerformanceModel
 from h2integrate.transporters.pipe import PipePerformanceModel
 from h2integrate.transporters.cable import CablePerformanceModel
@@ -60,6 +61,7 @@ from h2integrate.converters.ammonia.ammonia_synloop import (
     AmmoniaSynLoopCostModel,
     AmmoniaSynLoopPerformanceModel,
 )
+from h2integrate.converters.water_power.tidal_pysam import PySAMTidalPerformanceModel
 from h2integrate.storage.simple_storage_auto_sizing import StorageAutoSizingModel
 from h2integrate.converters.water.desal.desalination import (
     ReverseOsmosisCostModel,
@@ -91,6 +93,7 @@ from h2integrate.converters.natural_gas.natural_gas_cc_ct import (
     NaturalGasCostModel,
     NaturalGasPerformanceModel,
 )
+from h2integrate.converters.water_power.pysam_marine_cost import PySAMMarineCostModel
 from h2integrate.converters.hydrogen.singlitico_cost_model import SingliticoCostModel
 from h2integrate.converters.co2.marine.direct_ocean_capture import DOCCostModel, DOCPerformanceModel
 from h2integrate.converters.hydrogen.steam_methane_reformer import (
@@ -169,6 +172,7 @@ from h2integrate.control.control_strategies.converters.demand_openloop_converter
 
 supported_models = {
     # Resources
+    "TidalResource": TidalResource,
     "RiverResource": RiverResource,
     "WTKNLRDeveloperAPIWindResource": WTKNLRDeveloperAPIWindResource,
     "OpenMeteoHistoricalWindResource": OpenMeteoHistoricalWindResource,
@@ -190,6 +194,8 @@ supported_models = {
     "PYSAMSolarPlantPerformanceModel": PYSAMSolarPlantPerformanceModel,
     "ATBUtilityPVCostModel": ATBUtilityPVCostModel,
     "ATBResComPVCostModel": ATBResComPVCostModel,
+    "PySAMTidalPerformanceModel": PySAMTidalPerformanceModel,
+    "PySAMMarineCostModel": PySAMMarineCostModel,
     "RunOfRiverHydroPerformanceModel": RunOfRiverHydroPerformanceModel,
     "RunOfRiverHydroCostModel": RunOfRiverHydroCostModel,
     "ECOElectrolyzerPerformanceModel": ECOElectrolyzerPerformanceModel,
@@ -309,6 +315,7 @@ def is_electricity_producer(tech_name: str) -> bool:
         "wind",
         "solar",
         "pv",
+        "tidal",
         "river",
         "hopp",
         "natural_gas_plant",

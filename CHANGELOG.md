@@ -10,6 +10,10 @@
 - Add tests for non-one valued charge, discharge, and round-trip efficiencies for the open-loop demand controller [PR 610](https://github.com/NatLabRockies/H2Integrate/pull/610)
 - Updated the `StorageAutoSizingModel` and `PassThroughOpenLoopController` so that `commodity_set_point` is used as the storage dispatch command [PR 608](https://github.com/NatLabRockies/H2Integrate/pull/608)
 - Updated the `SimpleGenericStorage` and `DemandOpenLoopStorageController` so that `commodity_set_point` is used as the storage dispatch command [PR 612](https://github.com/NatLabRockies/H2Integrate/pull/612)
+- Add PySAM marine models [PR 607](https://github.com/NatLabRockies/H2Integrate/pull/607)
+  - Add tidal resource model
+  - Add pysam tidal performance model
+  - Add pysam marine hydrokinetic cost model
 
 ## 0.7.1 [March 13, 2026]
 
