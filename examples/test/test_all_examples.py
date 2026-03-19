@@ -922,9 +922,7 @@ def test_natural_gas_example(subtests, temp_copy_of_example):
     model.post_process()
     solar_aep = sum(model.prob.get_val("solar.electricity_out", units="kW"))
     solar_bat_out_total = sum(model.prob.get_val("battery.electricity_out", units="kW"))
-    solar_curtailed_total = sum(
-        model.prob.get_val("battery.electricity_unused_commodity", units="kW")
-    )
+    solar_curtailed_total = sum(model.prob.get_val("battery.unused_electricity_out", units="kW"))
 
     renewable_subgroup_total_electricity = (
         model.prob.get_val("finance_subgroup_renewables.rated_electricity_production", units="kW")[
@@ -954,7 +952,7 @@ def test_natural_gas_example(subtests, temp_copy_of_example):
 
     # NOTE: battery output power is not included in any of the financials
 
-    pre_ng_missed_load = model.prob.get_val("battery.electricity_unmet_demand", units="kW")
+    pre_ng_missed_load = model.prob.get_val("battery.unmet_electricity_demand_out", units="kW")
     ng_electricity_demand = model.prob.get_val("natural_gas_plant.electricity_demand", units="kW")
     ng_electricity_production = model.prob.get_val("natural_gas_plant.electricity_out", units="kW")
     bat_init_charge = 200000.0 * 0.1  # max capacity in kW and initial charge rate percentage
@@ -1322,7 +1320,7 @@ def test_simple_dispatch_example(subtests, temp_copy_of_example):
 
     # Test battery storage functionality
     with subtests.test("Check battery SOC bounds"):
-        soc = model.prob.get_val("battery.electricity_soc", units="unitless")
+        soc = model.prob.get_val("battery.SOC", units="unitless")
         # SOC should stay within configured bounds (10% to 100%)
         assert all(soc >= 0.1)
         assert all(soc <= 1.0)
@@ -1377,14 +1375,14 @@ def test_simple_dispatch_example(subtests, temp_copy_of_example):
     # Subtest for electricity unused_commodity
     with subtests.test("Check electricity unused commodity"):
         electricity_unused_commodity = np.linalg.norm(
-            model.prob.get_val("battery.electricity_unused_commodity", units="kW")
+            model.prob.get_val("battery.unused_electricity_out", units="kW")
         )
         assert pytest.approx(electricity_unused_commodity, rel=1e-6) == 412531.73840450746
 
     # Subtest for unmet demand
     with subtests.test("Check electricity unmet demand"):
         electricity_unmet_demand = np.linalg.norm(
-            model.prob.get_val("battery.electricity_unmet_demand", units="kW")
+            model.prob.get_val("battery.unmet_electricity_demand_out", units="kW")
         )
         assert pytest.approx(electricity_unmet_demand, rel=1e-6) == 165604.70758669
 
@@ -1520,7 +1518,7 @@ def test_windard_pv_battery_dispatch_example(subtests, temp_copy_of_example):
     # Subtest for electricity curtailed
     with subtests.test("Check electricity curtailed"):
         electricity_curtailed = model.prob.get_val(
-            "battery.electricity_unused_commodity", units="MW"
+            "battery.unused_electricity_out", units="MW"
         ).sum()
 
         # import pdb; pdb.set_trace()
@@ -1529,7 +1527,7 @@ def test_windard_pv_battery_dispatch_example(subtests, temp_copy_of_example):
     # Subtest for missed load
     with subtests.test("Check electricity missed load"):
         electricity_missed_load = np.linalg.norm(
-            model.prob.get_val("battery.electricity_unmet_demand", units="MW")
+            model.prob.get_val("battery.unmet_electricity_demand_out", units="MW")
         )
         assert electricity_missed_load == pytest.approx(1403.5372787817894)
 
@@ -1912,9 +1910,11 @@ def test_24_solar_battery_grid_example(subtests, temp_copy_of_example):
     )
 
     electricity_bought = sum(model.prob.get_val("grid_buy.electricity_out", units="kW"))
-    battery_missed_load = sum(model.prob.get_val("battery.electricity_unmet_demand", units="kW"))
+    battery_missed_load = sum(
+        model.prob.get_val("battery.unmet_electricity_demand_out", units="kW")
+    )
 
-    battery_curtailed = sum(model.prob.get_val("battery.electricity_unused_commodity", units="kW"))
+    battery_curtailed = sum(model.prob.get_val("battery.unused_electricity_out", units="kW"))
     electricity_sold = sum(model.prob.get_val("grid_sell.electricity_in", units="kW"))
 
     solar_aep = sum(model.prob.get_val("solar.electricity_out", units="kW"))

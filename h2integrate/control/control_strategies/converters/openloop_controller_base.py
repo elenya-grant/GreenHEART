@@ -5,27 +5,27 @@ from h2integrate.core.utilities import BaseConfig
 
 
 @define(kw_only=True)
-class DemandOpenLoopControlBaseConfig(BaseConfig):
+class ConverterOpenLoopControlBaseConfig(BaseConfig):
     """Configuration for defining an open-loop demand profile.
 
     This configuration object specifies the commodity being controlled and the
     demand profile that should be met by downstream components.
 
     Attributes:
-        commodity_rate_units (str): Units of the commodity (e.g., "kg/h").
         commodity (str): Name of the commodity being controlled
             (e.g., "hydrogen"). Converted to lowercase and stripped of whitespace.
+        commodity_rate_units (str): Units of the commodity (e.g., "kg/h").
         demand_profile (int | float | list): Demand values for each timestep, in
             the same units as `commodity_rate_units`. May be a scalar for constant
             demand or a list/array for time-varying demand.
     """
 
-    commodity_rate_units: str = field(converter=str.strip)
     commodity: str = field(converter=(str.strip, str.lower))
+    commodity_rate_units: str = field(converter=str.strip)
     demand_profile: int | float | list = field()
 
 
-class DemandOpenLoopControlBase(om.ExplicitComponent):
+class ConverterOpenLoopControlBase(om.ExplicitComponent):
     """Base OpenMDAO component for open-loop demand tracking.
 
     This component defines the interfaces required for open-loop demand

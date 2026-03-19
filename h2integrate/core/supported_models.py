@@ -147,14 +147,8 @@ from h2integrate.resource.solar.nlr_developer_meteosat_prime_meridian_models imp
     MeteosatPrimeMeridianSolarAPI,
     MeteosatPrimeMeridianTMYSolarAPI,
 )
-from h2integrate.control.control_strategies.storage.demand_openloop_controller import (
-    DemandOpenLoopStorageController,
-)
 from h2integrate.control.control_strategies.storage.simple_openloop_controller import (
     SimpleStorageOpenLoopController,
-)
-from h2integrate.control.control_strategies.converters.demand_openloop_controller import (
-    DemandOpenLoopConverterController,
 )
 from h2integrate.control.control_rules.storage.pyomo_storage_rule_min_operating_cost import (
     PyomoRuleStorageMinOperatingCosts,
@@ -162,8 +156,14 @@ from h2integrate.control.control_rules.storage.pyomo_storage_rule_min_operating_
 from h2integrate.control.control_rules.converters.generic_converter_min_operating_cost import (
     PyomoDispatchGenericConverterMinOperatingCosts,
 )
+from h2integrate.control.control_strategies.storage.demand_openloop_storage_controller import (
+    DemandOpenLoopStorageController,
+)
 from h2integrate.control.control_strategies.converters.flexible_demand_openloop_controller import (
     FlexibleDemandOpenLoopConverterController,
+)
+from h2integrate.control.control_strategies.converters.demand_openloop_converter_controller import (
+    DemandOpenLoopConverterController,
 )
 
 
