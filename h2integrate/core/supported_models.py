@@ -33,7 +33,6 @@ from h2integrate.converters.iron.iron_transport import (
 from h2integrate.converters.nitrogen.simple_ASU import SimpleASUCostModel, SimpleASUPerformanceModel
 from h2integrate.converters.wind.wind_plant_ard import ArdWindPlantModel
 from h2integrate.resource.solar.openmeteo_solar import OpenMeteoHistoricalSolarResource
-from h2integrate.storage.simple_generic_storage import SimpleGenericStorage
 from h2integrate.converters.hydrogen.h2_fuel_cell import (
     H2FuelCellCostModel,
     LinearH2FuelCellPerformanceModel,
@@ -265,7 +264,6 @@ supported_models = {
     "PipeStorageCostModel": PipeStorageCostModel,
     "ATBBatteryCostModel": ATBBatteryCostModel,
     "GenericStorageCostModel": GenericStorageCostModel,
-    "SimpleGenericStorage": SimpleGenericStorage,
     # Control
     "SimpleStorageOpenLoopController": SimpleStorageOpenLoopController,
     "DemandOpenLoopStorageController": DemandOpenLoopStorageController,
