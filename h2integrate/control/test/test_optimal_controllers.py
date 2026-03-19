@@ -63,6 +63,7 @@ tech_config = {
                     "system_model_source": "pysam",
                     "chemistry": "LFPGraphite",
                     "control_variable": "input_power",
+                    "demand_profile": 6000.0,
                 },
                 "control_parameters": {
                     "tech_name": "battery",
