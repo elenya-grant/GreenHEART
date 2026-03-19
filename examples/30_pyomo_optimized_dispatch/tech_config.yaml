@@ -57,6 +57,7 @@ technologies:
       performance_parameters:
         system_model_source: pysam
         chemistry: LFPGraphite
+        demand_profiles: 100000  # 100 MW
       cost_parameters:
         cost_year: 2022
         energy_capex: 310  # $/kWh from 2024 ATB year 2025

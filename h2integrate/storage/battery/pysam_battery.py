@@ -24,7 +24,9 @@ class PySAMBatteryPerformanceModelConfig(BaseConfig):
         max_charge_rate (float):
             Rated power capacity of the battery in kilowatts (kW).
             Must be greater than zero.
-
+        demand_profile (int | float | list): Demand values for each timestep, in
+            the same units as `commodity_rate_units`. May be a scalar for constant
+            demand or a list/array for time-varying demand.
         chemistry (str):
             Battery chemistry option. "LDES" has not been brought over from HOPP yet.
             Supported values include:
@@ -37,8 +39,6 @@ class PySAMBatteryPerformanceModelConfig(BaseConfig):
             Maximum allowable state of charge as a fraction (0 to 1).
         init_soc_fraction (float):
             Initial state of charge as a fraction (0 to 1).
-        n_control_window (int, optional):
-            Number of timesteps in the control window. Defaults to 24.
         control_variable (str):
             Control mode for the PySAM battery, either ``"input_power"``
             or ``"input_current"``.
@@ -58,14 +58,13 @@ class PySAMBatteryPerformanceModelConfig(BaseConfig):
 
     max_capacity: float = field(validator=gt_zero)
     max_charge_rate: float = field(validator=gt_zero)
-
+    demand_profile: int | float | list = field()
     chemistry: str = field(
         validator=contains(["LFPGraphite", "LMOLTO", "LeadAcid", "NMCGraphite"]),
     )
     min_soc_fraction: float = field(validator=range_val(0, 1))
     max_soc_fraction: float = field(validator=range_val(0, 1))
     init_soc_fraction: float = field(validator=range_val(0, 1))
-    n_control_window: int = field(validator=gt_zero, default=24)
     control_variable: str = field(
         default="input_power", validator=contains(["input_power", "input_current"])
     )
@@ -184,7 +183,7 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
 
         self.add_input(
             "electricity_demand",
-            val=0.0,
+            val=self.config.demand_profile,
             shape=self.n_timesteps,
             units="kW",
             desc="Power demand",

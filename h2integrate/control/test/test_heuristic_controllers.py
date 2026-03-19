@@ -52,6 +52,7 @@ def tech_config():
                     "performance_parameters": {
                         "chemistry": "LFPGraphite",
                         "control_variable": "input_power",
+                        "demand_profile": 0.0,
                     },
                     "control_parameters": {
                         "commodity": "electricity",

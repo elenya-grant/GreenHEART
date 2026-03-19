@@ -33,8 +33,6 @@ class StoragePerformanceModelConfig(BaseConfig):
             Maximum allowable state of charge as a fraction (0 to 1).
         init_soc_fraction (float):
             Initial state of charge as a fraction (0 to 1).
-        n_control_window (int, optional):
-            Number of timesteps in the control window. Defaults to 24.
         commodity_amount_units (str | None, optional): Units of the commodity as an amount
             (i.e., kW*h or kg). If not provided, defaults to commodity_rate_units*h.
         max_discharge_rate (float | None, optional): Maximum rate at which the commodity can be
@@ -66,7 +64,6 @@ class StoragePerformanceModelConfig(BaseConfig):
     min_soc_fraction: float = field(validator=range_val(0, 1))
     max_soc_fraction: float = field(validator=range_val(0, 1))
     init_soc_fraction: float = field(validator=range_val(0, 1))
-    n_control_window: int = field(validator=gt_zero, default=24)
 
     commodity_amount_units: str = field(default=None)
     max_discharge_rate: float | None = field(default=None)

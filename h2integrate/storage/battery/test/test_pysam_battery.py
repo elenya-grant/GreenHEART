@@ -28,7 +28,7 @@ def test_pysam_battery_performance_model_without_controller(plant_config, subtes
     # Set up the OpenMDAO problem
     prob = om.Problem()
 
-    n_control_window = tech_config["technologies"]["battery"]["model_inputs"]["shared_parameters"][
+    n_control_window = tech_config["technologies"]["battery"]["model_inputs"]["control_parameters"][
         "n_control_window"
     ]
 
@@ -202,6 +202,7 @@ def test_battery_config(subtests):
         "init_soc_fraction": 0.1,
         "max_soc_fraction": 0.9,
         "min_soc_fraction": 0.1,
+        "demand_profile": 0.0,
     }
 
     config = PySAMBatteryPerformanceModelConfig.from_dict(config_data)
@@ -222,9 +223,6 @@ def test_battery_config(subtests):
         assert (
             config.init_soc_fraction == 0.1
         )  # Decimal percent as compared to test_battery.py in HOPP 10%
-
-    with subtests.test("with minimal params n_control_window"):
-        assert config.n_control_window == 24
 
     with subtests.test("with invalid capacity"):
         with pytest.raises(ValueError):
@@ -318,7 +316,7 @@ def test_pysam_battery_no_controller_change_capacity(plant_config, subtests):
                 "max_soc_fraction": 1.0,
                 "min_soc_fraction": 0.1,
             },
-            "performance_parameters": {"chemistry": "LFPGraphite"},
+            "performance_parameters": {"chemistry": "LFPGraphite", "demand_profile": 0.0},
         }
     }
     # Set up the OpenMDAO problem
