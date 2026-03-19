@@ -181,15 +181,9 @@ class PyomoControllerBaseClass(om.ExplicitComponent):
                     self.config.commodity.
 
             Returns:
-                tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-                    total_commodity_out :
-                        Net commodity supplied to demand each timestep (min(demand, storage + gen)).
+                tuple[np.ndarray, np.ndarray]:
                     storage_commodity_out :
                         Commodity supplied (positive) by the storage asset each timestep.
-                    unmet_demand :
-                        Positive shortfall = demand - total_out (0 if fully met).
-                    unused_commodity :
-                        Surplus generation + storage discharge not used to meet demand.
                     soc :
                         State of charge trajectory (percent of capacity).
 
@@ -202,10 +196,7 @@ class PyomoControllerBaseClass(om.ExplicitComponent):
             """
 
             # initialize outputs
-            unmet_demand = np.zeros(self.n_timesteps)
             storage_commodity_out = np.zeros(self.n_timesteps)
-            total_commodity_out = np.zeros(self.n_timesteps)
-            unused_commodity = np.zeros(self.n_timesteps)
             soc = np.zeros(self.n_timesteps)
 
             # This is where the pyomo controller interface is defined in individual
@@ -217,7 +208,7 @@ class PyomoControllerBaseClass(om.ExplicitComponent):
             # 3. solve dispatch model or set fixed dispatch
             # 4. update outputs
 
-            return total_commodity_out, storage_commodity_out, unmet_demand, unused_commodity, soc
+            return storage_commodity_out, soc
 
         return pyomo_dispatch_solver
 
