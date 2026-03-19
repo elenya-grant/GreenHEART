@@ -14,6 +14,13 @@
   - Add tidal resource model
   - Add pysam tidal performance model
   - Add pysam marine hydrokinetic cost model
+- Updated the `StoragePerformanceModel` and `PySAMBatteryPerformanceModel` to be compatible with the open-loop storage control strategies [PR 613](https://github.com/NatLabRockies/H2Integrate/pull/613)
+  - Removed `SimpleGenericStorage` and replaced usage with `StoragePerformanceModel`
+  - Renamed `PassThroughOpenLoopController` to `SimpleStorageOpenLoopController`
+  - Bugfix in pyomo control rules so that units such as `kg/h` can be used
+  - Bugfix in tests of pyomo control strategies with `StoragePerformanceModel` so that the pathname attribute is correct
+  - Added `demand_profile` as an input to `StoragePerformanceModel` and `PySAMBatteryPerformanceModel`
+  - Renamed `xx_charge_fraction` to `xx_soc_fraction`
 
 ## 0.7.1 [March 13, 2026]
 
