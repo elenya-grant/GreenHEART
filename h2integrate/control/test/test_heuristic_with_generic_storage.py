@@ -53,6 +53,7 @@ def tech_config_generic():
                         "commodity_amount_units": "kg",
                         "charge_efficiency": 1.0,
                         "discharge_efficiency": 1.0,
+                        "demand_profile": 0.0,
                     },
                     "control_parameters": {
                         "tech_name": "h2_storage",

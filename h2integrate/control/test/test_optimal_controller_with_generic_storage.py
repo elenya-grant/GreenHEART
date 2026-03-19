@@ -51,6 +51,7 @@ def tech_config_generic():
                     "performance_parameters": {
                         "charge_equals_discharge": True,
                         "commodity_amount_units": "kg",
+                        "demand_profile": 0.0,
                     },
                     "control_parameters": {
                         "tech_name": "h2_storage",

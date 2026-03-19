@@ -27,6 +27,7 @@ def test_generic_storage_with_simple_control_dmd_lessthan_charge_rate(plant_conf
             "charge_equals_discharge": True,
             "charge_efficiency": 1.0,
             "discharge_efficiency": 1.0,
+            "demand_profile": 0.0,
         },
         "control_parameters": {"set_demand_as_avg_commodity_in": False},
     }
@@ -204,6 +205,7 @@ def test_generic_storage_with_simple_control_charge_rate_lessthan_demand(plant_c
             "charge_equals_discharge": True,
             "charge_efficiency": 1.0,
             "discharge_efficiency": 1.0,
+            "demand_profile": 0.0,
         },
         "control_parameters": {"set_demand_as_avg_commodity_in": False},
     }
@@ -396,6 +398,7 @@ def test_generic_storage_with_simple_control_zero_size(plant_config, subtests):
             "charge_equals_discharge": False,
             "charge_efficiency": 1.0,
             "discharge_efficiency": 1.0,
+            "demand_profile": 0.0,
         },
         "control_parameters": {"set_demand_as_avg_commodity_in": False},
     }
@@ -557,6 +560,7 @@ def test_generic_storage_with_simple_control_with_losses(plant_config, subtests)
             "charge_equals_discharge": True,
             "charge_efficiency": charge_eff,
             "discharge_efficiency": discharge_eff,
+            "demand_profile": 0.0,
         },
         "control_parameters": {"set_demand_as_avg_commodity_in": False},
     }
@@ -783,6 +787,7 @@ def test_generic_storage_with_simple_control_with_losses_round_trip(plant_config
             "commodity_amount_units": "kg",
             "charge_equals_discharge": True,
             "round_trip_efficiency": round_trip_eff,
+            "demand_profile": 0.0,
         },
         "control_parameters": {"set_demand_as_avg_commodity_in": False},
     }
