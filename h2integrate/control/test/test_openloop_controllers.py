@@ -8,17 +8,17 @@ from pytest import fixture
 
 from h2integrate.core.file_utils import load_yaml
 from h2integrate.storage.simple_generic_storage import SimpleGenericStorage
-from h2integrate.control.control_strategies.storage.demand_openloop_controller import (
-    DemandOpenLoopStorageController,
-)
-from h2integrate.control.control_strategies.converters.demand_openloop_controller import (
-    DemandOpenLoopConverterController,
-)
 from h2integrate.control.control_strategies.storage.passthrough_openloop_controller import (
     PassThroughOpenLoopController,
 )
+from h2integrate.control.control_strategies.storage.demand_openloop_storage_controller import (
+    DemandOpenLoopStorageController,
+)
 from h2integrate.control.control_strategies.converters.flexible_demand_openloop_controller import (
     FlexibleDemandOpenLoopConverterController,
+)
+from h2integrate.control.control_strategies.converters.demand_openloop_converter_controller import (
+    DemandOpenLoopConverterController,
 )
 
 
