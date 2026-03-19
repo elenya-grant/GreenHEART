@@ -277,8 +277,8 @@ Below summarizes the available performance, cost, and financial models for each 
 
 (control-models)=
 ## Control Models
-- `'SimpleStorageOpenLoopController'`: open-loop control; directly passes the input resource flow to the output without any modifications
 - Storage Controllers:
+    - `'SimpleStorageOpenLoopController'`: open-loop control; manages resource flow based on demand and input commodity
     - `'DemandOpenLoopStorageController'`: open-loop control; manages resource flow based on demand and storage constraints
     - `'HeuristicLoadFollowingController'`: open-loop control that works on a time window basis to set dispatch commands; uses Pyomo
 - Converter Controllers:

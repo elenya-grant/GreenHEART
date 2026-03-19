@@ -178,6 +178,13 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
             units="kW*h",
             desc="Battery storage capacity",
         )
+        # Output design info
+        self.add_output(
+            "storage_duration",
+            val=self.config.max_capacity / self.config.max_charge_rate,
+            units=f"({self.commodity_amount_units})/({self.commodity_rate_units})",
+            desc="Estimated storage duration based on max capacity and discharge rate",
+        )
 
         super().setup()
 
@@ -369,6 +376,8 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
         outputs["capacity_factor"] = outputs["total_electricity_produced"] / (
             outputs["rated_electricity_production"] * self.n_timesteps
         )
+
+        outputs["storage_duration"] = inputs["storage_capacity"][0] / inputs["max_charge_rate"][0]
 
     def simulate(
         self,

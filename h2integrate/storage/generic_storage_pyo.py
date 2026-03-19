@@ -238,6 +238,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
         # Output design info
         self.add_output(
             "storage_duration",
+            val=self.config.max_capacity / self.config.max_charge_rate,
             units=f"({self.commodity_amount_units})/({self.commodity_rate_units})",
             desc="Estimated storage duration based on max capacity and discharge rate",
         )
