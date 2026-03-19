@@ -27,11 +27,11 @@ class StoragePerformanceModelConfig(BaseConfig):
         max_charge_rate (float):
             Rated commodity capacity of the storage  in commodity_rate_units.
             Must be greater than zero.
-        min_charge_fraction (float):
+        min_soc_fraction (float):
             Minimum allowable state of charge as a fraction (0 to 1).
-        max_charge_fraction (float):
+        max_soc_fraction (float):
             Maximum allowable state of charge as a fraction (0 to 1).
-        init_charge_fraction (float):
+        init_soc_fraction (float):
             Initial state of charge as a fraction (0 to 1).
         n_control_window (int, optional):
             Number of timesteps in the control window. Defaults to 24.
@@ -63,9 +63,9 @@ class StoragePerformanceModelConfig(BaseConfig):
     max_capacity: float = field(validator=gt_zero)
     max_charge_rate: float = field(validator=gt_zero)
 
-    min_charge_fraction: float = field(validator=range_val(0, 1))
-    max_charge_fraction: float = field(validator=range_val(0, 1))
-    init_charge_fraction: float = field(validator=range_val(0, 1))
+    min_soc_fraction: float = field(validator=range_val(0, 1))
+    max_soc_fraction: float = field(validator=range_val(0, 1))
+    init_soc_fraction: float = field(validator=range_val(0, 1))
     n_control_window: int = field(validator=gt_zero, default=24)
 
     commodity_amount_units: str = field(default=None)
@@ -178,7 +178,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
     Notes:
         - Default timestep is 1 hour (``dt=1.0``).
         - State of charge (SOC) bounds are set using the configuration's
-          ``min_charge_fraction`` and ``max_charge_fraction``.
+          ``min_soc_fraction`` and ``max_soc_fraction``.
         - If a Pyomo dispatch solver is provided, the storage will simulate
           dispatch decisions using solver inputs.
     """
@@ -342,7 +342,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
         else:
             max_discharge_rate = inputs["max_discharge_rate"][0]
 
-        self.current_soc = self.config.init_charge_fraction
+        self.current_soc = self.config.init_soc_fraction
 
         if "pyomo_dispatch_solver" in discrete_inputs:
             # Simulate the storage with provided dispatch inputs
@@ -504,8 +504,8 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
         # and redundant divisions inside the per-timestep loop.
         charge_eff = self.config.charge_efficiency
         discharge_eff = self.config.discharge_efficiency
-        soc_max = self.config.max_charge_fraction
-        soc_min = self.config.min_charge_fraction
+        soc_max = self.config.max_soc_fraction
+        soc_min = self.config.min_soc_fraction
 
         commands = np.asarray(storage_dispatch_commands, dtype=float)
         soc = float(self.current_soc)

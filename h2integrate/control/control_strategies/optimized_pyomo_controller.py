@@ -80,15 +80,15 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
             "cost_per_discharge",
             "commodity_met_value",
             "max_capacity",
-            "max_charge_fraction",
-            "min_charge_fraction",
+            "max_soc_fraction",
+            "min_soc_fraction",
             "charge_efficiency",
             "discharge_efficiency",
             "max_charge_rate",
         ]
 
         dispatch_inputs = {k: self.as_dict()[k] for k in dispatch_keys}
-        dispatch_inputs.update({"initial_soc_fraction": self.init_charge_fraction})
+        dispatch_inputs.update({"initial_soc_fraction": self.init_soc_fraction})
         return dispatch_inputs
 
 
@@ -125,7 +125,7 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
         super().setup()
 
         self.n_control_window = self.config.n_control_window
-        self.updated_initial_soc = self.config.init_charge_fraction
+        self.updated_initial_soc = self.config.init_soc_fraction
 
         # Is this the best place to put this???
         self.commodity_info = {

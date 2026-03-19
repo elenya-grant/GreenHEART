@@ -98,9 +98,9 @@ def test_storage_demand_controller(subtests):
         "commodity": "hydrogen",
         "commodity_rate_units": "kg/h",
         "max_capacity": 10.0,  # kg
-        "max_charge_fraction": 1.0,  # fraction (0-1)
-        "min_charge_fraction": 0.0,  # fraction (0-1)
-        "init_charge_fraction": 1.0,  # fraction (0-1)
+        "max_soc_fraction": 1.0,  # fraction (0-1)
+        "min_soc_fraction": 0.0,  # fraction (0-1)
+        "init_soc_fraction": 1.0,  # fraction (0-1)
         "max_charge_rate": 1.0,  # kg/time step
         "max_discharge_rate": 0.5,  # kg/time step
         "charge_equals_discharge": False,
@@ -177,9 +177,9 @@ def test_storage_demand_controller_round_trip_efficiency(subtests):
         "commodity": "hydrogen",
         "commodity_rate_units": "kg/h",
         "max_capacity": 10.0,  # kg
-        "max_charge_fraction": 1.0,  # fraction (0-1)
-        "min_charge_fraction": 0.0,  # fraction (0-1)
-        "init_charge_fraction": 1.0,  # fraction (0-1)
+        "max_soc_fraction": 1.0,  # fraction (0-1)
+        "min_soc_fraction": 0.0,  # fraction (0-1)
+        "init_soc_fraction": 1.0,  # fraction (0-1)
         "max_charge_rate": 1.0,  # kg/time step
         "max_discharge_rate": 0.5,  # kg/time step
         "charge_equals_discharge": False,
@@ -193,9 +193,9 @@ def test_storage_demand_controller_round_trip_efficiency(subtests):
         "commodity": "hydrogen",
         "commodity_rate_units": "kg/h",
         "max_capacity": 10.0,  # kg
-        "max_charge_fraction": 1.0,  # fraction (0-1)
-        "min_charge_fraction": 0.0,  # fraction (0-1)
-        "init_charge_fraction": 1.0,  # fraction (0-1)
+        "max_soc_fraction": 1.0,  # fraction (0-1)
+        "min_soc_fraction": 0.0,  # fraction (0-1)
+        "init_soc_fraction": 1.0,  # fraction (0-1)
         "max_charge_rate": 1.0,  # kg/time step
         "max_discharge_rate": 0.5,  # kg/time step
         "charge_equals_discharge": False,
@@ -284,9 +284,9 @@ def test_storage_demand_controller_round_trip_with_non_one_efficiencies(subtests
         "commodity": "hydrogen",
         "commodity_rate_units": "kg/h",
         "max_capacity": 10.0,  # kg
-        "max_charge_fraction": 1.0,  # fraction (0-1)
-        "min_charge_fraction": 0.0,  # fraction (0-1)
-        "init_charge_fraction": 0.75,  # fraction (0-1)
+        "max_soc_fraction": 1.0,  # fraction (0-1)
+        "min_soc_fraction": 0.0,  # fraction (0-1)
+        "init_soc_fraction": 0.75,  # fraction (0-1)
         "max_charge_rate": 1.0,  # kg/time step
         "max_discharge_rate": 1.0,  # kg/time step
         "charge_equals_discharge": False,
@@ -311,9 +311,9 @@ def test_storage_demand_controller_round_trip_with_non_one_efficiencies(subtests
         "commodity": "hydrogen",
         "commodity_rate_units": "kg/h",
         "max_capacity": 10.0,  # kg
-        "max_charge_fraction": 1.0,  # fraction (0-1)
-        "min_charge_fraction": 0.0,  # fraction (0-1)
-        "init_charge_fraction": 0.75,  # fraction (0-1)
+        "max_soc_fraction": 1.0,  # fraction (0-1)
+        "min_soc_fraction": 0.0,  # fraction (0-1)
+        "init_soc_fraction": 0.75,  # fraction (0-1)
         "max_charge_rate": 1.0,  # kg/time step
         "max_discharge_rate": 1.0,  # kg/time step
         "charge_equals_discharge": False,
@@ -440,9 +440,9 @@ def test_generic_storage_demand_controller(subtests):
                 "commodity_rate_units": "kg/h",
                 "max_capacity": 10.0,  # kg
                 "max_charge_rate": 1.0,  # fraction (0-1)
-                "max_charge_fraction": 1.0,  # fraction (0-1)
-                "min_charge_fraction": 0.0,  # fraction (0-1)
-                "init_charge_fraction": 1.0,  # fraction (0-1)
+                "max_soc_fraction": 1.0,  # fraction (0-1)
+                "min_soc_fraction": 0.0,  # fraction (0-1)
+                "init_soc_fraction": 1.0,  # fraction (0-1)
                 "max_discharge_rate": 0.5,  # kg/time step
                 "charge_efficiency": 1.0,
                 "charge_equals_discharge": False,

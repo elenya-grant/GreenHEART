@@ -104,7 +104,7 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
             desc="Storage capacity",
         )
 
-        self.max_charge_fraction = [0.0] * self.config.n_control_window
+        self.max_soc_fraction = [0.0] * self.config.n_control_window
         self.max_discharge_fraction = [0.0] * self.config.n_control_window
         self._fixed_dispatch = [0.0] * self.config.n_control_window
 
@@ -250,9 +250,9 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
 
         self.minimum_storage = 0.0
         self.maximum_storage = inputs["storage_capacity"][0]
-        self.minimum_soc = self.config.min_charge_fraction
-        self.maximum_soc = self.config.max_charge_fraction
-        self.initial_soc = self.config.init_charge_fraction
+        self.minimum_soc = self.config.min_soc_fraction
+        self.maximum_soc = self.config.max_soc_fraction
+        self.initial_soc = self.config.init_soc_fraction
 
     def update_time_series_parameters(self, start_time: int = 0):
         """Updates time series parameters.
@@ -336,7 +336,7 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
 
         """
         for t in self.blocks.index_set():
-            self.max_charge_fraction[t] = self.enforce_power_fraction_simple_bounds(
+            self.max_soc_fraction[t] = self.enforce_power_fraction_simple_bounds(
                 (commodity_in[t]) / self.maximum_storage, self.minimum_soc, self.maximum_soc
             )
             self.max_discharge_fraction[t] = self.enforce_power_fraction_simple_bounds(
@@ -360,8 +360,8 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
                 if fd > self.max_discharge_fraction[t]:
                     fd = self.max_discharge_fraction[t]
             elif fd < 0.0:  # Charging
-                if -fd > self.max_charge_fraction[t]:
-                    fd = -self.max_charge_fraction[t]
+                if -fd > self.max_soc_fraction[t]:
+                    fd = -self.max_soc_fraction[t]
             self._fixed_dispatch[t] = fd
 
     @staticmethod
@@ -428,8 +428,8 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
                 if fd > self.max_discharge_fraction[t]:
                     fd = self.max_discharge_fraction[t]
             elif fd < 0.0:  # Charging
-                if -fd > self.max_charge_fraction[t]:
-                    fd = -self.max_charge_fraction[t]
+                if -fd > self.max_soc_fraction[t]:
+                    fd = -self.max_soc_fraction[t]
             self._fixed_dispatch[t] = fd
 
     def _fix_dispatch_model_variables(self):

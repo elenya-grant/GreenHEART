@@ -20,9 +20,9 @@ def test_generic_storage_with_simple_control_dmd_lessthan_charge_rate(plant_conf
         "performance_parameters": {
             "max_capacity": 40,
             "max_charge_rate": 10,
-            "min_charge_fraction": 0.1,
-            "max_charge_fraction": 1.0,
-            "init_charge_fraction": 0.1,
+            "min_soc_fraction": 0.1,
+            "max_soc_fraction": 1.0,
+            "init_soc_fraction": 0.1,
             "commodity_amount_units": "kg",
             "charge_equals_discharge": True,
             "charge_efficiency": 1.0,
@@ -101,7 +101,7 @@ def test_generic_storage_with_simple_control_dmd_lessthan_charge_rate(plant_conf
     with subtests.test("Initial SOC is correct"):
         assert (
             pytest.approx(prob.model.get_val("storage.SOC", units="unitless")[0], rel=1e-6)
-            == performance_model_config["init_charge_fraction"]
+            == performance_model_config["init_soc_fraction"]
         )
 
     indx_soc_increase = np.argwhere(
@@ -139,13 +139,13 @@ def test_generic_storage_with_simple_control_dmd_lessthan_charge_rate(plant_conf
     with subtests.test("Max SOC <= Max storage percent"):
         assert (
             prob.get_val("storage.SOC", units="unitless").max()
-            <= performance_model_config["max_charge_fraction"]
+            <= performance_model_config["max_soc_fraction"]
         )
 
     with subtests.test("Min SOC >= Min storage percent"):
         assert (
             prob.get_val("storage.SOC", units="unitless").min()
-            >= performance_model_config["min_charge_fraction"]
+            >= performance_model_config["min_soc_fraction"]
         )
 
     with subtests.test("Charge never exceeds charge rate"):
@@ -197,9 +197,9 @@ def test_generic_storage_with_simple_control_charge_rate_lessthan_demand(plant_c
         "performance_parameters": {
             "max_capacity": 400,
             "max_charge_rate": 100,
-            "min_charge_fraction": 0.1,
-            "max_charge_fraction": 1.0,
-            "init_charge_fraction": 0.1,
+            "min_soc_fraction": 0.1,
+            "max_soc_fraction": 1.0,
+            "init_soc_fraction": 0.1,
             "n_control_window": 24,
             "commodity_amount_units": "kg",
             "charge_equals_discharge": True,
@@ -283,7 +283,7 @@ def test_generic_storage_with_simple_control_charge_rate_lessthan_demand(plant_c
         )
     with subtests.test("Initial SOC is correct"):
         init_soc_expected = (
-            performance_model_config["init_charge_fraction"]
+            performance_model_config["init_soc_fraction"]
             - prob.get_val("storage_hydrogen_out", units="kg/h")[0] / capacity
         )
         assert (
@@ -326,13 +326,13 @@ def test_generic_storage_with_simple_control_charge_rate_lessthan_demand(plant_c
     with subtests.test("Max SOC <= Max storage percent"):
         assert (
             prob.get_val("storage.SOC", units="unitless").max()
-            <= performance_model_config["max_charge_fraction"]
+            <= performance_model_config["max_soc_fraction"]
         )
 
     with subtests.test("Min SOC >= Min storage percent"):
         assert (
             prob.get_val("storage.SOC", units="unitless").min()
-            >= performance_model_config["min_charge_fraction"]
+            >= performance_model_config["min_soc_fraction"]
         )
 
     with subtests.test("Charge never exceeds charge rate"):
@@ -390,9 +390,9 @@ def test_generic_storage_with_simple_control_zero_size(plant_config, subtests):
             "max_capacity": 40,
             "max_charge_rate": 10,
             "max_discharge_rate": 10,
-            "min_charge_fraction": 0.1,
-            "max_charge_fraction": 1.0,
-            "init_charge_fraction": 0.1,
+            "min_soc_fraction": 0.1,
+            "max_soc_fraction": 1.0,
+            "init_soc_fraction": 0.1,
             "n_control_window": 24,
             "commodity_amount_units": "kg",
             "charge_equals_discharge": False,
@@ -500,7 +500,7 @@ def test_generic_storage_with_simple_control_zero_size(plant_config, subtests):
     with subtests.test("SOC never changes"):
         assert np.all(
             prob.get_val("storage.SOC", units="unitless")
-            == performance_model_config["init_charge_fraction"]
+            == performance_model_config["init_soc_fraction"]
         )
 
     # Test when capacity is zero
@@ -534,7 +534,7 @@ def test_generic_storage_with_simple_control_zero_size(plant_config, subtests):
     with subtests.test("SOC never changes"):
         assert np.all(
             prob.get_val("storage.SOC", units="unitless")
-            == performance_model_config["init_charge_fraction"]
+            == performance_model_config["init_soc_fraction"]
         )
 
 
@@ -552,9 +552,9 @@ def test_generic_storage_with_simple_control_with_losses(plant_config, subtests)
         "performance_parameters": {
             "max_capacity": 40,
             "max_charge_rate": 10,
-            "min_charge_fraction": 0.1,
-            "max_charge_fraction": 1.0,
-            "init_charge_fraction": 0.1,
+            "min_soc_fraction": 0.1,
+            "max_soc_fraction": 1.0,
+            "init_soc_fraction": 0.1,
             "n_control_window": 24,
             "commodity_amount_units": "kg",
             "charge_equals_discharge": True,
@@ -636,7 +636,7 @@ def test_generic_storage_with_simple_control_with_losses(plant_config, subtests)
         )
     with subtests.test("Initial SOC is correct"):
         init_soc_expected = (
-            performance_model_config["init_charge_fraction"]
+            performance_model_config["init_soc_fraction"]
             - (prob.get_val("storage_hydrogen_out", units="kg/h")[0] * charge_eff) / capacity
         )
 
@@ -680,13 +680,13 @@ def test_generic_storage_with_simple_control_with_losses(plant_config, subtests)
     with subtests.test("Max SOC <= Max storage percent"):
         assert (
             prob.get_val("storage.SOC", units="unitless").max()
-            <= performance_model_config["max_charge_fraction"]
+            <= performance_model_config["max_soc_fraction"]
         )
 
     with subtests.test("Min SOC >= Min storage percent"):
         assert (
             prob.get_val("storage.SOC", units="unitless").min()
-            >= performance_model_config["min_charge_fraction"]
+            >= performance_model_config["min_soc_fraction"]
         )
 
     with subtests.test("Charge never exceeds charge rate"):
@@ -780,9 +780,9 @@ def test_generic_storage_with_simple_control_with_losses_round_trip(plant_config
         "performance_parameters": {
             "max_capacity": 40,
             "max_charge_rate": 10,
-            "min_charge_fraction": 0.1,
-            "max_charge_fraction": 1.0,
-            "init_charge_fraction": 0.1,
+            "min_soc_fraction": 0.1,
+            "max_soc_fraction": 1.0,
+            "init_soc_fraction": 0.1,
             "n_control_window": 24,
             "commodity_amount_units": "kg",
             "charge_equals_discharge": True,
@@ -861,7 +861,7 @@ def test_generic_storage_with_simple_control_with_losses_round_trip(plant_config
     with subtests.test("Initial SOC is correct"):
         assert (
             pytest.approx(prob.model.get_val("storage.SOC", units="unitless")[0], rel=1e-6)
-            == performance_model_config["init_charge_fraction"]
+            == performance_model_config["init_soc_fraction"]
         )
 
     indx_soc_increase = np.argwhere(
@@ -899,13 +899,13 @@ def test_generic_storage_with_simple_control_with_losses_round_trip(plant_config
     with subtests.test("Max SOC <= Max storage percent"):
         assert (
             prob.get_val("storage.SOC", units="unitless").max()
-            <= performance_model_config["max_charge_fraction"]
+            <= performance_model_config["max_soc_fraction"]
         )
 
     with subtests.test("Min SOC >= Min storage percent"):
         assert (
             prob.get_val("storage.SOC", units="unitless").min()
-            >= performance_model_config["min_charge_fraction"]
+            >= performance_model_config["min_soc_fraction"]
         )
 
     with subtests.test("Charge never exceeds charge rate"):
