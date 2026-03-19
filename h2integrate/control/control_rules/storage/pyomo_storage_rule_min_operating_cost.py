@@ -38,6 +38,11 @@ class PyomoRuleStorageMinOperatingCosts:
         # This loads the currency unit definition into pyomo
         pyo.units.load_definitions_from_strings(["USD = [currency]"])
 
+        self.rate_units_pyo_str = "/".join(
+            f"pyo.units.{u}" for u in self.commodity_storage_units.split("/")
+        )
+        self.amount_units_pyo_str = f"({self.rate_units_pyo_str})*pyo.units.h"
+
         # The Pyomo model that this class builds off of, where all of the variables, parameters,
         #   constraints, and ports will be added to.
         self.model = pyomo_model
@@ -131,14 +136,12 @@ class PyomoRuleStorageMinOperatingCosts:
         ##################################
         # Storage Parameters             #
         ##################################
-        rate_units_pyo_str = "/".join(
-            f"pyo.units.{u}" for u in self.commodity_storage_units.split("/")
-        )
-        amount_units_pyo_str = f"({rate_units_pyo_str})*pyo.units.h"
 
-        pyo_commodity_storage_unit = eval(rate_units_pyo_str)
-        pyo_commodity_storage_unit_hrs = eval(amount_units_pyo_str)
-        pyo_usd_per_commodity_storage_unit_hrs = eval(f"pyo.units.USD / ({amount_units_pyo_str})")
+        pyo_commodity_storage_unit = eval(self.rate_units_pyo_str)
+        pyo_commodity_storage_unit_hrs = eval(self.amount_units_pyo_str)
+        pyo_usd_per_commodity_storage_unit_hrs = eval(
+            f"pyo.units.USD / ({self.amount_units_pyo_str})"
+        )
         usd_pr_units_str = f"[$/{self.commodity_storage_units}]"
 
         pyomo_model.time_duration = pyo.Param(
@@ -264,11 +267,8 @@ class PyomoRuleStorageMinOperatingCosts:
         ##################################
         # Variables                      #
         ##################################
-        rate_units_pyo_str = "/".join(
-            f"pyo.units.{u}" for u in self.commodity_storage_units.split("/")
-        )
 
-        pyo_commodity_storage_unit = eval(rate_units_pyo_str)
+        pyo_commodity_storage_unit = eval(self.rate_units_pyo_str)
 
         pyomo_model.is_charging = pyo.Var(
             doc=f"1 if {pyomo_model.name} is charging; 0 Otherwise [-]",
@@ -547,11 +547,8 @@ class PyomoRuleStorageMinOperatingCosts:
         ##################################
         # System Variables               #
         ##################################
-        rate_units_pyo_str = "/".join(
-            f"pyo.units.{u}" for u in self.commodity_storage_units.split("/")
-        )
 
-        pyo_commodity_units = eval(rate_units_pyo_str)
+        pyo_commodity_units = eval(self.rate_units_pyo_str)
 
         hybrid_model.system_production = pyo.Var(
             doc=f"System generation [{self.commodity_storage_units}]",
