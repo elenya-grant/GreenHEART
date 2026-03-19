@@ -319,7 +319,6 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
                 "charge_rate": inputs["max_charge_rate"][0],
                 "discharge_rate": inputs["max_charge_rate"][0],
                 "storage_capacity": inputs["storage_capacity"][0],
-                "control_variable": self.config.control_variable,
             }
 
             battery_power, soc = dispatch(self.simulate, kwargs, inputs)
@@ -335,7 +334,6 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
                 charge_rate=inputs["max_charge_rate"][0],
                 discharge_rate=inputs["max_charge_rate"][0],
                 storage_capacity=inputs["storage_capacity"][0],
-                control_variable=self.config.control_variable,
             )
 
         # battery_power is positive when the battery is discharged
@@ -385,7 +383,6 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
         charge_rate: float,
         discharge_rate: float,
         storage_capacity: float,
-        control_variable: str,
         sim_start_index: int = 0,
     ):
         """Run the PySAM BatteryStateful model over a control window.
@@ -471,7 +468,7 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
                 cmd = actual_discharge
 
             # Set the input variable to the desired value
-            self.system_model.value(control_variable, cmd)
+            self.system_model.value(self.config.control_variable, cmd)
 
             # Simulate the PySAM BatteryStateful model
             self.system_model.execute(0)
