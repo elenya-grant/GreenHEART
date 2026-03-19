@@ -250,8 +250,6 @@ Below summarizes the available performance, cost, and financial models for each 
 (storage-models)=
 ## Storage Models
 - `h2_storage`: hydrogen storage
-    - performance models:
-        + `'SimpleGenericStorage'`
     - cost models:
         + `'LinedRockCavernStorageCostModel'`
         + `'SaltCavernStorageCostModel'`
@@ -259,7 +257,7 @@ Below summarizes the available performance, cost, and financial models for each 
         + `'PipeStorageCostModel'`
 - `generic_storage`: any resource storage
     - performance models:
-        + `'SimpleGenericStorage'`
+        + `'StoragePerformanceModel'`
         + `'StorageAutoSizingModel'`
     - cost models:
         + `'GenericStorageCostModel'`

@@ -30,7 +30,7 @@ technologies:
         cost_year: 2019
   battery:
     performance_model:
-      model: SimpleGenericStorage
+      model: StoragePerformanceModel
     cost_model:
       model: ATBBatteryCostModel
     control_strategy:

@@ -74,7 +74,7 @@ technologies:
           replacement_cost_percent: 0.15  # percent of capex - H2A default case
   h2_storage:
     performance_model:
-      model: SimpleGenericStorage
+      model: StoragePerformanceModel
     cost_model:
       model: GenericStorageCostModel
     control_strategy:
@@ -129,7 +129,7 @@ technologies:
         infrastructure_type: desal
   co2_storage:
     performance_model:
-      model: SimpleGenericStorage
+      model: StoragePerformanceModel
     cost_model:
       model: GenericStorageCostModel
     control_strategy:

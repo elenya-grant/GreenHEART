@@ -96,7 +96,7 @@ technologies:
         commodity_rate_units: kW
   battery:
     performance_model:
-      model: SimpleGenericStorage
+      model: StoragePerformanceModel
     cost_model:
       model: ATBBatteryCostModel
     control_strategy:
