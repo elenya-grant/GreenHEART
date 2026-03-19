@@ -3,7 +3,7 @@ import pytest
 import openmdao.api as om
 from pytest import fixture
 
-from h2integrate.storage.generic_storage_pyo import StoragePerformanceModel
+from h2integrate.storage.storage_performance_model import StoragePerformanceModel
 from h2integrate.control.control_strategies.optimized_pyomo_controller import (
     OptimizedDispatchController,
 )
