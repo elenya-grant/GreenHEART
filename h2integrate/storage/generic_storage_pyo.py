@@ -18,6 +18,9 @@ class StoragePerformanceModelConfig(BaseConfig):
     Attributes:
         commodity (str): name of commodity
         commodity_rate_units (str): Units of the commodity (e.g., "kg/h").
+        demand_profile (int | float | list): Demand values for each timestep, in
+            the same units as `commodity_rate_units`. May be a scalar for constant
+            demand or a list/array for time-varying demand.
         max_capacity (float):
             Maximum storage energy capacity in commodity_amount_units.
             Must be greater than zero.
@@ -55,6 +58,7 @@ class StoragePerformanceModelConfig(BaseConfig):
 
     commodity: str = field()
     commodity_rate_units: str = field()
+    demand_profile: int | float | list = field()
 
     max_capacity: float = field(validator=gt_zero)
     max_charge_rate: float = field(validator=gt_zero)
@@ -199,7 +203,7 @@ class StoragePerformanceModel(PerformanceModelBaseClass):
 
         self.add_input(
             f"{self.commodity}_demand",
-            val=0.0,
+            val=self.config.demand_profile,
             shape=self.n_timesteps,
             units=self.commodity_rate_units,
             desc=f"{self.commodity} demand",
