@@ -27,13 +27,6 @@ def plant_config():
     return plant_config
 
 
-# driver_config = {
-#     "name": "driver_config",
-#     "description": "Pyomo optimal min operating cost test",
-#     "general": {},
-# }
-
-
 @fixture
 def tech_config_generic():
     tech_config = {
