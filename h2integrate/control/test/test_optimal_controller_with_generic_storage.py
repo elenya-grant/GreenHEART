@@ -32,7 +32,6 @@ def tech_config_generic():
     tech_config = {
         "technologies": {
             "h2_storage": {
-                "dispatch_rule_set": {"model": "PyomoRuleStorageBaseclass"},
                 "control_strategy": {"model": "OptimizedDispatchController"},
                 "performance_model": {"model": "StoragePerformanceModel"},
                 "model_inputs": {
