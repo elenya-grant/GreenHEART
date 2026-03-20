@@ -21,7 +21,7 @@
   - Bugfix in tests of pyomo control strategies with `StoragePerformanceModel` so that the pathname attribute is correct
   - Added `demand_profile` as an input to `StoragePerformanceModel` and `PySAMBatteryPerformanceModel`
   - Renamed `xx_charge_fraction` to `xx_soc_fraction`
-
+- Bugfix in `StoragePerformanceModel` and `PySAMBatteryPerformanceModel` for setting control inputs to account for cases with multiple storage technologies with different control strategy types [PR 615](https://github.com/NatLabRockies/H2Integrate/pull/615)
 ## 0.7.1 [March 13, 2026]
 
 ### Updates
