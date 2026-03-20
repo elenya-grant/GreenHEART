@@ -356,7 +356,7 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
 
         outputs["unmet_electricity_demand_out"] = unmet_demand
         outputs["unused_electricity_out"] = unused_commodity
-        outputs["battery_electricity"] = battery_power
+        outputs["battery_electricity_out"] = battery_power
 
         # separate out the charge and discharge profiles from battery_power
         # battery_electricity_charge is always <= zero, battery_electricity_discharge is always >=0

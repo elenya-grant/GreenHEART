@@ -167,7 +167,7 @@ def test_pysam_battery_performance_model_without_controller(plant_config, subtes
 
     with subtests.test("expected_battery_power"):
         np.testing.assert_allclose(
-            prob.get_val("battery_electricity", units="kW"),
+            prob.get_val("battery_electricity_out", units="kW"),
             expected_battery_power,
             rtol=1e-2,
         )

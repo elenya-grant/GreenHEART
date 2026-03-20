@@ -131,7 +131,7 @@ def test_min_operating_cost_load_following_battery_dispatch(
             "battery.battery_electricity_discharge"
         )
         np.testing.assert_allclose(
-            charge_plus_discharge + electricity_in, prob.get_val("electricity_out"), rtol=1e-2
+            charge_plus_discharge, prob.get_val("battery_electricity_out"), rtol=1e-2
         )
     with subtests.test("Initial SOC is correct"):
         assert pytest.approx(prob.model.get_val("battery.SOC")[0], rel=1e-2) == 50
