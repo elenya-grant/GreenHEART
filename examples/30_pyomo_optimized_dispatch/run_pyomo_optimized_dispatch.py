@@ -27,7 +27,8 @@ pure_signal = amplitude * np.sin(2.0 * np.pi * frequency * t)
 
 # --- Generate the Random Gaussian Noise ---
 # Create noise with the same shape as the time vector
-noise = np.random.Generator(noise_mean, noise_std_dev, size=t.shape)
+rng = np.random.default_rng()
+noise = rng.normal(loc=noise_mean, scale=noise_std_dev, size=t.shape)
 
 # --- Create the Noisy Signal ---
 noisy_signal = (pure_signal + noise) * 0.04 + 0.04 * np.ones(len(t))
@@ -41,8 +42,8 @@ demand_profile = np.ones(8760) * 100.0
 # TODO: Update with demand module once it is developed
 model.setup()
 model.prob.set_val("battery.electricity_demand", demand_profile, units="MW")
-model.prob.set_val("battery.electricity_met_value_in", commodity_met_value_profile, units="MW")
-model.prob.set_val("battery.electricity_buy_price_in", commodity_buy_price_profile, units="MW")
+model.prob.set_val("battery.electricity_met_value_in", commodity_met_value_profile, units="USD/kW")
+model.prob.set_val("battery.electricity_buy_price_in", commodity_buy_price_profile, units="USD/kW")
 
 # Run the model
 model.run()

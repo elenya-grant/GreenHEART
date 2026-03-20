@@ -60,6 +60,7 @@ def tech_config_generic():
                         "time_weighting_factor": 0.995,
                         "system_commodity_interface_limit": 10.0,
                         "n_control_window": 24,
+                        "allow_commodity_buying": False,
                     },
                 },
             }

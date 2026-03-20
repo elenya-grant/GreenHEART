@@ -62,6 +62,7 @@ def tech_config_generic():
                         "round_digits": 4,
                         "time_weighting_factor": 0.995,
                         "n_control_window": 24,
+                        "allow_commodity_buying": False,
                     },
                 },
             },

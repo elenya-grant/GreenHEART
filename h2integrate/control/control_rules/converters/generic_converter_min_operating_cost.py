@@ -65,8 +65,12 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
         Args:
             inputs (dict):
                 Dictionary of numpy arrays (length = self.n_timesteps) containing at least:
-                    f"{commodity}_in"       : Available generated commodity profile.
-                    f"{commodity}_demand"   : Demanded commodity output profile.
+                    f"{commodity}_in"           : Available generated commodity profile.
+                    f"{commodity}_demand"       : Demanded commodity output profile.
+                    f"{commodity}_met_value_in" : Variable weight for meeting the load
+                    if allow_grid_charging:
+                        f"{commodity}_buy_price_in"   : Variable cost of energy from the grid
+                                                    (e.g. could be a grid price)
             dispatch_inputs (dict): Dictionary of the dispatch input parameters from config
 
         """
@@ -183,18 +187,25 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
 
     # Update time series parameters for next optimization window
     def update_time_series_parameters(
-        self, commodity_in: list, commodity_demand: list, updated_initial_soc: float
+        self,
+        time_update_inputs: dict,
+        updated_initial_soc: float,
     ):
         """Updates the pyomo optimization problem with parameters that change with time
 
         Args:
             commodity_in (list): List of generated commodity in for this time slice.
             commodity_demand (list): The demanded commodity for this time slice.
+            commodity_met_value_in (list): List of variable value of meeting the provided load
             updated_initial_soc (float): The updated initial state of charge for storage
                 technologies for the current time slice.
+            if allow_grid_charging:
+                commodity_buy_price_in (list): List of variable electricity price from the grid.
         """
         self.time_duration = [1.0] * len(self.blocks.index_set())
-        self.available_production = [commodity_in[t] for t in self.blocks.index_set()]
+        self.available_production = [
+            time_update_inputs[f"{self.commodity_name}_in"][t] for t in self.blocks.index_set()
+        ]
 
     # Objective functions
     def min_operating_cost_objective(self, hybrid_blocks, tech_name: str):
