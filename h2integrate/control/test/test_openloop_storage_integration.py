@@ -40,7 +40,6 @@ def storage_perf_params(storage_model_name):
             "charge_equals_discharge": True,
             "charge_efficiency": 1.0,
             "discharge_efficiency": 1.0,
-            # "demand_profile": 5.0,
         }
     if storage_model_name == "PySAMBatteryPerformanceModel":
         return {
@@ -49,17 +48,12 @@ def storage_perf_params(storage_model_name):
             "min_soc_fraction": 0.1,
             "max_soc_fraction": 1.0,
             "init_soc_fraction": 1.0,
-            # "demand_profile": 5.0,
             "chemistry": "LFPGraphite",
         }
     if storage_model_name == "StorageAutoSizingModel":
         return {
-            # "max_capacity": 40,
-            # "max_charge_rate": 10,
             "min_soc_fraction": 0.1,
             "max_soc_fraction": 1.0,
-            # "demand_profile": 5.0,
-            # "set_demand_as_avg_commodity_in": False,
             "charge_efficiency": 1.0,
             "discharge_efficiency": 1.0,
         }
