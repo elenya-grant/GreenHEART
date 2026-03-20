@@ -38,6 +38,15 @@ class PyomoRuleStorageMinOperatingCosts:
         # This loads the currency unit definition into pyomo
         pyo.units.load_definitions_from_strings(["USD = [currency]"])
 
+        rate_units_pyo_str = "/".join(
+            f"pyo.units.{u}" for u in self.commodity_storage_units.split("/")
+        )
+        amount_units_pyo_str = f"({rate_units_pyo_str})*pyo.units.h"
+
+        self.rate_units_pyo = eval(rate_units_pyo_str)
+        self.amount_units_pyo = eval(amount_units_pyo_str)
+        self.cost_units_per_amount_pyo = eval(f"pyo.units.USD / ({amount_units_pyo_str})")
+
         # The Pyomo model that this class builds off of, where all of the variables, parameters,
         #   constraints, and ports will be added to.
         self.model = pyomo_model
@@ -83,8 +92,8 @@ class PyomoRuleStorageMinOperatingCosts:
         self.set_timeseries_parameter("minimum_storage", 0.0)
         self.set_timeseries_parameter("maximum_storage", dispatch_inputs["max_capacity"])
 
-        self.set_timeseries_parameter("minimum_soc", dispatch_inputs["min_charge_fraction"])
-        self.set_timeseries_parameter("maximum_soc", dispatch_inputs["max_charge_fraction"])
+        self.set_timeseries_parameter("minimum_soc", dispatch_inputs["min_soc_fraction"])
+        self.set_timeseries_parameter("maximum_soc", dispatch_inputs["max_soc_fraction"])
 
         self.initial_soc = dispatch_inputs["initial_soc_fraction"]
         self.charge_efficiency = dispatch_inputs.get("charge_efficiency")
@@ -152,11 +161,6 @@ class PyomoRuleStorageMinOperatingCosts:
         # Storage Parameters             #
         ##################################
 
-        pyo_commodity_storage_unit = eval(f"pyo.units.{self.commodity_storage_units}")
-        pyo_commodity_storage_unit_hrs = eval(f"pyo.units.{self.commodity_storage_units}h")
-        pyo_usd_per_commodity_storage_unit_hrs = eval(
-            f"pyo.units.USD / pyo.units.{self.commodity_storage_units}h"
-        )
         usd_pr_units_str = f"[$/{self.commodity_storage_units}]"
 
         pyomo_model.time_duration = pyo.Param(
@@ -172,28 +176,28 @@ class PyomoRuleStorageMinOperatingCosts:
             default=0.0,
             within=pyo.NonNegativeReals,
             mutable=True,
-            units=pyo_usd_per_commodity_storage_unit_hrs,
+            units=self.cost_units_per_amount_pyo,
         )
         pyomo_model.cost_per_discharge = pyo.Param(
             doc=f"Operating cost of {pyomo_model.name} discharging {usd_pr_units_str}",
             default=0.0,
             within=pyo.NonNegativeReals,
             mutable=True,
-            units=pyo_usd_per_commodity_storage_unit_hrs,
+            units=self.cost_units_per_amount_pyo,
         )
         pyomo_model.minimum_storage = pyo.Param(
             doc=f"{pyomo_model.name} minimum storage rating [{self.commodity_storage_units}]",
             default=0.0,
             within=pyo.NonNegativeReals,
             mutable=True,
-            units=pyo_commodity_storage_unit,
+            units=self.rate_units_pyo,
         )
         pyomo_model.maximum_storage = pyo.Param(
             doc=f"{pyomo_model.name} maximum storage rating [{self.commodity_storage_units}]",
             default=1000.0,
             within=pyo.NonNegativeReals,
             mutable=True,
-            units=pyo_commodity_storage_unit_hrs,
+            units=self.amount_units_pyo,
         )
         pyomo_model.minimum_soc = pyo.Param(
             doc=f"{pyomo_model.name} minimum state-of-charge [-]",
@@ -234,13 +238,13 @@ class PyomoRuleStorageMinOperatingCosts:
             doc=f"{pyomo_model.name} maximum charge [{self.commodity_storage_units}]",
             within=pyo.NonNegativeReals,
             mutable=True,
-            units=pyo_commodity_storage_unit,
+            units=self.rate_units_pyo,
         )
         pyomo_model.max_discharge = pyo.Param(
             doc=f"{pyomo_model.name} maximum discharge [{self.commodity_storage_units}]",
             within=pyo.NonNegativeReals,
             mutable=True,
-            units=pyo_commodity_storage_unit,
+            units=self.rate_units_pyo,
         )
         ##################################
         # System Parameters              #
@@ -257,14 +261,14 @@ class PyomoRuleStorageMinOperatingCosts:
             default=0.0,
             within=pyo.Reals,
             mutable=True,
-            units=pyo_usd_per_commodity_storage_unit_hrs,
+            units=self.cost_units_per_amount_pyo,
         )
         pyomo_model.commodity_load_demand = pyo.Param(
             doc=f"Load demand for the commodity [{self.commodity_storage_units}]",
             default=1000.0,
             within=pyo.NonNegativeReals,
             mutable=True,
-            units=pyo_commodity_storage_unit,
+            units=self.rate_units_pyo,
         )
         # Add variables that allow charging from the grid
         if self.allow_grid_charging:
@@ -298,6 +302,7 @@ class PyomoRuleStorageMinOperatingCosts:
         ##################################
         # Variables                      #
         ##################################
+
         pyomo_model.is_charging = pyo.Var(
             doc=f"1 if {pyomo_model.name} is charging; 0 Otherwise [-]",
             domain=pyo.Binary,
@@ -324,12 +329,12 @@ class PyomoRuleStorageMinOperatingCosts:
         pyomo_model.charge_commodity = pyo.Var(
             doc=f"{self.commodity_name} into {pyomo_model.name} [{self.commodity_storage_units}]",
             domain=pyo.NonNegativeReals,
-            units=eval(f"pyo.units.{self.commodity_storage_units}"),
+            units=self.rate_units_pyo,
         )
         pyomo_model.discharge_commodity = pyo.Var(
             doc=f"{self.commodity_name} out of {pyomo_model.name} [{self.commodity_storage_units}]",
             domain=pyo.NonNegativeReals,
-            units=eval(f"pyo.units.{self.commodity_storage_units}"),
+            units=self.rate_units_pyo,
         )
         ##################################
         # System Variables               #
@@ -337,18 +342,18 @@ class PyomoRuleStorageMinOperatingCosts:
         pyomo_model.system_production = pyo.Var(
             doc=f"System generation [{self.commodity_storage_units}]",
             domain=pyo.NonNegativeReals,
-            units=eval(f"pyo.units.{self.commodity_storage_units}"),
+            units=self.rate_units_pyo,
         )
         pyomo_model.system_load = pyo.Var(
             doc=f"System load [{self.commodity_storage_units}]",
             domain=pyo.NonNegativeReals,
-            units=eval(f"pyo.units.{self.commodity_storage_units}"),
+            units=self.rate_units_pyo,
         )
         pyomo_model.commodity_out = pyo.Var(
             doc=f"Commodity out of the system [{self.commodity_storage_units}]",
             domain=pyo.NonNegativeReals,
             bounds=(0, pyomo_model.commodity_load_demand),
-            units=eval(f"pyo.units.{self.commodity_storage_units}"),
+            units=self.rate_units_pyo,
         )
         pyomo_model.is_generating = pyo.Var(
             doc="System is producing commodity binary [-]",
@@ -634,22 +639,21 @@ class PyomoRuleStorageMinOperatingCosts:
         ##################################
         # System Variables               #
         ##################################
-        pyo_commodity_units = eval("pyo.units." + self.commodity_storage_units)
 
         hybrid_model.system_production = pyo.Var(
             doc=f"System generation [{self.commodity_storage_units}]",
             domain=pyo.NonNegativeReals,
-            units=pyo_commodity_units,
+            units=self.rate_units_pyo,
         )
         hybrid_model.system_load = pyo.Var(
             doc=f"System load [{self.commodity_storage_units}]",
             domain=pyo.NonNegativeReals,
-            units=pyo_commodity_units,
+            units=self.rate_units_pyo,
         )
         hybrid_model.commodity_out = pyo.Var(
             doc=f"{self.commodity_name} sold [{self.commodity_storage_units}]",
             domain=pyo.NonNegativeReals,
-            units=pyo_commodity_units,
+            units=self.rate_units_pyo,
         )
         # Add variables that allow charging from the grid
         if self.allow_grid_charging:
@@ -665,12 +669,12 @@ class PyomoRuleStorageMinOperatingCosts:
         hybrid_model.charge_commodity = pyo.Var(
             doc=f"{self.commodity_name} into {tech_name} [{self.commodity_storage_units}]",
             domain=pyo.NonNegativeReals,
-            units=pyo_commodity_units,
+            units=self.rate_units_pyo,
         )
         hybrid_model.discharge_commodity = pyo.Var(
             doc=f"{self.commodity_name} out of {tech_name} [{self.commodity_storage_units}]",
             domain=pyo.NonNegativeReals,
-            units=pyo_commodity_units,
+            units=self.rate_units_pyo,
         )
         # Returns to power_source_gen_vars and load_vars in hybrid_rule
         power_source_gen_var = hybrid_model.discharge_commodity

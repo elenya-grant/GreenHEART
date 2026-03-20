@@ -8,6 +8,19 @@
   - Add documentation for Rosner iron DRI and steel EAF models
 - Breaks out pyomo controller simulation code from base class to individual controllers. [PR 587](https://github.com/NatLabRockies/H2Integrate/pull/587)
 - Add tests for non-one valued charge, discharge, and round-trip efficiencies for the open-loop demand controller [PR 610](https://github.com/NatLabRockies/H2Integrate/pull/610)
+- Updated the `StorageAutoSizingModel` and `PassThroughOpenLoopController` so that `commodity_set_point` is used as the storage dispatch command [PR 608](https://github.com/NatLabRockies/H2Integrate/pull/608)
+- Updated the `SimpleGenericStorage` and `DemandOpenLoopStorageController` so that `commodity_set_point` is used as the storage dispatch command [PR 612](https://github.com/NatLabRockies/H2Integrate/pull/612)
+- Add PySAM marine models [PR 607](https://github.com/NatLabRockies/H2Integrate/pull/607)
+  - Add tidal resource model
+  - Add pysam tidal performance model
+  - Add pysam marine hydrokinetic cost model
+- Updated the `StoragePerformanceModel` and `PySAMBatteryPerformanceModel` to be compatible with the open-loop storage control strategies [PR 613](https://github.com/NatLabRockies/H2Integrate/pull/613)
+  - Removed `SimpleGenericStorage` and replaced usage with `StoragePerformanceModel`
+  - Renamed `PassThroughOpenLoopController` to `SimpleStorageOpenLoopController`
+  - Bugfix in pyomo control rules so that units such as `kg/h` can be used
+  - Bugfix in tests of pyomo control strategies with `StoragePerformanceModel` so that the pathname attribute is correct
+  - Added `demand_profile` as an input to `StoragePerformanceModel` and `PySAMBatteryPerformanceModel`
+  - Renamed `xx_charge_fraction` to `xx_soc_fraction`
 
 ## 0.7.1 [March 13, 2026]
 
