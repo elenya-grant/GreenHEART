@@ -5,7 +5,7 @@ from attrs import field, define
 
 from h2integrate.core.utilities import merge_shared_inputs
 from h2integrate.core.validators import gte_zero, range_val, range_val_or_none
-from h2integrate.control.control_strategies.storage.openloop_controller_baseclass import (
+from h2integrate.control.control_strategies.storage.openloop_storage_control_base import (
     StorageOpenLoopControlBase,
     StorageOpenLoopControlBaseConfig,
 )
