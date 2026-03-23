@@ -22,6 +22,9 @@
   - Added `demand_profile` as an input to `StoragePerformanceModel` and `PySAMBatteryPerformanceModel`
   - Renamed `xx_charge_fraction` to `xx_soc_fraction`
 - Bugfix in `StoragePerformanceModel` and `PySAMBatteryPerformanceModel` for setting control inputs to account for cases with multiple storage technologies with different control strategy types [PR 615](https://github.com/NatLabRockies/H2Integrate/pull/615)
+- Bugfix input energy to OAE financial model [PR 617](https://github.com/NatLabRockies/H2Integrate/pull/617)
+  - Remove `MarineCarbonCapture` base classes
+
 ## 0.7.1 [March 13, 2026]
 
 ### Updates
