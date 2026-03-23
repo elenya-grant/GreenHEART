@@ -58,7 +58,7 @@ def tech_config_generic():
                         "cost_per_charge": 0.004,
                         "cost_per_discharge": 0.005,
                         "cost_per_production": 0.0,
-                        "commodity_met_value": 0.1,
+                        "demand_met_value": 0.1,
                         "round_digits": 4,
                         "time_weighting_factor": 0.995,
                         "n_control_window": 24,

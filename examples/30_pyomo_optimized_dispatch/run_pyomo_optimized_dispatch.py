@@ -42,8 +42,8 @@ demand_profile = np.ones(8760) * 100.0
 # TODO: Update with demand module once it is developed
 model.setup()
 model.prob.set_val("battery.electricity_demand", demand_profile, units="MW")
-model.prob.set_val("battery.electricity_met_value_in", commodity_met_value_profile, units="USD/kW")
-model.prob.set_val("battery.electricity_buy_price_in", commodity_buy_price_profile, units="USD/kW")
+model.prob.set_val("battery.demand_met_value", commodity_met_value_profile, units="USD/kW")
+model.prob.set_val("battery.electricity_buy_price", commodity_buy_price_profile, units="USD/kW")
 
 # Run the model
 model.run()
@@ -92,7 +92,7 @@ ax[1].plot(
 )
 ax[1].plot(
     range(start_hour, end_hour),
-    model.prob.get_val("battery.battery_electricity", units="MW")[start_hour:end_hour],
+    model.prob.get_val("battery.battery_electricity_out", units="MW")[start_hour:end_hour],
     linestyle="-.",
     label="Battery Electricity Out (MW)",
 )

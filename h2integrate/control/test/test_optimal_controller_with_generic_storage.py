@@ -55,7 +55,7 @@ def tech_config_generic():
                         "tech_name": "h2_storage",
                         "cost_per_charge": 0.03,  # USD/kg
                         "cost_per_discharge": 0.05,  # USD/kg
-                        "commodity_met_value": 0.1,  # USD/kg
+                        "demand_met_value": 0.1,  # USD/kg
                         "cost_per_production": 0.0,  # USD/kg
                         "time_weighting_factor": 0.995,
                         "system_commodity_interface_limit": 10.0,

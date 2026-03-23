@@ -53,7 +53,7 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
             The cost per unit of charging the storage (in $/commodity_rate_units).
         cost_per_discharge (float):
             The cost per unit of discharging the storage (in $/commodity_rate_units).
-        commodity_met_value (float):
+        demand_met_value (float):
             The penalty for not meeting the desired load demand (in $/commodity_rate_units).
         time_weighting_factor (float):
             The weighting factor applied to future time steps in the optimization objective
@@ -70,25 +70,54 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
     """
 
     max_charge_rate: int | float = field()
+    allow_commodity_buying: bool = field()
     charge_efficiency: float = field(validator=range_val(0, 1), default=None)
     discharge_efficiency: float = field(validator=range_val(0, 1), default=None)
     cost_per_production: float = field(default=None)
     cost_per_charge: float = field(default=None)
     cost_per_discharge: float = field(default=None)
-    commodity_met_value: int | float | list = field(default=None)
+    demand_met_value: int | float | list = field(default=None)
     time_weighting_factor: float = field(validator=range_val(0, 1), default=0.995)
     time_duration: float = field(default=1.0)  # hours
     # Can we set this to interconnection? do we want to?
     max_system_capacity: float = field(default=0)
-    allow_commodity_buying: bool = field(default=None)
     commodity_buy_price: int | float | list = field(default=0.0)
+
+    def __attrs_post_init__(self):
+        # # Handle demand_met_value list/float here
+        # if isinstance(self.system_commodity_interface_limit, float | int):
+        #     self.system_commodity_interface_limit = [
+        #         self.system_commodity_interface_limit
+        #     ] * self.n_control_window
+
+        # Check inputs for grid parameters
+        if self.allow_commodity_buying:
+            # Check grid buy price
+            if isinstance(self.commodity_buy_price, float | int):
+                if self.commodity_buy_price == 0:
+                    raise ValueError(
+                        "commodity_buy_price must be defined as an input and >0 \
+                            if using grid charging"
+                    )
+            if isinstance(self.commodity_buy_price, list):
+                if all(self.commodity_buy_price) == 0:
+                    raise ValueError(
+                        "commodity_buy_price must be defined as an input and >0 \
+                            if using grid charging"
+                    )
+
+            # Check max system capacity
+            if self.max_system_capacity == 0:
+                raise ValueError(
+                    "max_system_capacity must be defined as an input and >0 if using grid charging"
+                )
 
     def make_dispatch_inputs(self):
         dispatch_keys = [
             "cost_per_production",
             "cost_per_charge",
             "cost_per_discharge",
-            "commodity_met_value",
+            "demand_met_value",
             "max_capacity",
             "max_soc_fraction",
             "min_soc_fraction",
@@ -152,8 +181,8 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
         self.dispatch_inputs = self.config.make_dispatch_inputs()
 
         self.add_input(
-            f"{self.config.commodity}_met_value_in",
-            val=self.config.commodity_met_value,
+            "demand_met_value",
+            val=self.config.demand_met_value,
             shape=self.n_timesteps,
             units="USD/" + self.config.commodity_rate_units,
             desc="Value of meeting the demand",
@@ -161,7 +190,7 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
 
         if self.config.allow_commodity_buying:
             self.add_input(
-                f"{self.config.commodity}_buy_price_in",
+                f"{self.config.commodity}_buy_price",
                 val=self.config.commodity_buy_price,
                 shape=self.n_timesteps,
                 units="USD/" + self.config.commodity_rate_units,
@@ -253,20 +282,6 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
             # get the starting index for each control window
             window_start_indices = list(range(0, self.n_timesteps, self.config.n_control_window))
 
-            # Check inputs for grid parameters
-            if self.config.allow_commodity_buying:
-                # Check grid buy price
-                if all(inputs[f"{self.config.commodity}_buy_price_in"]) == 0:
-                    raise ValueError(
-                        "commodity_buy_price must be an input and" " >0 if using grid charging"
-                    )
-
-                # Check max system capacity
-                if self.config.max_system_capacity == 0:
-                    raise ValueError(
-                        "max_system_capacity must be an input and " ">0 if using grid charging"
-                    )
-
             # Initialize parameters for optimized dispatch strategy
             time_update_inputs = self.create_time_update_dictionary(inputs, window_start_indices[0])
             self.initialize_parameters(time_update_inputs)
@@ -352,7 +367,13 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
         input_keys = inputs.keys()
         for i in input_keys:
             time_update_inputs[i] = inputs[i][t : t + self.config.n_control_window]
-        print("time update inputs:", time_update_inputs.keys(), time_update_inputs)
+
+        additional_keys = ["demand_met_value"]
+        if self.config.allow_commodity_buying:
+            additional_keys.append(f"{self.config.commodity}_buy_price")
+        for i in additional_keys:
+            time_update_inputs[i] = self.dispatch_inputs[i][t : t + self.config.n_control_window]
+
         return time_update_inputs
 
     def update_time_series_parameters(self, inputs, updated_initial_soc=None):
@@ -437,6 +458,11 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
         """Build Pyomo model blocks and assign the dispatch solver."""
         self.dispatch_inputs["max_charge_rate"] = inputs["max_charge_rate"][0]
         self.dispatch_inputs["max_capacity"] = inputs["storage_capacity"][0]
+        self.dispatch_inputs["demand_met_value"] = inputs["demand_met_value"][:]
+        if self.config.allow_commodity_buying:
+            self.dispatch_inputs[f"{self.config.commodity}_buy_price"] = inputs[
+                f"{self.config.commodity}_buy_price"
+            ][:]
 
         discrete_outputs["pyomo_dispatch_solver"] = self.pyomo_setup(discrete_inputs)
 

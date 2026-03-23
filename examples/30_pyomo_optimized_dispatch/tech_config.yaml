@@ -66,9 +66,10 @@ technologies:
       control_parameters:
         cost_per_charge: 0.03  # in $/kW, cost to charge the storage (note that charging is incentivized)
         cost_per_discharge: 0.05  # in $/kW, cost to discharge the storage
-        commodity_met_value: 0.1  # in $/kW, penalty for not meeting the desired load demand
+        demand_met_value: 0.1  # in $/kW, penalty for not meeting the desired load demand
         cost_per_production: 0.0  # in $/kW, cost to use the incoming produced commodity (i.e. electricity from wind)
         time_weighting_factor: 0.995  # This parameter discounts each subsequent time step incrementally in the future in the horizon window by this amount
         n_control_window: 24  # in timesteps (currently hours), The length of time that the control is applied to in the rolling window optimization
         max_system_capacity: 207500  # rating of the wind farm
         allow_commodity_buying: true
+        commodity_buy_price: 0.4

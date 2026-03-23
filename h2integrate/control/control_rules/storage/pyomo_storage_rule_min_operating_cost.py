@@ -75,9 +75,9 @@ class PyomoRuleStorageMinOperatingCosts:
                 Dictionary of numpy arrays (length = self.n_timesteps) containing at least:
                     f"{commodity}_in"           : Available generated commodity profile.
                     f"{commodity}_demand"       : Demanded commodity output profile.
-                    f"{commodity}_met_value_in" : Variable weight for meeting the load
+                    "demand_met_value" : Variable weight for meeting the load
                     if allow_commodity_buying:
-                        f"{commodity}_buy_price_in"   : Variable cost of energy from the grid
+                        f"{commodity}_buy_price"   : Variable cost of energy from the grid
                                                     (e.g. could be a grid price)
             dispatch_inputs (dict): Dictionary of the dispatch input parameters from config
 
@@ -85,9 +85,9 @@ class PyomoRuleStorageMinOperatingCosts:
         commodity_demand = inputs[f"{self.commodity_name}_demand"]
 
         if self.allow_commodity_buying:
-            commodity_buy_price_in = inputs[f"{self.commodity_name}_buy_price_in"]
+            commodity_buy_price_in = inputs[f"{self.commodity_name}_buy_price"]
 
-        commodity_met_value_in = inputs[f"{self.commodity_name}_met_value_in"]
+        demand_met_value_in = inputs["demand_met_value"]
 
         # Dispatch Parameters
         self.set_timeseries_parameter("cost_per_charge", dispatch_inputs["cost_per_charge"])
@@ -110,7 +110,7 @@ class PyomoRuleStorageMinOperatingCosts:
 
         # System parameters
         self.set_timeseries_from_list("commodity_load_demand", commodity_demand)
-        self.set_timeseries_from_list("commodity_met_value", commodity_met_value_in)
+        self.set_timeseries_from_list("demand_met_value", demand_met_value_in)
         # self.commodity_load_demand = [commodity_demand[t] for t in self.blocks.index_set()]
         if self.allow_commodity_buying:
             # This preserves the possibility of a variable interconnect limit
@@ -257,7 +257,7 @@ class PyomoRuleStorageMinOperatingCosts:
             mutable=True,
             units=pyo.units.USD,
         )
-        pyomo_model.commodity_met_value = pyo.Param(
+        pyomo_model.demand_met_value = pyo.Param(
             doc=f"Commodity demand met value per generation [$/{self.commodity_storage_units}]",
             default=0.0,
             within=pyo.Reals,
@@ -278,14 +278,14 @@ class PyomoRuleStorageMinOperatingCosts:
                 default=0.0,
                 within=pyo.Reals,
                 mutable=True,
-                units=pyo.unitless,
+                units=self.cost_units_per_amount_pyo,
             )
             pyomo_model.load_production_limit = pyo.Param(
                 doc=f"Grid inport limit for load [$/{self.commodity_storage_units}]",
                 default=1000.0,
                 within=pyo.NonNegativeReals,
                 mutable=True,
-                units=self.cost_units_per_amount_pyo,
+                units=self.rate_units_pyo,
             )
 
     def _create_variables(self, pyomo_model: pyo.ConcreteModel, t):
@@ -367,7 +367,7 @@ class PyomoRuleStorageMinOperatingCosts:
                 doc=f"Commodity bought for the system [{self.commodity_storage_units}]",
                 domain=pyo.NonNegativeReals,
                 bounds=(0, pyomo_model.load_production_limit),
-                units=eval("pyo.units." + self.commodity_storage_units),
+                units=self.rate_units_pyo,
             )
 
     def _create_constraints(self, pyomo_model: pyo.ConcreteModel, t):
@@ -537,11 +537,11 @@ class PyomoRuleStorageMinOperatingCosts:
         Args:
             commodity_in (list): List of generated commodity in for this time slice.
             commodity_demand (list): The demanded commodity for this time slice.
-            commodity_met_value_in (list): List of variable value of meeting the provided load
+            demand_met_value (list): List of variable value of meeting the provided load
             updated_initial_soc (float): The updated initial state of charge for storage
                 technologies for the current time slice.
             if allow_commodity_buying:
-                commodity_buy_price_in (list): List of variable electricity price from the grid.
+                commodity_buy_price (list): List of variable electricity price from the grid.
         """
         # TODO: Standardize the inputs for this function
         self.time_duration = [1.0] * len(self.blocks.index_set())
@@ -551,16 +551,15 @@ class PyomoRuleStorageMinOperatingCosts:
         # self.commodity_load_demand = [
         #   time_update_inputs[f"{self.commodity_name}_demand"][t] for t in self.blocks.index_set()
         # ]
-        self.commodity_met_value = [
-            time_update_inputs[f"{self.commodity_name}_met_value_in"][t]
-            for t in self.blocks.index_set()
+        self.demand_met_value = [
+            time_update_inputs["demand_met_value"][t] for t in self.blocks.index_set()
         ]
         self.model.initial_soc = updated_initial_soc
         self.initial_soc = updated_initial_soc
         # Add variables that allow charging from the grid
         if self.allow_commodity_buying:
             self.commodity_buy_price = [
-                time_update_inputs[f"{self.commodity_name}_buy_price_in"][t]
+                time_update_inputs[f"{self.commodity_name}_buy_price"][t]
                 for t in self.blocks.index_set()
             ]
 
@@ -585,7 +584,7 @@ class PyomoRuleStorageMinOperatingCosts:
                 self.blocks[t].cost_per_discharge * hybrid_blocks[t].discharge_commodity
                 - self.blocks[t].cost_per_charge * hybrid_blocks[t].charge_commodity
                 + (self.blocks[t].commodity_load_demand - hybrid_blocks[t].commodity_out)
-                * self.blocks[t].commodity_met_value
+                * self.blocks[t].demand_met_value
             )
             for t in self.blocks.index_set()
         )

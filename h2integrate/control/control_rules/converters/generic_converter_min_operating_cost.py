@@ -196,11 +196,11 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
         Args:
             commodity_in (list): List of generated commodity in for this time slice.
             commodity_demand (list): The demanded commodity for this time slice.
-            commodity_met_value_in (list): List of variable value of meeting the provided load
+            commodity_met_value (list): List of variable value of meeting the provided load
             updated_initial_soc (float): The updated initial state of charge for storage
                 technologies for the current time slice.
             if allow_grid_charging:
-                commodity_buy_price_in (list): List of variable electricity price from the grid.
+                commodity_buy_price (list): List of variable electricity price from the grid.
         """
         self.time_duration = [1.0] * len(self.blocks.index_set())
         self.available_production = [
