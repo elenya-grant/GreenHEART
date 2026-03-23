@@ -153,14 +153,6 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
             desc=f"{self.commodity} input timeseries from production to storage",
         )
 
-        self.add_input(
-            f"{self.commodity}_set_point",
-            val=0.0,
-            shape=self.n_timesteps,
-            units=self.commodity_rate_units,
-            desc=f"{self.commodity} input set point from controller",
-        )
-
         # Capacity outputs
         self.add_output(
             "storage_capacity",
@@ -241,7 +233,30 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
 
         self.dt_hr = self.dt / 3600  # convert from seconds to hours
 
-    def compute(self, inputs, outputs):
+        # create a variable to determine whether we are using feedback control
+        # for this technology
+        using_feedback_control = False
+        # create inputs for pyomo control model
+        if "tech_to_dispatch_connections" in self.options["plant_config"]:
+            self.tech_group_name = self.pathname.split(".")
+            for _source_tech, intended_dispatch_tech in self.options["plant_config"][
+                "tech_to_dispatch_connections"
+            ]:
+                if any(intended_dispatch_tech in name for name in self.tech_group_name):
+                    self.add_discrete_input("pyomo_dispatch_solver", val=dummy_function)
+                    using_feedback_control = True
+                    break
+
+        if not using_feedback_control:
+            # using an open-loop storage controller
+            self.add_input(
+                f"{self.commodity}_set_point",
+                val=0.0,
+                shape=self.n_timesteps,
+                units=self.commodity_rate_units,
+            )
+
+    def compute(self, inputs, outputs, discrete_inputs, discrete_outputs):
         """Part 1: calculate the storage sizes (charge rate, discharge rate, and capacity)
         needed to meet the demand. The steps to do this are:
 
@@ -308,17 +323,7 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
             [self.config.min_soc_fraction, commodity_storage_soc[0] / rated_storage_capacity]
         )
 
-        # 2. Simulate the storage performance using the `simulate()`
-        # soc output from `simulate()`` is represented as a percentage
-        storage_commodity_out, soc = self.simulate(
-            inputs[f"{self.commodity}_set_point"],
-            storage_max_fill_rate,
-            storage_max_empty_rate,
-            rated_storage_capacity,
-        )
-        storage_commodity_out = np.array(storage_commodity_out)
-
-        # 3. Calculate the demand profile
+        # 2. Calculate the demand profile
         if self.config.set_demand_as_avg_commodity_in:
             if inputs[f"{self.commodity}_demand"].sum() > 0:
                 msg = (
@@ -333,6 +338,39 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
                 )
         else:
             commodity_demand = inputs[f"{self.commodity}_demand"]
+
+        # 3. Simulate the storage performance using the `simulate()`
+        if "pyomo_dispatch_solver" in discrete_inputs:
+            # Simulate the storage with provided dispatch inputs
+            dispatch = discrete_inputs["pyomo_dispatch_solver"]
+            # kwargs are tech-specific inputs to the simulate() method
+            kwargs = {
+                "charge_rate": storage_max_fill_rate,
+                "discharge_rate": storage_max_empty_rate,
+                "storage_capacity": rated_storage_capacity,
+            }
+
+            if self.config.set_demand_as_avg_commodity_in:
+                inputs_adjusted = dict(inputs.items())
+                inputs_adjusted[f"{self.commodity}_demand"] = commodity_demand
+                storage_commodity_out, soc = dispatch(self.simulate, kwargs, inputs_adjusted)
+            else:
+                storage_commodity_out, soc = dispatch(self.simulate, kwargs, inputs)
+
+        else:
+            # Simulate the storage with provided inputs using dispatch commands from
+            # an open-loop controller. The commodity_set_point should come from an
+            # open-loop controller. commodity_set_point is negative when commanding
+            # storage to charge and positive when commanding storage to discharge
+            storage_commodity_out, soc = self.simulate(
+                inputs[f"{self.commodity}_set_point"],
+                storage_max_fill_rate,
+                storage_max_empty_rate,
+                rated_storage_capacity,
+            )
+
+        # soc output from simulating storage is represented as a percentage
+        storage_commodity_out = np.array(storage_commodity_out)
 
         # 4. Calculate outputs
 
@@ -511,3 +549,8 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         # Pyomo controller across rolling windows) start where we left off.
         self.current_soc = soc
         return storage_commodity_out_timesteps, soc_timesteps
+
+
+def dummy_function():
+    # this function is required for initializing the pyomo control input and nothing else
+    pass
