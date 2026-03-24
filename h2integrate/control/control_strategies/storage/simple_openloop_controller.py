@@ -67,6 +67,7 @@ class SimpleStorageOpenLoopController(om.ExplicitComponent):
         self.config = SimpleStorageOpenLoopControllerConfig.from_dict(
             merge_shared_inputs(self.options["tech_config"]["model_inputs"], "control"),
             additional_cls_name=self.__class__.__name__,
+            strict=False,
         )
 
         self.n_timesteps = self.options["plant_config"]["plant"]["simulation"]["n_timesteps"]

@@ -108,11 +108,6 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
         self.max_discharge_fraction = [0.0] * self.config.n_control_window
         self._fixed_dispatch = [0.0] * self.config.n_control_window
 
-        if self.config.charge_efficiency is not None:
-            self.charge_efficiency = self.config.charge_efficiency
-        if self.config.discharge_efficiency is not None:
-            self.discharge_efficiency = self.config.discharge_efficiency
-
     def pyomo_setup(self, discrete_inputs):
         """Create the Pyomo model, attach per-tech Blocks, and return dispatch solver.
 
@@ -247,6 +242,11 @@ class HeuristicLoadFollowingController(PyomoControllerBaseClass):
 
     def initialize_parameters(self, inputs):
         """Initializes parameters."""
+
+        if self.config.charge_efficiency is not None:
+            self.charge_efficiency = self.config.charge_efficiency
+        if self.config.discharge_efficiency is not None:
+            self.discharge_efficiency = self.config.discharge_efficiency
 
         self.minimum_storage = 0.0
         self.maximum_storage = inputs["storage_capacity"][0]
