@@ -10,7 +10,7 @@ from h2integrate.control.control_strategies.optimized_pyomo_controller import (
 
 
 @fixture
-def plant_config():
+def plant_config_h2_storage():
     plant_config = {
         "plant": {
             "plant_life": 30,
@@ -69,7 +69,9 @@ def tech_config_generic():
 
 
 @pytest.mark.regression
-def test_optimal_control_with_generic_storage(plant_config, tech_config_generic, subtests):
+def test_optimal_control_with_generic_storage(
+    plant_config_h2_storage, tech_config_generic, subtests
+):
     commodity_demand = np.full(48, 5.0)
     commodity_in = np.tile(np.concat([np.zeros(3), np.cumsum(np.ones(15)), np.full(6, 4.0)]), 2)
 
@@ -79,7 +81,8 @@ def test_optimal_control_with_generic_storage(plant_config, tech_config_generic,
     prob.model.add_subsystem(
         "h2_storage_optimized_load_following_controller",
         OptimizedDispatchController(
-            plant_config=plant_config, tech_config=tech_config_generic["technologies"]["h2_storage"]
+            plant_config=plant_config_h2_storage,
+            tech_config=tech_config_generic["technologies"]["h2_storage"],
         ),
         promotes=["*"],
     )
@@ -87,7 +90,8 @@ def test_optimal_control_with_generic_storage(plant_config, tech_config_generic,
     prob.model.add_subsystem(
         "h2_storage",
         StoragePerformanceModel(
-            plant_config=plant_config, tech_config=tech_config_generic["technologies"]["h2_storage"]
+            plant_config=plant_config_h2_storage,
+            tech_config=tech_config_generic["technologies"]["h2_storage"],
         ),
         promotes=["*"],
     )

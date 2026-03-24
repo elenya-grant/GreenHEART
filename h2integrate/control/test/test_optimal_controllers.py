@@ -10,7 +10,7 @@ from h2integrate.control.control_strategies.optimized_pyomo_controller import (
 
 
 @fixture
-def plant_config():
+def plant_config_battery():
     plant_config = {
         "plant": {
             "plant_life": 1,
@@ -28,7 +28,7 @@ def plant_config():
 
 
 @fixture
-def tech_config_generic():
+def tech_config_battery():
     tech_config = {
         "technologies": {
             "battery": {
@@ -72,7 +72,7 @@ def tech_config_generic():
 
 @pytest.mark.regression
 def test_min_operating_cost_load_following_battery_dispatch(
-    plant_config, tech_config_generic, subtests
+    plant_config_battery, tech_config_battery, subtests
 ):
     # Fabricate some oscillating power generation data: 1000 kW for the first 12 hours, 10000 kW for
     # the second twelve hours, and repeat that daily cycle over a year.
@@ -95,7 +95,8 @@ def test_min_operating_cost_load_following_battery_dispatch(
     prob.model.add_subsystem(
         "battery_optimized_load_following_controller",
         OptimizedDispatchController(
-            plant_config=plant_config, tech_config=tech_config_generic["technologies"]["battery"]
+            plant_config=plant_config_battery,
+            tech_config=tech_config_battery["technologies"]["battery"],
         ),
         promotes=["*"],
     )
@@ -103,7 +104,8 @@ def test_min_operating_cost_load_following_battery_dispatch(
     prob.model.add_subsystem(
         "battery",
         PySAMBatteryPerformanceModel(
-            plant_config=plant_config, tech_config=tech_config_generic["technologies"]["battery"]
+            plant_config=plant_config_battery,
+            tech_config=tech_config_battery["technologies"]["battery"],
         ),
         promotes=["*"],
     )

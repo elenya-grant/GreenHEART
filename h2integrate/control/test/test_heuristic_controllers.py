@@ -915,11 +915,97 @@ def test_heuristic_load_following_dispatch_with_generic_storage(
 
 
 @pytest.mark.regression
-def test_heuristic_dispatch_with_autosizing_storage(
+def test_heuristic_dispatch_with_autosizing_storage_demand_less_than_avg_in(
     plant_config_h2_storage, tech_config_autosizing, subtests
 ):
     commodity_demand = np.full(8760, 5.0)
     commodity_in = np.tile(np.concat([np.zeros(3), np.cumsum(np.ones(15)), np.full(6, 4.0)]), 365)
+
+    # Setup the OpenMDAO problem and add subsystems
+    prob = om.Problem()
+
+    prob.model.add_subsystem(
+        "PyomoRuleStorageBaseclass",
+        PyomoRuleStorageBaseclass(
+            plant_config=plant_config_h2_storage,
+            tech_config=tech_config_autosizing["technologies"]["h2_storage"],
+        ),
+        promotes=["*"],
+    )
+
+    prob.model.add_subsystem(
+        "h2_storage_controller",
+        HeuristicLoadFollowingController(
+            plant_config=plant_config_h2_storage,
+            tech_config=tech_config_autosizing["technologies"]["h2_storage"],
+        ),
+        promotes=["*"],
+    )
+
+    prob.model.add_subsystem(
+        "h2_storage",
+        StorageAutoSizingModel(
+            plant_config=plant_config_h2_storage,
+            tech_config=tech_config_autosizing["technologies"]["h2_storage"],
+        ),
+        promotes=["*"],
+    )
+
+    # Setup the system and required values
+    prob.setup()
+    prob.set_val("h2_storage.hydrogen_in", commodity_in)
+    prob.set_val("h2_storage.hydrogen_demand", commodity_demand)
+
+    # Run the model
+    prob.run_model()
+
+    charge_rate = prob.get_val("h2_storage.max_charge_rate", units="kg/h")[0]
+    discharge_rate = prob.get_val("h2_storage.max_discharge_rate", units="kg/h")[0]
+    capacity = prob.get_val("h2_storage.storage_capacity", units="kg")[0]
+
+    with subtests.test("Capacity is correct"):
+        soc_kg = np.cumsum(commodity_demand - commodity_in)
+        soc_kg_adj = soc_kg + np.abs(np.min(soc_kg))
+        expected_usable_capacity = np.max(soc_kg_adj) - np.min(soc_kg_adj)
+
+        assert pytest.approx(capacity, rel=1e-6) == expected_usable_capacity
+
+    with subtests.test("Charge rate is is correct"):
+        assert pytest.approx(charge_rate, rel=1e-6) == max(commodity_in)
+    with subtests.test("Discharge rate is is correct"):
+        assert pytest.approx(discharge_rate, rel=1e-6) == max(commodity_in)
+
+    with subtests.test("Expected discharge from hour 10-30"):
+        expected_discharge = np.concat(
+            [np.zeros(8), np.ones(6), np.full(3, 5.0), np.array([4, 3, 2])]
+        )
+        np.testing.assert_allclose(
+            prob.get_val("h2_storage.storage_hydrogen_discharge", units="kg/h")[10:30],
+            expected_discharge,
+            rtol=1e-6,
+        )
+
+    with subtests.test("Expected charge hour 0-20"):
+        expected_charge = np.concat([np.zeros(8), np.arange(-1, -11, -1), np.zeros(2)])
+        np.testing.assert_allclose(
+            prob.get_val("h2_storage.storage_hydrogen_charge", units="kg/h")[0:20],
+            expected_charge,
+            rtol=1e-6,
+        )
+
+
+@pytest.mark.regression
+def test_heuristic_dispatch_with_autosizing_storage_demand_is_avg_in(
+    plant_config_h2_storage, tech_config_autosizing, subtests
+):
+    commodity_in = np.tile(np.concat([np.zeros(3), np.cumsum(np.ones(15)), np.full(6, 4.0)]), 365)
+    commodity_demand = np.full(8760, np.mean(commodity_in))
+    tech_config_autosizing["technologies"]["h2_storage"]["performance_parameters"][
+        "set_demand_as_avg_commodity_in"
+    ] = True
+    tech_config_autosizing["technologies"]["h2_storage"]["performance_parameters"][
+        "demand_profile"
+    ] = 0.0
 
     # Setup the OpenMDAO problem and add subsystems
     prob = om.Problem()
