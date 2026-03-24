@@ -256,7 +256,7 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
                 units=self.commodity_rate_units,
             )
 
-    def compute(self, inputs, outputs, discrete_inputs, discrete_outputs):
+    def compute(self, inputs, outputs, discrete_inputs=[], discrete_outputs=[]):
         """
         Part 0: get demand profile based on user input parameters:
 
