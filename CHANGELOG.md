@@ -25,6 +25,8 @@
 - Bugfix input energy to OAE financial model [PR 617](https://github.com/NatLabRockies/H2Integrate/pull/617)
   - Remove `MarineCarbonCapture` base classes
 - Added base class (`StorageOpenLoopControlBase`) and base configuration class (`StorageOpenLoopControlBaseConfig`) for open-loop storage control strategies and updated the existing open-loop storage control strategies to inherit these [PR 619](https://github.com/NatLabRockies/H2Integrate/pull/619)
+- Updated the `StorageAutoSizingModel` model to be compatible with Pyomo control strategies [PR 621](https://github.com/NatLabRockies/H2Integrate/pull/621)
+
 ## 0.7.1 [March 13, 2026]
 
 ### Updates
