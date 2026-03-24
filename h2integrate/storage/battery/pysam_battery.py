@@ -235,6 +235,9 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
             60**2
         )  # convert from seconds to hours
 
+        # create a variable to determine whether we are using feedback control
+        # for this technology
+        using_feedback_control = False
         # create inputs for pyomo control model
         if "tech_to_dispatch_connections" in self.options["plant_config"]:
             # get technology group name
@@ -245,9 +248,11 @@ class PySAMBatteryPerformanceModel(BatteryPerformanceBaseClass):
             ]:
                 if any(intended_dispatch_tech in name for name in self.tech_group_name):
                     self.add_discrete_input("pyomo_dispatch_solver", val=dummy_function)
+                    # set the using feedback control variable to True
+                    using_feedback_control = True
                     break
 
-        else:
+        if not using_feedback_control:
             # using an open-loop storage controller
             self.add_input(
                 "electricity_set_point",

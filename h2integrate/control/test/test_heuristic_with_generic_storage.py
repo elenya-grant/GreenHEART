@@ -23,6 +23,7 @@ def plant_config():
             },
         },
         "tech_to_dispatch_connections": [
+            ["combiner", "h2_storage"],
             ["h2_storage", "h2_storage"],
         ],
     }
@@ -47,12 +48,12 @@ def tech_config_generic():
                         "min_soc_fraction": 0.1,
                         "commodity": "hydrogen",
                         "commodity_rate_units": "kg/h",
+                        "charge_efficiency": 1.0,
+                        "discharge_efficiency": 1.0,
                     },
                     "performance_parameters": {
                         "charge_equals_discharge": True,
                         "commodity_amount_units": "kg",
-                        "charge_efficiency": 1.0,
-                        "discharge_efficiency": 1.0,
                         "demand_profile": 0.0,
                     },
                     "control_parameters": {
