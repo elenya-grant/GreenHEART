@@ -287,19 +287,39 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         """
         # Part 1: Auto-size the storage to meet the demand
 
-        # 1. Auto-size the fill rate as the max of the input commodity
+        # 1. Calculate the demand profile
+        if self.config.set_demand_as_avg_commodity_in:
+            if inputs[f"{self.commodity}_demand"].sum() > 0:
+                msg = (
+                    "A non-zero demand profile was input but set_demand_as_avg_commodity_in is "
+                    "True. The input demand profile will not be used, the demand profile will be "
+                    f"calculated as the mean of ``{self.config.commodity}_in``. "
+                )
+                raise ValueError(msg)
+            else:
+                commodity_demand = np.mean(inputs[f"{self.commodity}_in"]) * np.ones(
+                    self.n_timesteps
+                )
+        else:
+            commodity_demand = inputs[f"{self.commodity}_demand"]
+
+        # 2. Auto-size the fill rate as the max of the input commodity
         storage_max_fill_rate = np.max(inputs[f"{self.commodity}_in"])
         # Auto-size the empty rate as the max of the input commodity
         storage_max_empty_rate = np.max(inputs[f"{self.commodity}_in"])
 
         # Auto-size the storage capacity to meet the demand as much as possible
-        # 2. Estimate the storage SOC in `commodity_amount_units`
+        # 3. Estimate the storage SOC in `commodity_amount_units`
         # NOTE: commodity_storage_soc is just an absolute value and is not a percentage.
         # `{self.commodity}_set_point` is negative when charging and positive when discharging,
         # the negative of `{self.commodity}_set_point` can be used to estimate the SOC
         # (which increases when charging and decreases when discharging)
-        commodity_storage_soc = np.cumsum(-1 * inputs[f"{self.commodity}_set_point"])
-
+        if f"{self.commodity}_set_point" in inputs:
+            commodity_storage_soc = np.cumsum(-1 * inputs[f"{self.commodity}_set_point"])
+        else:
+            commodity_storage_soc = np.cumsum(
+                inputs[f"{self.config.commodity}_in"] - commodity_demand
+            )
         # 3. If needed, adjust the SOC profile from Step 2 so that the minimum SOC is positive
         minimum_soc = np.min(commodity_storage_soc)
 
@@ -323,22 +343,6 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
             [self.config.min_soc_fraction, commodity_storage_soc[0] / rated_storage_capacity]
         )
 
-        # 2. Calculate the demand profile
-        if self.config.set_demand_as_avg_commodity_in:
-            if inputs[f"{self.commodity}_demand"].sum() > 0:
-                msg = (
-                    "A non-zero demand profile was input but set_demand_as_avg_commodity_in is "
-                    "True. The input demand profile will not be used, the demand profile will be "
-                    f"calculated as the mean of ``{self.config.commodity}_in``. "
-                )
-                raise ValueError(msg)
-            else:
-                commodity_demand = np.mean(inputs[f"{self.commodity}_in"]) * np.ones(
-                    self.n_timesteps
-                )
-        else:
-            commodity_demand = inputs[f"{self.commodity}_demand"]
-
         # 3. Simulate the storage performance using the `simulate()`
         if "pyomo_dispatch_solver" in discrete_inputs:
             # Simulate the storage with provided dispatch inputs
@@ -350,12 +354,12 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
                 "storage_capacity": rated_storage_capacity,
             }
 
+            inputs_adjusted = dict(inputs.items())
+            inputs_adjusted["storage_capacity"] = np.array([rated_storage_capacity])
+
             if self.config.set_demand_as_avg_commodity_in:
-                inputs_adjusted = dict(inputs.items())
                 inputs_adjusted[f"{self.commodity}_demand"] = commodity_demand
-                storage_commodity_out, soc = dispatch(self.simulate, kwargs, inputs_adjusted)
-            else:
-                storage_commodity_out, soc = dispatch(self.simulate, kwargs, inputs)
+            storage_commodity_out, soc = dispatch(self.simulate, kwargs, inputs_adjusted)
 
         else:
             # Simulate the storage with provided inputs using dispatch commands from
