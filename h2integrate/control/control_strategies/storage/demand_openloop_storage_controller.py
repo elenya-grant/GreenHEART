@@ -111,9 +111,8 @@ class DemandOpenLoopStorageController(StorageOpenLoopControlBase):
     A controller that manages commodity flow based on demand and storage constraints.
 
     The `DemandOpenLoopStorageController` computes the dispatch commands for a commodity storage
-    system. It uses a demand profile
-    and storage parameters to determine how much of the commodity to charge, discharge,
-    or curtail at each time step.
+    system. It uses a demand profile and storage parameters to determine how much of the
+    commodity to charge, discharge, or curtail at each time step.
     """
 
     def setup(self):

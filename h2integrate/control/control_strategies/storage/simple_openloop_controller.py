@@ -10,7 +10,7 @@ from h2integrate.control.control_strategies.storage.openloop_storage_control_bas
 
 @define(kw_only=True)
 class SimpleStorageOpenLoopControllerConfig(StorageOpenLoopControlBaseConfig):
-    """Configuration class for the StorageOpenLoopControlBaseConfig
+    """Configuration class for the SimpleStorageOpenLoopController
 
     Attributes:
         commodity (str): name of commodity
