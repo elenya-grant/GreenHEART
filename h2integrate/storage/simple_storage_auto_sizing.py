@@ -356,6 +356,7 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
 
             inputs_adjusted = dict(inputs.items())
             inputs_adjusted["storage_capacity"] = np.array([rated_storage_capacity])
+            inputs_adjusted["max_charge_rate"] = np.array([storage_max_fill_rate])
 
             if self.config.set_demand_as_avg_commodity_in:
                 inputs_adjusted[f"{self.commodity}_demand"] = commodity_demand
