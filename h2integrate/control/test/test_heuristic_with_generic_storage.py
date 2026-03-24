@@ -13,7 +13,7 @@ from h2integrate.control.control_rules.storage.pyomo_storage_rule_baseclass impo
 
 
 @fixture
-def plant_config():
+def plant_config_h2_storage():
     plant_config = {
         "plant": {
             "plant_life": 30,
@@ -69,7 +69,7 @@ def tech_config_generic():
 
 @pytest.mark.regression
 def test_heuristic_load_following_dispatch_with_generic_storage(
-    plant_config, tech_config_generic, subtests
+    plant_config_h2_storage, tech_config_generic, subtests
 ):
     commodity_demand = np.full(8760, 5.0)
     commodity_in = np.tile(np.concat([np.zeros(3), np.cumsum(np.ones(15)), np.full(6, 4.0)]), 365)
@@ -80,7 +80,8 @@ def test_heuristic_load_following_dispatch_with_generic_storage(
     prob.model.add_subsystem(
         "PyomoRuleStorageBaseclass",
         PyomoRuleStorageBaseclass(
-            plant_config=plant_config, tech_config=tech_config_generic["technologies"]["h2_storage"]
+            plant_config=plant_config_h2_storage,
+            tech_config=tech_config_generic["technologies"]["h2_storage"],
         ),
         promotes=["*"],
     )
@@ -88,7 +89,8 @@ def test_heuristic_load_following_dispatch_with_generic_storage(
     prob.model.add_subsystem(
         "h2_storage_heuristic_load_following_controller",
         HeuristicLoadFollowingController(
-            plant_config=plant_config, tech_config=tech_config_generic["technologies"]["h2_storage"]
+            plant_config=plant_config_h2_storage,
+            tech_config=tech_config_generic["technologies"]["h2_storage"],
         ),
         promotes=["*"],
     )
@@ -96,7 +98,8 @@ def test_heuristic_load_following_dispatch_with_generic_storage(
     prob.model.add_subsystem(
         "h2_storage",
         StoragePerformanceModel(
-            plant_config=plant_config, tech_config=tech_config_generic["technologies"]["h2_storage"]
+            plant_config=plant_config_h2_storage,
+            tech_config=tech_config_generic["technologies"]["h2_storage"],
         ),
         promotes=["*"],
     )

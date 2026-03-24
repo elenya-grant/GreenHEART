@@ -13,7 +13,7 @@ from h2integrate.control.control_rules.storage.pyomo_storage_rule_baseclass impo
 
 
 @fixture
-def plant_config():
+def plant_config_battery():
     plant_config_dict = {
         "plant": {
             "plant_life": 30,
@@ -30,7 +30,7 @@ def plant_config():
 
 
 @fixture
-def tech_config():
+def tech_config_battery():
     tech_config_dict = {
         "name": "technology_config",
         "description": "...",
@@ -72,7 +72,9 @@ def tech_config():
 
 
 @pytest.mark.regression
-def test_heuristic_load_following_battery_dispatch(plant_config, tech_config, subtests):
+def test_heuristic_load_following_battery_dispatch(
+    plant_config_battery, tech_config_battery, subtests
+):
     # Fabricate some oscillating power generation data: 0 kW for the first 12 hours, 10000 kW for
     # the second twelve hours, and repeat that daily cycle over a year.
     n_look_ahead_half = int(24 / 2)
@@ -90,7 +92,8 @@ def test_heuristic_load_following_battery_dispatch(plant_config, tech_config, su
     prob.model.add_subsystem(
         "PyomoRuleStorageBaseclass",
         PyomoRuleStorageBaseclass(
-            plant_config=plant_config, tech_config=tech_config["technologies"]["battery"]
+            plant_config=plant_config_battery,
+            tech_config=tech_config_battery["technologies"]["battery"],
         ),
         promotes=["*"],
     )
@@ -98,7 +101,8 @@ def test_heuristic_load_following_battery_dispatch(plant_config, tech_config, su
     prob.model.add_subsystem(
         "battery_heuristic_load_following_controller",
         HeuristicLoadFollowingController(
-            plant_config=plant_config, tech_config=tech_config["technologies"]["battery"]
+            plant_config=plant_config_battery,
+            tech_config=tech_config_battery["technologies"]["battery"],
         ),
         promotes=["*"],
     )
@@ -106,7 +110,8 @@ def test_heuristic_load_following_battery_dispatch(plant_config, tech_config, su
     prob.model.add_subsystem(
         "battery",
         PySAMBatteryPerformanceModel(
-            plant_config=plant_config, tech_config=tech_config["technologies"]["battery"]
+            plant_config=plant_config_battery,
+            tech_config=tech_config_battery["technologies"]["battery"],
         ),
         promotes=["*"],
     )
