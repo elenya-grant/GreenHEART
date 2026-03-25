@@ -34,7 +34,7 @@ class GenericConverterCostConfig(CostModelBaseConfig):
             self.unit_opex is not None and self.opex_fraction is not None
         ):
             msg = "Please provide either a value for unit_opex or a value for opex_fraction"
-            raise ValueError(msg)
+            raise KeyError(msg)
 
         if self.commodity_amount_units is None:
             self.commodity_amount_units = f"({self.commodity_rate_units})*h"
@@ -104,5 +104,5 @@ class GenericConverterCostModel(CostModelBaseClass):
         else:
             outputs["OpEx"] = tot_capex * inputs["fixed_opex_ratio"]
         outputs["VarOpEx"] = (
-            inputs[f"annual_{self.config.commodity}_produced"] * inputs["unit_opex"]
+            inputs[f"annual_{self.config.commodity}_produced"] * inputs["unit_varopex"]
         )
