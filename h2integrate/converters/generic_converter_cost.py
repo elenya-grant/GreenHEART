@@ -35,11 +35,14 @@ class GenericConverterCostConfig(CostModelBaseConfig):
     commodity_amount_units: str = field(default=None)
 
     def __attrs_post_init__(self):
-        # If both or neither OpEx value was inup
+        # If both or neither OpEx value was input, raise an error
         if (self.unit_opex is None and self.opex_fraction is None) or (
             self.unit_opex is not None and self.opex_fraction is not None
         ):
-            msg = "Please provide either a value for unit_opex or a value for opex_fraction"
+            msg = (
+                "Please provide either a value for `unit_opex` or a value for "
+                + "`opex_fraction` in the generic converter cost config, but not both."
+            )
             raise KeyError(msg)
 
         if self.commodity_amount_units is None:
