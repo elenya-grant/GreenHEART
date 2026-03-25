@@ -420,7 +420,8 @@ class PyomoRuleStorageMinOperatingCosts:
         pyomo_model.balance = pyo.Constraint(
             doc="Transmission energy balance",
             expr=(
-                pyomo_model.commodity_out == pyomo_model.system_production - pyomo_model.system_load
+                pyomo_model.commodity_out - pyomo_model.commodity_bought
+                == pyomo_model.system_production - pyomo_model.system_load
             ),
         )
         pyomo_model.production_limit = pyo.Constraint(

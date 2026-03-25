@@ -11,7 +11,7 @@ technologies:
       wind_speed: 9.
     model_inputs:
       performance_parameters:
-        num_turbines: 25
+        num_turbines: 15
         turbine_rating_kw: 8300
         rotor_diameter: 196.
         hub_height: 130.
@@ -65,7 +65,7 @@ technologies:
         opex_fraction: 0.25  # 0.25% of capex per year from 2024 ATB
       control_parameters:
         cost_per_charge: 0.03  # in $/kW, cost to charge the storage (note that charging is incentivized)
-        cost_per_discharge: 0.05  # in $/kW, cost to discharge the storage
+        cost_per_discharge: 0.07  # in $/kW, cost to discharge the storage
         demand_met_value: 0.1  # in $/kW, penalty for not meeting the desired load demand
         cost_per_production: 0.0  # in $/kW, cost to use the incoming produced commodity (i.e. electricity from wind)
         time_weighting_factor: 0.995  # This parameter discounts each subsequent time step incrementally in the future in the horizon window by this amount
