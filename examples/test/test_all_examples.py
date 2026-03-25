@@ -850,8 +850,6 @@ def test_wind_wave_oae_example(subtests, temp_copy_of_example):
     model.post_process()
 
     # Subtests for checking specific values
-    # Note: These are placeholder values. Update with actual values after running the test
-    # when MCM package is properly installed and configured
     with subtests.test("Check LCOC"):
         assert (
             pytest.approx(
@@ -887,8 +885,6 @@ def test_wind_wave_oae_example_with_finance(subtests, temp_copy_of_example):
     model.post_process()
 
     # Subtests for checking specific values
-    # Note: These are placeholder values. Update with actual values after running the test
-    # when MCM package is properly installed and configured
     with subtests.test("Check LCOE"):
         assert (
             pytest.approx(
@@ -901,7 +897,7 @@ def test_wind_wave_oae_example_with_finance(subtests, temp_copy_of_example):
     with subtests.test("Check Carbon Credit"):
         assert (
             pytest.approx(model.prob.get_val("oae.carbon_credit_value", units="USD/t")[0], rel=1e-3)
-            == 574.37466
+            == 1026.4684117
         )
 
 
