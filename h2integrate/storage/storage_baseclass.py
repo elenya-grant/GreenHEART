@@ -237,13 +237,14 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
                 units=self.commodity_rate_units,
             )
 
+        self.dt_hr = int(self.options["plant_config"]["plant"]["simulation"]["dt"]) / (
+            3600
+        )  # convert from seconds to hours
+
     def compute(self, inputs, outputs, discrete_inputs=[], discrete_outputs=[]):
         # Below is an example of what the compute method would look like in the
         # StoragePerformanceModel
         # Do whatever pre-calculations are necessary, then run storage
-        self.dt_hr = int(self.options["plant_config"]["plant"]["simulation"]["dt"]) / (
-            60**2
-        )  # convert from seconds to hours
         self.current_soc = self.config.init_soc_fraction
 
         charge_rate = inputs["max_charge_rate"][0]
@@ -259,6 +260,37 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
     def run_storage(
         self, charge_rate, discharge_rate, storage_capacity, inputs, outputs, discrete_inputs
     ):
+        """Run the storage performance model and calculate the outputs. This method should
+        be called in the `compute()` method of a subclass.
+
+        Example:
+            >>> # In the `compute()` method:
+            >>> self.current_soc = self.config.init_soc_fraction
+            >>> charge_rate = inputs["max_charge_rate"][0]
+            >>> discharge_rate = inputs["max_discharge_rate"][0]
+            >>> storage_capacity = inputs["storage_capacity"]
+            >>> outputs = self.run_storage(
+            ... charge_rate, discharge_rate, storage_capacity, inputs, outputs, discrete_inputs
+            >>> )
+
+
+        Args:
+            charge_rate (float): storage charge rate in commodity_rate_units
+            discharge_rate (float): storage discharge rate in commodity_rate_units
+            storage_capacity (float): storage capacity in commodity_amount_units
+            inputs (om.vectors.default_vector.DefaultVector | dict): OpenMDAO inputs
+                to the `compute()` method. This should at least include the commodity
+                demand profile and input commodity profile.
+            outputs (om.vectors.default_vector.DefaultVector): OpenMDAO outputs
+                from the `compute()` method
+            discrete_inputs (om.core.component._DictValues, optional): OpenMDAO discrete
+                inputs to the `compute()` method. This is only required if using a
+                feedback control strategy and should contain the discrete input
+                'pyomo_dispatch_solver'.
+
+        Returns:
+            om.vectors.default_vector.DefaultVector: calculated OpenMDAO outputs.
+        """
         if "pyomo_dispatch_solver" in discrete_inputs:
             dispatch = discrete_inputs["pyomo_dispatch_solver"]
             # kwargs are tech-specific inputs to the simulate() method
