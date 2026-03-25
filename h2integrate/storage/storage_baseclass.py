@@ -2,104 +2,93 @@ import numpy as np
 from attrs import field, define
 
 from h2integrate.core.utilities import BaseConfig
-from h2integrate.core.validators import gt_zero, range_val, range_val_or_none
+from h2integrate.core.validators import range_val
 from h2integrate.core.model_baseclasses import PerformanceModelBaseClass
 
 
 @define(kw_only=True)
 class StoragePerformanceBaseConfig(BaseConfig):
-    # Below is used in StoragePerformance and StorageAutoSizing
-    commodity: str = field(converter=str.strip)
-    commodity_rate_units: str = field(converter=str.strip)
-    commodity_amount_units: str = field(default=None)
-    charge_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
-    discharge_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
-    round_trip_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
+    """
+    Configuration class for the StoragePerformanceBase model.
 
-    # Below is only used in StoragePerformance
-    max_discharge_rate: float | None = field(default=None)
+     Attributes:
+        min_soc_fraction (float):
+            Minimum allowable state of charge as a fraction (0 to 1).
+        max_soc_fraction (float):
+            Maximum allowable state of charge as a fraction (0 to 1).
+        demand_profile (int | float | list): Demand values for each timestep, in
+            the same units as `commodity_rate_units`. May be a scalar for constant
+            demand or a list/array for time-varying demand.
+    """
 
-    # Below is used in StoragePerformance and PySAMBattery
-    max_capacity: float = field(validator=gt_zero)
-    max_charge_rate: float = field(validator=gt_zero)
-    charge_equals_discharge: bool = field(default=True)
-    init_soc_fraction: float = field(validator=range_val(0, 1))
-
-    # Below is used in all of them
+    # Below is used in all storage models
     min_soc_fraction: float = field(validator=range_val(0, 1))
     max_soc_fraction: float = field(validator=range_val(0, 1))
     demand_profile: int | float | list = field()
 
-    """
-    Configuration class for the SimpleGenericStorage model.
+    # Below is used in StoragePerformance and StorageAutoSizing
+    # commodity: str = field(converter=str.strip)
+    # commodity_rate_units: str = field(converter=str.strip)
+    # commodity_amount_units: str = field(default=None)
+    # charge_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
+    # discharge_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
+    # round_trip_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
 
-     Attributes:
-        commodity (str): Name of the commodity being stored (e.g., "hydrogen").
-        commodity_units (str): Rate units of the commodity (e.g., "kg/h" or "kW").
-        max_charge_rate (float): Maximum rate at which the commodity can be charged (in units
-            per time step, e.g., "kg/time step"). This rate does not include the charge_efficiency.
-        commodity_amount_units (str | None, optional): Units of the commodity as an amount
-            (i.e., kW*h or kg). If not provided, defaults to commodity_rate_units*h.
-        charge_equals_discharge (bool, optional): If True, set the max_discharge_rate equal to the
-            max_charge_rate. If False, specify the max_discharge_rate as a value different than
-            the max_charge_rate. Defaults to True.
-        max_discharge_rate (float | None, optional): Maximum rate at which the commodity can be
-            discharged (in units per time step, e.g., "kg/time step"). This rate does not include
-            the discharge_efficiency. Only required if `charge_equals_discharge` is False.
+    # # Below is only used in StoragePerformance
+    # max_discharge_rate: float | None = field(default=None)
+    # charge_equals_discharge: bool = field(default=True)
 
-    """
+    # # Below is used in StoragePerformance and PySAMBattery
+    # max_capacity: float = field(validator=gt_zero)
+    # max_charge_rate: float = field(validator=gt_zero)
+    # init_soc_fraction: float = field(validator=range_val(0, 1))
 
-    def __attrs_post_init__(self):
-        if (self.round_trip_efficiency is not None) and (
-            self.charge_efficiency is None and self.discharge_efficiency is None
-        ):
-            # Calculate charge and discharge efficiencies from round-trip efficiency
-            self.charge_efficiency = np.sqrt(self.round_trip_efficiency)
-            self.discharge_efficiency = np.sqrt(self.round_trip_efficiency)
-            self.round_trip_efficiency = None
-        if self.charge_efficiency is None or self.discharge_efficiency is None:
-            raise ValueError(
-                "Exactly one of the following sets of parameters must be set: (a) "
-                "`round_trip_efficiency`, or (b) both `charge_efficiency` "
-                "and `discharge_efficiency`."
-            )
+    # def __attrs_post_init__(self):
+    #     if (self.round_trip_efficiency is not None) and (
+    #         self.charge_efficiency is None and self.discharge_efficiency is None
+    #     ):
+    #         # Calculate charge and discharge efficiencies from round-trip efficiency
+    #         self.charge_efficiency = np.sqrt(self.round_trip_efficiency)
+    #         self.discharge_efficiency = np.sqrt(self.round_trip_efficiency)
+    #         self.round_trip_efficiency = None
+    #     if self.charge_efficiency is None or self.discharge_efficiency is None:
+    #         raise ValueError(
+    #             "Exactly one of the following sets of parameters must be set: (a) "
+    #             "`round_trip_efficiency`, or (b) both `charge_efficiency` "
+    #             "and `discharge_efficiency`."
+    #         )
 
-        # Below only for StoragePerformance
+    ## Below only for StoragePerformance
 
-        # if self.charge_equals_discharge:
-        #     if (
-        #         self.max_discharge_rate is not None
-        #         and self.max_discharge_rate != self.max_charge_rate
-        #     ):
-        #         msg = (
-        #             "Max discharge rate does not equal charge rate but charge_equals_discharge"
-        #             f"is True. Discharge rate is {self.max_discharge_rate} and charge rate "
-        #             f"is {self.max_charge_rate}."
-        #         )
-        #         raise ValueError(msg)
+    # if self.charge_equals_discharge:
+    #     if (
+    #         self.max_discharge_rate is not None
+    #         and self.max_discharge_rate != self.max_charge_rate
+    #     ):
+    #         msg = (
+    #             "Max discharge rate does not equal charge rate but charge_equals_discharge"
+    #             f"is True. Discharge rate is {self.max_discharge_rate} and charge rate "
+    #             f"is {self.max_charge_rate}."
+    #         )
+    #         raise ValueError(msg)
 
-        #     self.max_discharge_rate = self.max_charge_rate
+    #     self.max_discharge_rate = self.max_charge_rate
 
-        # if not self.charge_equals_discharge and self.max_discharge_rate is None:
-        #     msg = (
-        #         "max_discharge_rate is a required key when charge_equals_discharge is True."
-        #         "Please set a value for the max_discharge_rate."
-        #     )
-        #     raise ValueError(msg)
+    # if not self.charge_equals_discharge and self.max_discharge_rate is None:
+    #     msg = (
+    #         "max_discharge_rate is a required key when charge_equals_discharge is True."
+    #         "Please set a value for the max_discharge_rate."
+    #     )
+    #     raise ValueError(msg)
 
-        # Below NOT used in PySAM battery
-        # if self.commodity_amount_units is None:
-        #     self.commodity_amount_units = f"({self.commodity_rate_units})*h"
+    ## Below NOT used in PySAM battery
+    # if self.commodity_amount_units is None:
+    #     self.commodity_amount_units = f"({self.commodity_rate_units})*h"
 
 
 class StoragePerformanceBase(PerformanceModelBaseClass):
     """
-    Simple generic storage model that acts as a pass-through component.
-
-    Note: this storage performance model is intended to be used with the
-    `DemandOpenLoopStorageController` controller and has not been tested
-    with other controllers.
-
+    Baseclass for storage performance models
     """
 
     def setup(self):
@@ -157,7 +146,7 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
         # Storage design outputs:
         default_storage_duration = 0.0
         if "max_charge_rate" in self.config.as_dict() and "max_capacity" in self.config.as_dict():
-            default_storage_duration = (self.config.max_capacity / self.config.max_charge_rate,)
+            default_storage_duration = self.config.max_capacity / self.config.max_charge_rate
 
         self.add_output(
             "storage_duration",
@@ -223,7 +212,10 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
             desc="Unused generated commodity",
         )
 
-        # TODO: update for bugfix in PR 615
+        # create a variable to determine whether we are using feedback control
+        # for this technology
+        using_feedback_control = False
+        # create inputs for pyomo control model
         if "tech_to_dispatch_connections" in self.options["plant_config"]:
             # get technology group name
             # TODO: The split below seems brittle
@@ -233,9 +225,11 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
             ]:
                 if any(intended_dispatch_tech in name for name in self.tech_group_name):
                     self.add_discrete_input("pyomo_dispatch_solver", val=dummy_function)
+                    # set the using feedback control variable to True
+                    using_feedback_control = True
                     break
-        else:
-            # using open-loop controller
+        if not using_feedback_control:
+            # using an open-loop storage controller
             self.add_input(
                 f"{self.commodity}_set_point",
                 val=0.0,
@@ -243,12 +237,22 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
                 units=self.commodity_rate_units,
             )
 
-    def compute(self, inputs, outputs, discrete_inputs, discrete_outputs):
-        charge_rate = self.get_charge_rate(inputs)
-        discharge_rate = self.get_discharge_rate(charge_rate, inputs)
-        storage_capacity = self.get_storage_capacity(inputs)
-        self.current_soc = self.get_init_soc(inputs)
-        self.run_storage(
+    def compute(self, inputs, outputs, discrete_inputs=[], discrete_outputs=[]):
+        # Below is an example of what the compute method would look like in the
+        # StoragePerformanceModel
+        # Do whatever pre-calculations are necessary, then run storage
+        self.dt_hr = int(self.options["plant_config"]["plant"]["simulation"]["dt"]) / (
+            60**2
+        )  # convert from seconds to hours
+        self.current_soc = self.config.init_soc_fraction
+
+        charge_rate = inputs["max_charge_rate"][0]
+        if "max_discharge_rate" in inputs:
+            discharge_rate = inputs["max_discharge_rate"][0]
+        else:
+            discharge_rate = inputs["max_charge_rate"][0]
+        storage_capacity = inputs["storage_capacity"]
+        outputs = self.run_storage(
             charge_rate, discharge_rate, storage_capacity, inputs, outputs, discrete_inputs
         )
 
