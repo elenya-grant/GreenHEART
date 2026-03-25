@@ -300,9 +300,10 @@ class StorageAutoSizingModel(PerformanceModelBaseClass):
         if self.config.set_demand_as_avg_commodity_in:
             if inputs[f"{self.commodity}_demand"].sum() > 0:
                 msg = (
-                    "A non-zero demand profile was input but set_demand_as_avg_commodity_in is "
-                    "True. The input demand profile will not be used, the demand profile will be "
-                    f"calculated as the mean of ``{self.config.commodity}_in``. "
+                    "A non-zero demand profile was input when set_demand_as_avg_commodity_in is "
+                    "True. When set_demand_as_avg_commodity_in is True, the input demand profile "
+                    f"cannot be used. Please ensure that ``{self.config.commodity}_in`` is zero or "
+                    "set set_demand_as_avg_commodity_in as False."
                 )
                 raise ValueError(msg)
             else:

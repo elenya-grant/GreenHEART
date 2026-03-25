@@ -524,9 +524,9 @@ def test_optimal_dispatch_with_autosizing_storage_demand_less_than_avg_in(
 
         assert pytest.approx(capacity, rel=1e-6) == expected_usable_capacity
 
-    with subtests.test("Charge rate is is correct"):
+    with subtests.test("Charge rate is correct"):
         assert pytest.approx(charge_rate, rel=1e-6) == max(commodity_in)
-    with subtests.test("Discharge rate is is correct"):
+    with subtests.test("Discharge rate is correct"):
         assert pytest.approx(discharge_rate, rel=1e-6) == max(commodity_in)
 
     with subtests.test("Expected discharge from hour 10-30"):
@@ -600,9 +600,9 @@ def test_optimal_dispatch_with_autosizing_storage_demand_is_avg_in(
 
         assert pytest.approx(capacity, rel=1e-6) == expected_usable_capacity
 
-    with subtests.test("Charge rate is is correct"):
+    with subtests.test("Charge rate is correct"):
         assert pytest.approx(charge_rate, rel=1e-6) == max(commodity_in)
-    with subtests.test("Discharge rate is is correct"):
+    with subtests.test("Discharge rate is correct"):
         assert pytest.approx(discharge_rate, rel=1e-6) == max(commodity_in)
 
     with subtests.test("Expected discharge from hour 10-30"):
