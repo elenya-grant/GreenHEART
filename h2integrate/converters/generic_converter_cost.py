@@ -7,14 +7,19 @@ from h2integrate.core.model_baseclasses import CostModelBaseClass, CostModelBase
 
 @define(kw_only=True)
 class GenericConverterCostConfig(CostModelBaseConfig):
-    """Configuration class for the GenericConverterCostModel with costs based on rated capacity
+    """Configuration class for the GenericConverterCostModel with costs based on rated capacity.
+    The cost units must compatible with the units of the commodity produced by the converter.
 
     Attributes:
         commodity (str): name of commodity
         commodity_rate_units (str): Units of the commodity (e.g., "kg/h" or "kW").
-        unit_capex (float | int):
-        unit_varopex (float | int):
-
+        unit_capex (float | int): capital cost in units of `USD/commodity_rate_units`.
+            Must be greater than or equal to zero.
+        unit_varopex (float | int): variable O&M cost in units of `USD/commodity_amount_units`
+        unit_opex (float | int | None): fixed O&M cost in units of `USD/commodity_rate_units/year`.
+            Only required if `opex_fraction` is None. Defaults to None.
+        opex_fraction (float | int | None): the fixed O&M cost as a ratio of the CapEx.
+            Must be between 0 or 1. Only required if `unit_opex` is None. Defaults to None.
         cost_year (int): dollar year of input costs
         commodity_amount_units (str | None, optional): Units of the commodity as an amount
             (i.e., "kW*h" or "kg"). If not provided, defaults to `commodity_rate_units*h`.
@@ -30,6 +35,7 @@ class GenericConverterCostConfig(CostModelBaseConfig):
     commodity_amount_units: str = field(default=None)
 
     def __attrs_post_init__(self):
+        # If both or neither OpEx value was inup
         if (self.unit_opex is None and self.opex_fraction is None) or (
             self.unit_opex is not None and self.opex_fraction is not None
         ):
@@ -51,7 +57,7 @@ class GenericConverterCostModel(CostModelBaseClass):
 
         super().setup()
 
-        # Performance model inputs
+        # Inputs that are outputs of the performance model
         self.add_input(
             f"rated_{self.config.commodity}_production",
             val=0.0,
@@ -69,17 +75,18 @@ class GenericConverterCostModel(CostModelBaseClass):
             "unit_capex",
             val=self.config.unit_capex,
             units=f"USD/({self.config.commodity_rate_units})",
-            desc=f"CapEx in USD/{self.config.commodity_rate_units}",
+            desc="Unit CapEx",
         )
 
         self.add_input(
             "unit_varopex",
             val=self.config.unit_varopex,
             units=f"USD/({self.config.commodity_amount_units})",
-            desc=f"Variable OpEx in USD/{self.config.commodity_amount_units}",
+            desc="Unit Variable O&M",
         )
 
         if self.config.opex_fraction is not None:
+            # opex is expressed as a fraction of CapEx
             self.add_input(
                 "fixed_opex_ratio",
                 val=self.config.opex_fraction,
@@ -87,11 +94,12 @@ class GenericConverterCostModel(CostModelBaseClass):
                 desc="Fixed OpEx as a fraction of the total CapEx",
             )
         else:
+            # opex is expressed as a multiplier of rated capacity
             self.add_input(
                 "unit_opex",
                 val=self.config.unit_opex,
                 units=f"USD/({self.config.commodity_rate_units})/year",
-                desc=f"Fixed OpEx in USD/{self.config.commodity_rate_units}/year",
+                desc="Unit Fixed OpEx",
             )
 
     def compute(self, inputs, outputs, discrete_inputs, discrete_outputs):
