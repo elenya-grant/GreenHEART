@@ -562,12 +562,12 @@ def test_demand_converter_controller(subtests):
         )
 
     with subtests.test("Check curtailment"):
-        assert prob.get_val("hydrogen_unused_commodity") == pytest.approx(
+        assert prob.get_val("unused_hydrogen_out") == pytest.approx(
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0]
         )
 
     with subtests.test("Check missed load"):
-        assert prob.get_val("hydrogen_unmet_demand") == pytest.approx(
+        assert prob.get_val("unmet_hydrogen_demand_out") == pytest.approx(
             [5.0, 4.0, 3.0, 2.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         )
 
@@ -644,7 +644,7 @@ def test_flexible_demand_converter_controller(subtests, variable_h2_production_p
         assert np.all(flexible_total_demand <= end_use_rated_demand)
 
     with subtests.test("Check curtailment"):  # failed
-        assert np.sum(prob.get_val("hydrogen_unused_commodity", units="kg")) == pytest.approx(6.6)
+        assert np.sum(prob.get_val("unused_hydrogen_out", units="kg")) == pytest.approx(6.6)
 
     # check ramping constraints and turndown constraints are met
     with subtests.test("Check turndown ratio constraint"):
@@ -672,13 +672,13 @@ def test_flexible_demand_converter_controller(subtests, variable_h2_production_p
     # any commodity in)
     with subtests.test("Check that flexible demand is greater than hydrogen_in"):
         hydrogen_available = variable_h2_production_profile - prob.get_val(
-            "hydrogen_unused_commodity", units="kg"
+            "unused_hydrogen_out", units="kg"
         )
         assert np.all(flexible_total_demand >= hydrogen_available)
 
     with subtests.test("Check that remaining demand was calculated properly"):
         unmet_demand = flexible_total_demand - hydrogen_available
-        assert np.all(unmet_demand == prob.get_val("hydrogen_unmet_demand", units="kg"))
+        assert np.all(unmet_demand == prob.get_val("unmet_hydrogen_demand_out", units="kg"))
 
 
 @pytest.mark.regression

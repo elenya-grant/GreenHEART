@@ -54,9 +54,9 @@ class DemandOpenLoopConverterController(ConverterOpenLoopControlBase):
             outputs (dict-like): Mapping of output variable names where results
                 will be written, including:
 
-                    * ``{commodity}_unmet_demand``: Unmet demand.
-                    * ``{commodity}_unused_commodity``: Curtailed production.
-                    * ``{commodity}_out``: Actual output delivered.
+                    * ``unmet_{commodity}_demand_out``: Unmet demand.
+                    * ``unused_{commodity}_out``: Curtailed production.
+                    * ``{commodity}_set_point``: Actual output delivered.
 
         Notes:
             All variables operate on a per-timestep basis and typically have
