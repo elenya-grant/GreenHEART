@@ -342,13 +342,13 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
         outputs[f"storage_{self.commodity}_discharge"] = np.where(
             storage_commodity_out > 0, storage_commodity_out, 0
         )
+        outputs["SOC"] = soc
+        outputs[f"storage_{self.commodity}_out"] = storage_commodity_out
 
+        # System-level outputs calculated in storage
         outputs[f"unmet_{self.commodity}_demand_out"] = unmet_demand
         outputs[f"unused_{self.commodity}_out"] = unused_commodity
-        outputs[f"storage_{self.commodity}_out"] = storage_commodity_out
         outputs[f"{self.commodity}_out"] = total_commodity_out
-
-        outputs["SOC"] = soc
 
         # Performance model outputs
         outputs[f"rated_{self.commodity}_production"] = discharge_rate
