@@ -268,10 +268,10 @@ class FlexibleDemandOpenLoopConverterController(ConverterOpenLoopControlBase):
 
         if self.config.min_utilization == 1.0:
             # Calculate missed load and curtailed production
-            outputs[f"{commodity}_unmet_demand"] = np.where(
+            outputs[f"unmet_{commodity}_demand_out"] = np.where(
                 remaining_demand > 0, remaining_demand, 0
             )
-            outputs[f"{commodity}_unused_commodity"] = np.where(
+            outputs[f"unused_{commodity}_out"] = np.where(
                 remaining_demand < 0, -1 * remaining_demand, 0
             )
         else:
@@ -289,14 +289,14 @@ class FlexibleDemandOpenLoopConverterController(ConverterOpenLoopControlBase):
             outputs[f"{commodity}_flexible_demand_profile"] = flexible_demand_profile
             flexible_remaining_demand = flexible_demand_profile - inputs[f"{commodity}_in"]
 
-            outputs[f"{commodity}_unmet_demand"] = np.where(
+            outputs[f"unmet_{commodity}_demand_out"] = np.where(
                 flexible_remaining_demand > 0, flexible_remaining_demand, 0
             )
-            outputs[f"{commodity}_unused_commodity"] = np.where(
+            outputs[f"unused_{commodity}_out"] = np.where(
                 flexible_remaining_demand < 0, -1 * flexible_remaining_demand, 0
             )
 
         # Calculate actual output based on demand met and curtailment
         outputs[f"{commodity}_set_point"] = (
-            inputs[f"{commodity}_in"] - outputs[f"{commodity}_unused_commodity"]
+            inputs[f"{commodity}_in"] - outputs[f"unused_{commodity}_out"]
         )

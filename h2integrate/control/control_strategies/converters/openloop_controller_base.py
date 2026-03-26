@@ -82,7 +82,7 @@ class ConverterOpenLoopControlBase(om.ExplicitComponent):
         )
 
         self.add_output(
-            f"{commodity}_unmet_demand",
+            f"unmet_{commodity}_demand_out",
             val=self.config.demand_profile,
             shape=(n_timesteps),
             units=self.config.commodity_rate_units,
@@ -90,7 +90,7 @@ class ConverterOpenLoopControlBase(om.ExplicitComponent):
         )
 
         self.add_output(
-            f"{commodity}_unused_commodity",
+            f"unused_{commodity}_out",
             val=0.0,
             shape=(n_timesteps),
             units=self.config.commodity_rate_units,
@@ -105,11 +105,11 @@ class ConverterOpenLoopControlBase(om.ExplicitComponent):
             desc=f"Production profile of {commodity}",
         )
 
-        self.add_output(
-            f"total_{commodity}_unmet_demand",
-            units=self.config.commodity_rate_units,
-            desc="Total unmet demand",
-        )
+        # self.add_output(
+        #     f"total_{commodity}_unmet_demand",
+        #     units=self.config.commodity_rate_units,
+        #     desc="Total unmet demand",
+        # )
 
     def compute():
         """This method must be implemented by subclasses to define the

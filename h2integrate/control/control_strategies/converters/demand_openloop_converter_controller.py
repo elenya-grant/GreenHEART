@@ -66,12 +66,14 @@ class DemandOpenLoopConverterController(ConverterOpenLoopControlBase):
         remaining_demand = inputs[f"{commodity}_demand"] - inputs[f"{commodity}_in"]
 
         # Calculate missed load and curtailed production
-        outputs[f"{commodity}_unmet_demand"] = np.where(remaining_demand > 0, remaining_demand, 0)
-        outputs[f"{commodity}_unused_commodity"] = np.where(
+        outputs[f"unmet_{commodity}_demand_out"] = np.where(
+            remaining_demand > 0, remaining_demand, 0
+        )
+        outputs[f"unused_{commodity}_out"] = np.where(
             remaining_demand < 0, -1 * remaining_demand, 0
         )
 
         # Calculate actual output based on demand met and curtailment
         outputs[f"{commodity}_set_point"] = (
-            inputs[f"{commodity}_in"] - outputs[f"{commodity}_unused_commodity"]
+            inputs[f"{commodity}_in"] - outputs[f"unused_{commodity}_out"]
         )
