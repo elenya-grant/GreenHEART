@@ -55,6 +55,7 @@ from h2integrate.storage.hydrogen.h2_storage_cost import (
     LinedRockCavernStorageCostModel,
 )
 from h2integrate.transporters.generic_transporter import GenericTransporterPerformanceModel
+from h2integrate.converters.generic_converter_cost import GenericConverterCostModel
 from h2integrate.converters.iron.humbert_ewin_perf import HumbertEwinPerformanceComponent
 from h2integrate.storage.storage_performance_model import StoragePerformanceModel
 from h2integrate.converters.ammonia.ammonia_synloop import (
@@ -187,6 +188,7 @@ supported_models = {
     "Himawari8SolarAPI": Himawari8SolarAPI,
     "HimawariTMYSolarAPI": HimawariTMYSolarAPI,
     # Converters
+    "GenericConverterCostModel": GenericConverterCostModel,
     "ATBWindPlantCostModel": ATBWindPlantCostModel,
     "PYSAMWindPlantPerformanceModel": PYSAMWindPlantPerformanceModel,
     "FlorisWindPlantPerformanceModel": FlorisWindPlantPerformanceModel,
