@@ -161,7 +161,7 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
             self.add_input(
                 "storage_capacity",
                 val=self.config.max_capacity,
-                units=self.commodity_ammount_units,
+                units=self.commodity_amount_units,
                 desc="Storage capacity",
             )
 
@@ -219,14 +219,6 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
             desc=f"{self.commodity} input and output from storage",
         )
 
-        self.add_input(
-            f"{self.commodity}_demand",
-            val=0.0,
-            shape=self.n_timesteps,
-            units=self.commodity_rate_units,
-            desc=f"{self.commodity} demand",
-        )
-
         self.add_output(
             f"unmet_{self.commodity}_demand_out",
             val=0.0,
@@ -276,17 +268,18 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
         # Below is an example of what the compute method would look like in the
         # StoragePerformanceModel
         # Do whatever pre-calculations are necessary, then run storage
-        self.current_soc = self.config.init_soc_fraction
+        # self.current_soc = self.config.init_soc_fraction
 
-        charge_rate = inputs["max_charge_rate"][0]
-        if "max_discharge_rate" in inputs:
-            discharge_rate = inputs["max_discharge_rate"][0]
-        else:
-            discharge_rate = inputs["max_charge_rate"][0]
-        storage_capacity = inputs["storage_capacity"]
-        outputs = self.run_storage(
-            charge_rate, discharge_rate, storage_capacity, inputs, outputs, discrete_inputs
-        )
+        # charge_rate = inputs["max_charge_rate"][0]
+        # if "max_discharge_rate" in inputs:
+        #     discharge_rate = inputs["max_discharge_rate"][0]
+        # else:
+        #     discharge_rate = inputs["max_charge_rate"][0]
+        # storage_capacity = inputs["storage_capacity"]
+        # outputs = self.run_storage(
+        #     charge_rate, discharge_rate, storage_capacity, inputs, outputs, discrete_inputs
+        # )
+        raise NotImplementedError("This method should be implemented in a subclass")
 
     def run_storage(
         self, charge_rate, discharge_rate, storage_capacity, inputs, outputs, discrete_inputs
