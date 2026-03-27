@@ -362,7 +362,7 @@ class OpenMeteoHistoricalWindResource(WindResourceBaseAPIModel):
 
             if "is_day" in c:
                 data_rename_mapper.update({c: "is_day"})
-                data_units.update({"is_day": "percent"})
+                data_units.update({"is_day": "unitless"})
 
             if "surface" in c:
                 new_c += "_0m"
