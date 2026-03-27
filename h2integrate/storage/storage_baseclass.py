@@ -265,6 +265,19 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
         )  # convert from seconds to hours
 
     def compute(self, inputs, outputs, discrete_inputs=[], discrete_outputs=[]):
+        """Run the storage model.
+
+        Configures the storage stateful model parameters (SOC limits, timestep,
+        thermal properties, etc.), executes the simulation, and stores the
+        results in OpenMDAO outputs.
+
+        Args:
+            inputs (dict): Continuous input values (e.g., commodity_in, commodity_demand).
+            outputs (dict): Dictionary where model outputs (SOC, unmet demand, etc.)
+                are written.
+            discrete_inputs (dict): Discrete inputs such as control mode or Pyomo solver.
+            discrete_outputs (dict): Discrete outputs (unused in this component).
+        """
         # Below is an example of what the compute method would look like in the
         # StoragePerformanceModel
         # Do whatever pre-calculations are necessary, then run storage
