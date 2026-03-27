@@ -90,6 +90,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
         self.resource_data = None
         self.resource_site = [self.config.latitude, self.config.longitude]
         self.dt = self.options["plant_config"]["plant"]["simulation"]["dt"]
+        self.n_timesteps = self.options["plant_config"]["plant"]["simulation"]["n_timesteps"]
         self.add_input("latitude", self.config.latitude, units="deg")
         self.add_input("longitude", self.config.longitude, units="deg")
 

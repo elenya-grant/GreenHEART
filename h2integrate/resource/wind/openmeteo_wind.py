@@ -22,6 +22,8 @@ class OpenMeteoHistoricalWindAPIConfig(ResourceBaseAPIConfig):
     Args:
         resource_year (int): Year to use for resource data.
             Must been between 1940 the year before the current calendar year. (inclusive).
+        include_leap_day (bool, optional): If False, remove data from leap day if the
+            resource_year is a leap year. Otherwise, leave leap day data in. Defaults to False.
         verify_download (bool, optional): Whether to verify the API download from the url.
             If an `openmeteo_requests.Client.OpenMeteoRequestsError` error is thrown,
             try setting to True. Defaults to False.
@@ -37,6 +39,7 @@ class OpenMeteoHistoricalWindAPIConfig(ResourceBaseAPIConfig):
     """
 
     resource_year: int = field(converter=int, validator=range_val(1940, datetime.now().year - 1))
+    include_leap_day: bool = field(default=False)
     dataset_desc: str = "openmeteo_archive"
     resource_type: str = "wind"
     valid_intervals: list[int] = field(factory=lambda: [60])
@@ -279,7 +282,41 @@ class OpenMeteoHistoricalWindResource(WindResourceBaseAPIModel):
         data["Minute"] = time.minute
 
         data = data[data["Year"] == self.config.resource_year]
-        # TODO: throw error if data isn't proper length
+
+        data = data.reset_index(drop=True)
+
+        # Check if data includes leap day
+        data_has_leap_day = int(data[data["Month"] == 2]["Day"].max()) == 29
+
+        # Remove leap day if needed
+        if not self.config.include_leap_day and data_has_leap_day:
+            # Get index of dataframe that includes leap day
+            leap_day_index = (
+                data.reset_index(drop=False)
+                .set_index(keys=["Month", "Day"], drop=True)
+                .loc[(2, 29)]["index"]
+                .to_list()
+            )
+            # Drop the leap day data from the dataframe
+            data = data.drop(index=leap_day_index)
+
+        # Check if data is the same length as the number of timesteps
+        if len(data) != self.n_timesteps:
+            leap_day_msg = ""
+            if data_has_leap_day and len(data) > self.n_timesteps:
+                # Add extra detail to error message if error may be due to leap day
+                leap_day_msg = (
+                    "This may be because the resource data includes a leap day. ",
+                    "To remove data from a leap day from resource data, please set "
+                    "`include_leap_day` to False.",
+                )
+
+            msg = (
+                f"{self.__class__.__name__}: Resource data is not the same length as n_timesteps. "
+                f"Resource data has length {len(data)}, n_timesteps is {self.n_timesteps}. "
+                f"{leap_day_msg}"
+            )
+            raise ValueError(msg)
 
         data, data_units = self.format_timeseries_data(data)
         # make units for data in openmdao-compatible units
