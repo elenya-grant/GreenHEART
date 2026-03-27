@@ -85,15 +85,15 @@ technologies:
         commodity_rate_units: kg/h
         max_charge_rate: 50000.0  # kg/time step
         max_capacity: 103701.401563086  # kg
+        max_charge_fraction: 1.0  # fraction (0-1)
+        min_charge_fraction: 0.1  # fraction (0-1)
+        init_charge_fraction: 0.25  # fraction (0-1)
+        charge_efficiency: 1.0  # fraction (0-1)
+        discharge_efficiency: 1.0  # fraction (0-1)
+        demand_profile: 2108.73919484047
       control_parameters:
-        max_charge_percent: 1.0  # percent as decimal
-        min_charge_percent: 0.1  # percent as decimal
-        init_charge_percent: 0.25  # percent as decimal
         max_discharge_rate: 5000.0  # kg/time step
         charge_equals_discharge: false
-        charge_efficiency: 1.0  # percent as decimal
-        discharge_efficiency: 1.0  # percent as decimal
-        demand_profile: 2108.73919484047
       cost_parameters:
         cost_year: 2022
         capacity_capex: 383  # $/kg - based on https://www.hydrogen.energy.gov/docs/hydrogenprogramlibraries/pdfs/review22/st235_houchins_2022_p-pdf.pdf?Status=Master
@@ -141,14 +141,14 @@ technologies:
         commodity_rate_units: kg/h
         max_charge_rate: 50000.0  # kg/time step
         max_capacity: 961456.376748904  # kg
-      control_parameters:
-        max_charge_percent: 1.0  # percent as decimal
-        min_charge_percent: 0.1  # percent as decimal
-        init_charge_percent: 0.25  # percent as decimal
-        max_discharge_rate: 50000.0  # kg/time step
-        charge_efficiency: 1.0  # percent as decimal
-        discharge_efficiency: 1.0  # percent as decimal
+        max_charge_fraction: 1.0  # fraction (0-1)
+        min_charge_fraction: 0.1  # fraction (0-1)
+        init_charge_fraction: 0.25  # fraction (0-1)
+        charge_efficiency: 1.0  # fraction (0-1)
+        discharge_efficiency: 1.0  # fraction (0-1)
         demand_profile: 15388.3891
+      control_parameters:
+        max_discharge_rate: 50000.0  # kg/time step
       cost_parameters:
         cost_year: 2022
         capacity_capex: 5  # $/kg - based on https://www.maritime.dot.gov/sites/marad.dot.gov/files/2024-11/LCE%20MARAD%20CCS%20TEA%20Final%20Report%20-%2031%20May%202024%20%283%29.pdf

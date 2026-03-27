@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- Updates the PR Changelog requirement to include complete descriptions of updates and a link to the
+  associated PR. [PR 572](https://github.com/NatLabRockies/H2Integrate/pull/572)
+- Removed unnecessary `tech_name` designations for some control techs in yamls [PR 559](https://github.com/NatLabRockies/H2Integrate/pull/559)
+- PySAM battery now takes in charge rate and storage capacity as inputs [PR 557](https://github.com/NatLabRockies/H2Integrate/pull/557)
+- Renamed `min_charge_percent`, `max_charge_percent`, and `init_charge_percent` to
+  `min_charge_fraction`, `max_charge_fraction`, and `init_charge_fraction` across all
+  configuration classes, YAML configs, tests, and examples. These values are fractions
+  between 0 and 1, so the previous "percent" naming was misleading. [PR 581](https://github.com/NatLabRockies/H2Integrate/pull/581)
+- Switch to using NLR instead of NREL throughout, especially for API key usage for resource acquisition. [PR 583](https://github.com/NatLabRockies/H2Integrate/pull/583)
+- Reorganized utilities, split them out to appropriate modules [PR 586](https://github.com/NatLabRockies/H2Integrate/pull/586)
+- Added a generic storage model that is compatible with the Pyomo controllers [PR 571](https://github.com/NatLabRockies/H2Integrate/pull/571)
+
 ## 0.7 [March 3, 2026]
 
 ### New Features

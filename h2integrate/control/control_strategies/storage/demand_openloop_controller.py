@@ -21,12 +21,12 @@ class DemandOpenLoopStorageControllerConfig(DemandOpenLoopControlBaseConfig):
     Attributes:
         max_capacity (float): Maximum storage capacity of the commodity (in non-rate units,
             e.g., "kg" if `commodity_rate_units` is "kg/h").
-        max_charge_percent (float): Maximum allowable state of charge (SOC) as a percentage
-            of `max_capacity`, represented as a decimal between 0 and 1.
-        min_charge_percent (float): Minimum allowable SOC as a percentage of `max_capacity`,
-            represented as a decimal between 0 and 1.
-        init_charge_percent (float): Initial SOC as a percentage of `max_capacity`, represented
-            as a decimal between 0 and 1.
+        max_charge_fraction (float): Maximum allowable state of charge (SOC) as a fraction
+            of `max_capacity`, between 0 and 1.
+        min_charge_fraction (float): Minimum allowable SOC as a fraction of `max_capacity`,
+            between 0 and 1.
+        init_charge_fraction (float): Initial SOC as a fraction of `max_capacity`,
+            between 0 and 1.
         max_charge_rate (float): Maximum rate at which the commodity can be charged (in units
             per time step, e.g., "kg/time step"). This rate does not include the charge_efficiency.
         charge_equals_discharge (bool, optional): If True, set the max_discharge_rate equal to the
@@ -48,9 +48,9 @@ class DemandOpenLoopStorageControllerConfig(DemandOpenLoopControlBaseConfig):
     """
 
     max_capacity: float = field()
-    max_charge_percent: float = field(validator=range_val(0, 1))
-    min_charge_percent: float = field(validator=range_val(0, 1))
-    init_charge_percent: float = field(validator=range_val(0, 1))
+    max_charge_fraction: float = field(validator=range_val(0, 1))
+    min_charge_fraction: float = field(validator=range_val(0, 1))
+    init_charge_fraction: float = field(validator=range_val(0, 1))
     max_charge_rate: float = field(validator=gte_zero)
     charge_equals_discharge: bool = field(default=True)
     max_discharge_rate: float | None = field(default=None)
@@ -259,9 +259,9 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
             raise UserWarning(msg)
 
         max_capacity = inputs["max_capacity"].item()
-        max_charge_percent = self.config.max_charge_percent
-        min_charge_percent = self.config.min_charge_percent
-        init_charge_percent = self.config.init_charge_percent
+        max_charge_fraction = self.config.max_charge_fraction
+        min_charge_fraction = self.config.min_charge_fraction
+        init_charge_fraction = self.config.init_charge_fraction
         max_charge_rate = inputs["max_charge_rate"].item()
         if self.config.charge_equals_discharge:
             max_discharge_rate = inputs["max_charge_rate"].item()
@@ -272,7 +272,7 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
 
         # Initialize time-step state of charge prior to loop so the loop starts with
         # the previous time step's value
-        soc = deepcopy(init_charge_percent)
+        soc = deepcopy(init_charge_fraction)
 
         demand_profile = inputs[f"{commodity}_demand"]
 
@@ -281,6 +281,7 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
         unused_commodity_array = outputs[f"{commodity}_unused_commodity"]
         output_array = outputs[f"{commodity}_set_point"]
         unmet_demand_array = outputs[f"{commodity}_unmet_demand"]
+        total_output_array = np.zeros(len(output_array))
 
         # Loop through each time step
         for t, demand_t in enumerate(demand_profile):
@@ -288,8 +289,8 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
             input_flow = inputs[f"{commodity}_in"][t]
 
             # Calculate the available charge/discharge capacity
-            available_charge = float((max_charge_percent - soc) * max_capacity)
-            available_discharge = float((soc - min_charge_percent) * max_capacity)
+            available_charge = float((max_charge_fraction - soc) * max_capacity)
+            available_discharge = float((soc - min_charge_fraction) * max_capacity)
 
             # Initialize persistent variables for curtailment and missed load
             unused_input = 0.0
@@ -309,7 +310,8 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
                 soc -= discharge / max_capacity  # soc is a ratio with value between 0 and 1
                 # output is as observed outside the storage, so we need to adjust `discharge` by
                 # applying `discharge_efficiency`.
-                output_array[t] = input_flow + discharge * discharge_efficiency
+                total_output_array[t] = input_flow + discharge * discharge_efficiency
+                output_array[t] = discharge * discharge_efficiency
             else:
                 # Charge storage with unused input
                 # `unused_input` is as seen outside the storage
@@ -323,10 +325,11 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
                     * charge_efficiency
                 )
                 soc += charge / max_capacity  # soc is a ratio with value between 0 and 1
-                output_array[t] = demand_t
+                output_array[t] = -1 * charge * charge_efficiency
+                total_output_array[t] = demand_t
 
             # Ensure SOC stays within bounds
-            soc = max(min_charge_percent, min(max_charge_percent, soc))
+            soc = max(min_charge_fraction, min(max_charge_fraction, soc))
 
             # Record the SOC for the current time step
             soc_array[t] = deepcopy(soc)
@@ -336,7 +339,7 @@ class DemandOpenLoopStorageController(DemandOpenLoopControlBase):
             unused_commodity_array[t] = max(0.0, unused_input - charge / charge_efficiency)
 
             # Record the missed load at the current time step
-            unmet_demand_array[t] = max(0.0, (demand_t - output_array[t]))
+            unmet_demand_array[t] = max(0.0, (demand_t - total_output_array[t]))
 
         outputs[f"{commodity}_set_point"] = output_array
 
