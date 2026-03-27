@@ -80,34 +80,34 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
     time_weighting_factor: float = field(validator=range_val(0, 1), default=0.995)
     time_duration: float = field(default=1.0)  # hours
     # Can we set this to interconnection? do we want to?
-    max_system_capacity: float = field(default=0)
-    commodity_buy_price: int | float | list = field(default=0.0)
+    max_system_capacity: float = field(default=None)
+    commodity_buy_price: int | float | list = field(default=None)
 
     def __attrs_post_init__(self):
-        # # Handle demand_met_value list/float here
-        # if isinstance(self.system_commodity_interface_limit, float | int):
-        #     self.system_commodity_interface_limit = [
-        #         self.system_commodity_interface_limit
-        #     ] * self.n_control_window
-
         # Check inputs for grid parameters
         if self.allow_commodity_buying:
-            # Check grid buy price
-            if isinstance(self.commodity_buy_price, float | int):
-                if self.commodity_buy_price == 0:
-                    raise ValueError(
-                        "commodity_buy_price must be defined as an input and >0 \
-                            if using grid charging"
-                    )
-            if isinstance(self.commodity_buy_price, list):
-                if all(self.commodity_buy_price) == 0:
-                    raise ValueError(
-                        "commodity_buy_price must be defined as an input and >0 \
-                            if using grid charging"
-                    )
+            if self.commodity_buy_price:
+                # Check grid buy price
+                if isinstance(self.commodity_buy_price, float | int):
+                    if self.commodity_buy_price == 0:
+                        raise ValueError(
+                            "commodity_buy_price must be defined as an input and >0 \
+                                if using grid charging"
+                        )
+                if isinstance(self.commodity_buy_price, list) or self.commodity_buy_price is None:
+                    if all(self.commodity_buy_price) == 0:
+                        raise ValueError(
+                            "commodity_buy_price must be defined as an input and >0 \
+                                if using grid charging"
+                        )
+            else:
+                raise ValueError(
+                    "commodity_buy_price must be defined as an input and >0 \
+                        if using grid charging"
+                )
 
             # Check max system capacity
-            if self.max_system_capacity == 0:
+            if self.max_system_capacity == 0 or self.max_system_capacity is None:
                 raise ValueError(
                     "max_system_capacity must be defined as an input and >0 if using grid charging"
                 )
@@ -124,10 +124,12 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
             "charge_efficiency",
             "discharge_efficiency",
             "max_charge_rate",
-            "max_system_capacity",
             "allow_commodity_buying",
-            "commodity_buy_price",
         ]
+
+        if self.allow_commodity_buying:
+            dispatch_keys.append("max_system_capacity")
+            dispatch_keys.append("commodity_buy_price")
 
         dispatch_inputs = {k: self.as_dict()[k] for k in dispatch_keys}
         dispatch_inputs.update({"initial_soc_fraction": self.init_soc_fraction})

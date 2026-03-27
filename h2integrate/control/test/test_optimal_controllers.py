@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import numpy as np
 import pytest
 import openmdao.api as om
@@ -8,6 +10,7 @@ from h2integrate.storage.storage_performance_model import StoragePerformanceMode
 from h2integrate.storage.simple_storage_auto_sizing import StorageAutoSizingModel
 from h2integrate.control.control_strategies.optimized_pyomo_controller import (
     OptimizedDispatchController,
+    OptimizedDispatchControllerConfig,
 )
 
 
@@ -245,7 +248,6 @@ def test_min_operating_cost_load_following_battery_dispatch(
         assert pytest.approx(prob.model.get_val("battery.SOC")[0], rel=1e-2) == 50
 
     # Find where the signal increases, decreases, and stays at zero
-    print("SOC", prob.model.get_val("battery.SOC"))
     indx_soc_increase = np.argwhere(
         np.diff(prob.model.get_val("battery.SOC", units="unitless"), prepend=True) > 0
     ).flatten()
@@ -625,5 +627,241 @@ def test_optimal_dispatch_with_autosizing_storage_demand_is_avg_in(
         np.testing.assert_allclose(
             prob.get_val("h2_storage.storage_hydrogen_charge", units="kg/h")[0:20],
             expected_charge,
+            rtol=1e-6,
+        )
+
+
+@pytest.mark.regression
+def test_optimal_control_config_with_commodity_buying(subtests):
+    config_data = {
+        "tech_name": "h2_storage",
+        "max_charge_rate": 10.0,
+        "charge_efficiency": 1.0,
+        "discharge_efficiency": 1.0,
+        "commodity": "hydrogen",
+        "commodity_rate_units": "kg/h",
+        "max_capacity": 40.0,
+        "init_soc_fraction": 0.2,
+        "max_soc_fraction": 1.0,
+        "min_soc_fraction": 0.1,
+        "cost_per_charge": 0.03,  # USD/kg
+        "cost_per_discharge": 0.05,  # USD/kg
+        "demand_met_value": 0.1,  # USD/kg
+        "cost_per_production": 0.0,  # USD/kg
+        "time_weighting_factor": 0.995,
+        "system_commodity_interface_limit": 10.0,
+        "n_control_window": 24,
+        "allow_commodity_buying": False,
+    }
+
+    config = OptimizedDispatchControllerConfig.from_dict(config_data)
+
+    with subtests.test("check commodity_buy_price is None"):
+        assert config.commodity_buy_price is None
+    with subtests.test("check max_system_capacity is None"):
+        assert config.max_system_capacity is None
+
+    config_data["allow_commodity_buying"] = True
+
+    with subtests.test("with invalid commodity_buy_price"):
+        with pytest.raises(ValueError):
+            data = deepcopy(config_data)
+            data["allow_commodity_buying"] = True
+            OptimizedDispatchControllerConfig.from_dict(data)
+
+        with pytest.raises(ValueError):
+            data = deepcopy(config_data)
+            data["allow_commodity_buying"] = True
+            data["commodity_buy_price"] = 0.4
+            OptimizedDispatchControllerConfig.from_dict(data)
+
+        with pytest.raises(ValueError):
+            data = deepcopy(config_data)
+            data["allow_commodity_buying"] = True
+            data["commodity_buy_price"] = 0.4
+            data["max_system_capacity"] = 0.0
+            OptimizedDispatchControllerConfig.from_dict(data)
+
+
+@pytest.mark.regression
+def test_optimal_control_with_commodity_buying_generic_storage(
+    plant_config_h2_storage, tech_config_generic, subtests
+):
+    commodity_demand = np.full(48, 5.0)
+    commodity_in = np.tile(np.concat([np.zeros(3), np.cumsum(np.ones(15)), np.full(6, 4.0)]), 2)
+    commodity_buy_price = np.tile(np.concat([np.arange(-3, 9), np.arange(8, -4, -1)]), 2)
+    max_system_capacity = 7
+
+    # Set grid charging parameters
+    tech_config_generic["technologies"]["h2_storage"]["model_inputs"]["control_parameters"] = {
+        "tech_name": "h2_storage",
+        "cost_per_charge": 0.03,  # USD/kg
+        "cost_per_discharge": 0.05,  # USD/kg
+        "demand_met_value": 0.1,  # USD/kg
+        "cost_per_production": 0.0,  # USD/kg
+        "time_weighting_factor": 0.995,
+        "system_commodity_interface_limit": 10.0,
+        "n_control_window": 24,
+        "allow_commodity_buying": True,
+        "commodity_buy_price": 1,
+        "max_system_capacity": max_system_capacity,
+    }
+
+    # Setup the OpenMDAO problem and add subsystems
+    prob = om.Problem()
+
+    prob.model.add_subsystem(
+        "h2_storage_optimized_load_following_controller",
+        OptimizedDispatchController(
+            plant_config=plant_config_h2_storage,
+            tech_config=tech_config_generic["technologies"]["h2_storage"],
+        ),
+        promotes=["*"],
+    )
+
+    prob.model.add_subsystem(
+        "h2_storage",
+        StoragePerformanceModel(
+            plant_config=plant_config_h2_storage,
+            tech_config=tech_config_generic["technologies"]["h2_storage"],
+        ),
+        promotes=["*"],
+    )
+
+    # Setup the system and required values
+    prob.setup()
+    prob.set_val("h2_storage.hydrogen_in", commodity_in)
+    prob.set_val("h2_storage.hydrogen_demand", commodity_demand)
+    prob.set_val("hydrogen_buy_price", commodity_buy_price)
+
+    # Run the model
+    prob.run_model()
+
+    charge_rate = prob.get_val("h2_storage.max_charge_rate", units="kg/h")[0]
+    discharge_rate = prob.get_val("h2_storage.max_charge_rate", units="kg/h")[0]
+    capacity = prob.get_val("h2_storage.storage_capacity", units="kg")[0]
+
+    print("outputs: ", prob.get_val("storage_hydrogen_out"))
+    print("discharge: ", prob.get_val("h2_storage.storage_hydrogen_discharge"))
+    print("charge: ", prob.get_val("h2_storage.storage_hydrogen_charge"))
+    print("commodity in: ", prob.get_val("h2_storage.hydrogen_in"))
+    print("demand: ", prob.get_val("h2_storage.hydrogen_demand"))
+    print("commodity_buy: ", prob.get_val("hydrogen_buy_price"))
+    print("hydrogen_out: ", prob.get_val("hydrogen_out"))
+
+    # Test that discharge is always positive
+    with subtests.test("Discharge is always positive"):
+        assert np.all(prob.get_val("h2_storage.storage_hydrogen_discharge", units="kg/h") >= 0)
+    with subtests.test("Charge is always negative"):
+        assert np.all(prob.get_val("h2_storage.storage_hydrogen_charge", units="kg/h") <= 0)
+    with subtests.test("Charge + Discharge == storage_hydrogen_out"):
+        charge_plus_discharge = prob.get_val(
+            "h2_storage.storage_hydrogen_charge", units="kg/h"
+        ) + prob.get_val("h2_storage.storage_hydrogen_discharge", units="kg/h")
+        np.testing.assert_allclose(
+            charge_plus_discharge, prob.get_val("storage_hydrogen_out", units="kg/h"), rtol=1e-6
+        )
+    with subtests.test("Initial SOC is correct"):
+        assert (
+            pytest.approx(prob.model.get_val("h2_storage.SOC", units="unitless")[0], rel=1e-6)
+            == 0.375
+        )
+
+    indx_soc_increase = np.argwhere(
+        np.diff(prob.model.get_val("h2_storage.SOC", units="unitless"), prepend=True) > 0
+    ).flatten()
+    indx_soc_decrease = np.argwhere(
+        np.diff(prob.model.get_val("h2_storage.SOC", units="unitless"), prepend=False) < 0
+    ).flatten()
+    indx_soc_same = np.argwhere(
+        np.diff(prob.model.get_val("h2_storage.SOC", units="unitless"), prepend=True) == 0.0
+    ).flatten()
+
+    with subtests.test("SOC increases when charging"):
+        assert np.all(
+            prob.get_val("h2_storage.storage_hydrogen_charge", units="kg/h")[indx_soc_increase] < 0
+        )
+        assert np.all(
+            prob.get_val("h2_storage.storage_hydrogen_charge", units="kg/h")[indx_soc_decrease] == 0
+        )
+        assert np.all(
+            prob.get_val("h2_storage.storage_hydrogen_charge", units="kg/h")[indx_soc_same] == 0
+        )
+
+    with subtests.test("SOC decreases when discharging"):
+        assert np.all(
+            prob.get_val("h2_storage.storage_hydrogen_discharge", units="kg/h")[indx_soc_decrease]
+            > 0
+        )
+        assert np.all(
+            prob.get_val("h2_storage.storage_hydrogen_discharge", units="kg/h")[indx_soc_increase]
+            == 0
+        )
+        assert np.all(
+            prob.get_val("h2_storage.storage_hydrogen_discharge", units="kg/h")[indx_soc_same] == 0
+        )
+
+    with subtests.test("Max SOC <= Max storage percent"):
+        assert prob.get_val("h2_storage.SOC", units="unitless").max() <= 1.0
+
+    with subtests.test("Min SOC >= Min storage percent"):
+        assert prob.get_val("h2_storage.SOC", units="unitless").min() >= 0.1
+
+    with subtests.test("Charge never exceeds charge rate"):
+        assert (
+            prob.get_val("h2_storage.storage_hydrogen_charge", units="kg/h").min()
+            >= -1 * charge_rate
+        )
+
+    with subtests.test("Discharge never exceeds discharge rate"):
+        assert (
+            prob.get_val("h2_storage.storage_hydrogen_discharge", units="kg/h").max()
+            <= discharge_rate
+        )
+
+    with subtests.test("Discharge never exceeds demand"):
+        np.testing.assert_allclose(
+            prob.get_val("h2_storage.storage_hydrogen_discharge", units="kg/h").max(),
+            commodity_demand,
+            rtol=1e-6,
+        )
+
+    with subtests.test("Sometimes discharges"):
+        assert any(
+            k > 1e-3 for k in prob.get_val("h2_storage.storage_hydrogen_discharge", units="kg/h")
+        )
+
+    with subtests.test("Sometimes charges"):
+        assert any(
+            k < -1e-3 for k in prob.get_val("h2_storage.storage_hydrogen_charge", units="kg/h")
+        )
+
+    with subtests.test("Cumulative charge/discharge does not exceed storage capacity"):
+        assert np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).max() <= capacity
+        assert np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).min() >= -1 * capacity
+
+    with subtests.test("Expected discharge from hour 10-30"):
+        expected_discharge = np.concat(
+            [np.zeros(8), np.ones(3), np.zeros(3), [5, 0], np.arange(5, 1, -1)]
+        )
+        np.testing.assert_allclose(
+            prob.get_val("h2_storage.storage_hydrogen_discharge", units="kg/h")[10:30],
+            expected_discharge,
+            rtol=1e-6,
+            atol=1e-6,
+        )
+
+    with subtests.test("Expected charge hour 0-20"):
+        expected_charge = np.concat([np.ones(3) * -7, np.zeros(5), [-1, -2], np.zeros(10)])
+        np.testing.assert_allclose(
+            prob.get_val("h2_storage.storage_hydrogen_charge", units="kg/h")[0:20],
+            expected_charge,
+            rtol=1e-6,
+        )
+
+    with subtests.test("Output never exceeds system commodity draw limit"):
+        np.testing.assert_allclose(
+            prob.get_val("h2_storage.storage_hydrogen_charge", units="kg/h").min(),
+            -max_system_capacity,
             rtol=1e-6,
         )
