@@ -205,7 +205,7 @@ def test_solar_resource_h2i_download(
 @pytest.mark.parametrize(
     "model,which,lat,lon,resource_year,model_name,timezone",
     [("OpenMeteoHistoricalSolarResource", "solar",  -28.454864, 114.551749, 2024, "openmeteo_archive_solar", 8)],  # noqa: E501
-    ids=["OpenMeteoHistoricalSolarResource-Leap Year"]
+    ids=["OpenMeteoHistoricalSolarResource-LeapYear"]
 )
 # fmt: on
 def test_solar_resource_h2i_download_leap_year(
