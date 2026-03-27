@@ -24,65 +24,6 @@ class StoragePerformanceBaseConfig(BaseConfig):
     max_soc_fraction: float = field(validator=range_val(0, 1))
     demand_profile: int | float | list = field()
 
-    # Below is used in StoragePerformance and StorageAutoSizing
-    # commodity: str = field(converter=str.strip)
-    # commodity_rate_units: str = field(converter=str.strip)
-    # commodity_amount_units: str = field(default=None)
-    # charge_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
-    # discharge_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
-    # round_trip_efficiency: float | None = field(default=None, validator=range_val_or_none(0, 1))
-
-    # # Below is only used in StoragePerformance
-    # max_discharge_rate: float | None = field(default=None)
-    # charge_equals_discharge: bool = field(default=True)
-
-    # # Below is used in StoragePerformance and PySAMBattery
-    # max_capacity: float = field(validator=gt_zero)
-    # max_charge_rate: float = field(validator=gt_zero)
-    # init_soc_fraction: float = field(validator=range_val(0, 1))
-
-    # def __attrs_post_init__(self):
-    #     if (self.round_trip_efficiency is not None) and (
-    #         self.charge_efficiency is None and self.discharge_efficiency is None
-    #     ):
-    #         # Calculate charge and discharge efficiencies from round-trip efficiency
-    #         self.charge_efficiency = np.sqrt(self.round_trip_efficiency)
-    #         self.discharge_efficiency = np.sqrt(self.round_trip_efficiency)
-    #         self.round_trip_efficiency = None
-    #     if self.charge_efficiency is None or self.discharge_efficiency is None:
-    #         raise ValueError(
-    #             "Exactly one of the following sets of parameters must be set: (a) "
-    #             "`round_trip_efficiency`, or (b) both `charge_efficiency` "
-    #             "and `discharge_efficiency`."
-    #         )
-
-    ## Below only for StoragePerformance
-
-    # if self.charge_equals_discharge:
-    #     if (
-    #         self.max_discharge_rate is not None
-    #         and self.max_discharge_rate != self.max_charge_rate
-    #     ):
-    #         msg = (
-    #             "Max discharge rate does not equal charge rate but charge_equals_discharge"
-    #             f"is True. Discharge rate is {self.max_discharge_rate} and charge rate "
-    #             f"is {self.max_charge_rate}."
-    #         )
-    #         raise ValueError(msg)
-
-    #     self.max_discharge_rate = self.max_charge_rate
-
-    # if not self.charge_equals_discharge and self.max_discharge_rate is None:
-    #     msg = (
-    #         "max_discharge_rate is a required key when charge_equals_discharge is True."
-    #         "Please set a value for the max_discharge_rate."
-    #     )
-    #     raise ValueError(msg)
-
-    ## Below NOT used in PySAM battery
-    # if self.commodity_amount_units is None:
-    #     self.commodity_amount_units = f"({self.commodity_rate_units})*h"
-
 
 class StoragePerformanceBase(PerformanceModelBaseClass):
     """
@@ -123,6 +64,13 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
     """
 
     def setup(self):
+        """Set up the storage performance model in OpenMDAO.
+
+        Initializes the configuration and defines inputs/outputs for OpenMDAO.
+        If dispatch connections are specified, it also sets up a discrete
+        input for Pyomo solver integration.
+        """
+
         # Below should be done in models that inherit it
         # self.commodity = self.config.commodity
         # self.commodity_rate_units = self.config.commodity_rate_units
@@ -288,7 +236,7 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
         #     discharge_rate = inputs["max_discharge_rate"][0]
         # else:
         #     discharge_rate = inputs["max_charge_rate"][0]
-        # storage_capacity = inputs["storage_capacity"]
+        # storage_capacity = inputs["storage_capacity"][0]
         # outputs = self.run_storage(
         #     charge_rate, discharge_rate, storage_capacity, inputs, outputs, discrete_inputs
         # )

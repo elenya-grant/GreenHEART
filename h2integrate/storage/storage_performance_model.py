@@ -54,13 +54,10 @@ class StoragePerformanceModelConfig(StoragePerformanceBaseConfig):
 
     commodity: str = field()
     commodity_rate_units: str = field()
-    # demand_profile: int | float | list = field()
 
     max_capacity: float = field(validator=gt_zero)
     max_charge_rate: float = field(validator=gt_zero)
 
-    # min_soc_fraction: float = field(validator=range_val(0, 1))
-    # max_soc_fraction: float = field(validator=range_val(0, 1))
     init_soc_fraction: float = field(validator=range_val(0, 1))
 
     commodity_amount_units: str = field(default=None)
@@ -120,48 +117,9 @@ class StoragePerformanceModelConfig(StoragePerformanceBaseConfig):
 
 
 class StoragePerformanceModel(StoragePerformanceBase):
-    """OpenMDAO component for a storage component.
-
-    Attributes:
-        config (StoragePerformanceModelConfig):
-            Configuration parameters for the storage performance model.
-        current_soc (float): soc at the start of each interval that the simulate()
-            method is called
-        dt_hr (float): timestep in hours.
-
-    Inputs:
-        max_charge_rate (float):
-            storage charge rate in commodity_rate_units
-        storage_capacity (float):
-            Total energy storage capacity in commodity_amount_units
-        commodity_demand (ndarray):
-            Commodity demand time series (commodity_rate_units).
-        commodity_in (ndarray):
-            Commanded input commodity (commodity_rate_units), typically from dispatch.
-
-    Outputs:
-        unmet_demand_out (ndarray):
-            Remaining unmet demand after discharge in commodity_rate_units.
-        unused_commodity_out (ndarray):
-            Unused energy not absorbed by the storage in commodity_rate_units.
-        commodity_out (ndarray):
-            Dispatched commodity to meet demand in commodity_rate_units, including commodity from
-            commodity_in that was never used to charge the storage and
-            storage_commodity_discharge.
-        SOC (ndarray):
-            storage state of charge (%).
-        storage_commodity_discharge (ndarray):
-            commodity output from the storage model in commodity_rate_units.
-
-    """
+    """OpenMDAO component for a storage component."""
 
     def setup(self):
-        """Set up the storage performance model in OpenMDAO.
-
-        Initializes the configuration and defines inputs/outputs for OpenMDAO.
-        If dispatch connections are specified, it also sets up a discrete
-        input for Pyomo solver integration.
-        """
         self.config = StoragePerformanceModelConfig.from_dict(
             merge_shared_inputs(self.options["tech_config"]["model_inputs"], "performance"),
             strict=False,
@@ -175,23 +133,7 @@ class StoragePerformanceModel(StoragePerformanceBase):
         super().setup()
 
     def compute(self, inputs, outputs, discrete_inputs=[], discrete_outputs=[]):
-        """Run the storage model.
-
-        Configures the storage stateful model parameters (SOC limits, timestep,
-        thermal properties, etc.), executes the simulation, and stores the
-        results in OpenMDAO outputs.
-
-        Args:
-            inputs (dict):
-                Continuous input values (e.g., commodity_in, commodity_demand).
-            outputs (dict):
-                Dictionary where model outputs (SOC, unmet demand, etc.)
-                are written.
-            discrete_inputs (dict):
-                Discrete inputs such as control mode or Pyomo solver.
-            discrete_outputs (dict):
-                Discrete outputs (unused in this component).
-        """
+        """Run the storage performance model."""
         self.current_soc = self.config.init_soc_fraction
 
         charge_rate = inputs["max_charge_rate"][0]

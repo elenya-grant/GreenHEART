@@ -41,9 +41,6 @@ class StorageSizingModelConfig(StoragePerformanceBaseConfig):
     commodity: str = field(converter=(str.strip, str.lower))
     commodity_rate_units: str = field(converter=str.strip)
 
-    # min_soc_fraction: float = field(validator=range_val(0, 1))
-    # max_soc_fraction: float = field(validator=range_val(0, 1))
-
     # TODO: add in logic for having different discharge rate
     # charge_equals_discharge: bool = field(default=True)
     set_demand_as_avg_commodity_in: bool = field()
@@ -92,38 +89,6 @@ class StorageAutoSizingModel(StoragePerformanceBase):
 
     Then simulates performance of a basic storage component using the charge rate and
     capacity calculated.
-
-    Note: this storage performance model is intended to be used with the
-    `SimpleStorageOpenLoopController` controller and is not compatible with the
-    `DemandOpenLoopStorageController` controller.
-
-    Inputs:
-        {commodity}_in (float): Input commodity flow timeseries (e.g., hydrogen production)
-            used to estimate the demand if `commodity_demand_profile` is zero.
-            - Units: Defined in `commodity_rate_units` (e.g., "kg/h").
-        {commodity}_set_point (float): Input commodity flow timeseries (e.g., hydrogen production)
-            used as the available input commodity to meet the demand.
-        {commodity}_demand_profile (float): Demand profile of commodity.
-            - Units: Defined in `commodity_rate_units` (e.g., "kg/h").
-
-    Outputs:
-        max_capacity (float): Maximum storage capacity of the commodity.
-            - Units: in non-rate units, e.g., "kg" if `commodity_rate_units` is "kg/h"
-        max_charge_rate (float): Maximum rate at which the commodity can be charged
-            - Units: Defined in `commodity_rate_units` (e.g., "kg/h").
-            Assumed to also be the discharge rate.
-        {commodity}_out (np.ndarray): the commodity used to meet demand from the available
-            input commodity and storage component. Defined in `commodity_rate_units`.
-        total_{commodity}_produced (float): sum of commodity discharged from storage over
-            the simulation. Defined in `commodity_amount_units`
-        rated_{commodity}_production (float): maximum commodity that could be discharged
-            in a timestep. Defined in `commodity_rate_units`
-        annual_{commodity}_produced (np.ndarray): total commodity discharged per year.
-            Defined in `commodity_amount_units/year`
-        capacity_factor (np.ndarray): ratio of commodity discharged to the maximum
-            commodity that could be discharged over the simulation.
-            Defined as a ratio (units of `unitless`)
-
     """
 
     def setup(self):
@@ -192,12 +157,9 @@ class StorageAutoSizingModel(StoragePerformanceBase):
         1) Estimate the starting SOC (as a fraction) at the start of the simulation.
             Take the first value in the SOC profile (in `commodity_amount_units`)
             and divide by the storage capacity
-        2) If `commodity_set_point` is an input, simulate the storage performance
-            using the `simulate()` method with the dispatch command input `commodity_set_point`.
-            Otherwise, make an input dictionary containing the calculated demand profile,
-            storage capacity, and storage fill rate, and run the input dispatch method.
-        3) Calculate the unmet demand, unused commodity, SOC, combined commodity output, etc.
-
+        2) Make an input dictionary containing the calculated demand profile,
+            storage capacity, and storage fill rate, and run the storage performance.
+        3) Calculate the outputs
         """
 
         # Part 0: get demand profile based on user input parameters
@@ -267,9 +229,7 @@ class StorageAutoSizingModel(StoragePerformanceBase):
         outputs["max_discharge_rate"] = storage_max_empty_rate
         outputs["storage_capacity"] = rated_storage_capacity
 
-        # 2. Simulate the storage performance using the `simulate()`
-
-        # Make dictionary of inputs containing information to pass to the controller
+        # 2. Make dictionary of inputs containing information to pass to the controller
         # (such as demand profile, charge rate, and storage capacity)
         inputs_adjusted = dict(inputs.items())
         if self.config.set_demand_as_avg_commodity_in:
@@ -279,6 +239,7 @@ class StorageAutoSizingModel(StoragePerformanceBase):
             inputs_adjusted["storage_capacity"] = np.array([rated_storage_capacity])
             inputs_adjusted["max_charge_rate"] = np.array([storage_max_fill_rate])
 
+        # 3. Simulate the storage performance and calculate outputs
         outputs = self.run_storage(
             storage_max_fill_rate,
             storage_max_empty_rate,

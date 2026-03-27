@@ -21,11 +21,9 @@ class PySAMBatteryPerformanceModelConfig(StoragePerformanceBaseConfig):
     and reference module characteristics.
 
     Attributes:
-        max_capacity (float):
-            Maximum battery energy capacity in kilowatt-hours (kWh).
+        max_capacity (float): Maximum battery energy capacity in kilowatt-hours (kWh).
             Must be greater than zero.
-        max_charge_rate (float):
-            Rated power capacity of the battery in kilowatts (kW).
+        max_charge_rate (float): Rated power capacity of the battery in kilowatts (kW).
             Must be greater than zero.
         demand_profile (int | float | list): Demand values for each timestep, in
             the same units as `commodity_rate_units`. May be a scalar for constant
@@ -36,20 +34,14 @@ class PySAMBatteryPerformanceModelConfig(StoragePerformanceBaseConfig):
 
             - PySAM: ``"LFPGraphite"``, ``"LMOLTO"``, ``"LeadAcid"``, ``"NMCGraphite"``
 
-        min_soc_fraction (float):
-            Minimum allowable state of charge as a fraction (0 to 1).
-        max_soc_fraction (float):
-            Maximum allowable state of charge as a fraction (0 to 1).
-        init_soc_fraction (float):
-            Initial state of charge as a fraction (0 to 1).
-        control_variable (str):
-            Control mode for the PySAM battery, either ``"input_power"``
+        min_soc_fraction (float): Minimum allowable state of charge as a fraction (0 to 1).
+        max_soc_fraction (float): Maximum allowable state of charge as a fraction (0 to 1).
+        init_soc_fraction (float): Initial state of charge as a fraction (0 to 1).
+        control_variable (str): Control mode for the PySAM battery, either ``"input_power"``
             or ``"input_current"``.
-        ref_module_capacity (int | float, optional):
-            Reference module capacity in kilowatt-hours (kWh).
+        ref_module_capacity (int | float, optional): Reference module capacity in kWh.
             Defaults to 400.
-        ref_module_surface_area (int | float, optional):
-            Reference module surface area in square meters (m²).
+        ref_module_surface_area (int | float, optional): Reference module surface area in m².
             Defaults to 30.
         Cp (int | float, optional): Battery specific heat capacity [J/kg*K].
             Defaults to 900.
@@ -61,12 +53,11 @@ class PySAMBatteryPerformanceModelConfig(StoragePerformanceBaseConfig):
 
     max_capacity: float = field(validator=gt_zero)
     max_charge_rate: float = field(validator=gt_zero)
-    # demand_profile: int | float | list = field()
+
     chemistry: str = field(
         validator=contains(["LFPGraphite", "LMOLTO", "LeadAcid", "NMCGraphite"]),
     )
-    # min_soc_fraction: float = field(validator=range_val(0, 1))
-    # max_soc_fraction: float = field(validator=range_val(0, 1))
+
     init_soc_fraction: float = field(validator=range_val(0, 1))
     control_variable: str = field(
         default="input_power", validator=contains(["input_power", "input_current"])
@@ -90,68 +81,18 @@ class PySAMBatteryPerformanceModel(StoragePerformanceBase):
     bounds set by the user. It may exceed the bounds by up to 5% SOC.
 
     Attributes:
-        config (PySAMBatteryPerformanceModelConfig):
-            Configuration parameters for the battery performance model.
-        system_model (``BatteryStateful``):
-            Instance of the PySAM BatteryStateful model, initialized with
-            the selected chemistry and configuration parameters.
-        outputs (BatteryOutputs):
-            Container for simulation outputs such as SOC, chargeable/dischargeable
-            power, unmet demand, and unused commodities.
-        unmet_demand (float):
-            Tracks unmet demand during simulation (kW).
-        unused_commodity (float):
-            Tracks unused commodity during simulation (kW).
+        system_model (``BatteryStateful``): Instance of the PySAM BatteryStateful model, initialized
+            with the selected chemistry and configuration parameters.
 
-    Inputs:
-        max_charge_rate (float):
-            Battery charge rate in kilowatts per hour (kW).
-        storage_capacity (float):
-            Total energy storage capacity in kilowatt-hours (kWh).
-        electricity_demand (ndarray):
-            Power demand time series (kW).
-        electricity_in (ndarray):
-            Commanded input electricity (kW), typically from dispatch.
-
-    Outputs:
-        unmet_demand_out (ndarray):
-            Remaining unmet demand after discharge (kW).
-        unused_commodity_out (ndarray):
-            Unused energy not absorbed by the battery (kW).
-        electricity_out (ndarray):
-            Dispatched electricity to meet demand (kW), including electricity from
-            electricity_in that was never used to charge the battery and
-            battery_electricity.
-        SOC (ndarray):
-            Battery state of charge (%).
-        battery_electricity (ndarray):
-            Electricity output from the battery model (kW).
 
     Methods:
-        setup():
-            Defines model inputs, outputs, configuration, and connections
-            to plant-level dispatch (if applicable).
         compute(inputs, outputs, discrete_inputs, discrete_outputs):
             Runs the PySAM BatteryStateful model for a simulation timestep,
             updating outputs such as SOC, charge/discharge limits, unmet
             demand, and unused commodities.
-        simulate(electricity_in, electricity_demand, time_step_duration, control_variable,
-            sim_start_index=0):
-            Simulates the battery behavior across timesteps using either
-            input power or input current as control. This method is similar to what is
-            provided in typical compute methods in H2Integrate for running models, but
-            needs to be a separate method here to allow the dispatch function to call
-            and manage the performance model.
         _set_control_mode(control_mode=1.0, input_power=0.0, input_current=0.0,
             control_variable="input_power"):
             Sets the battery control mode (power or current).
-
-    Notes:
-        - Default timestep is 1 hour (``dt=1.0``).
-        - State of charge (SOC) bounds are set using the configuration's
-          ``min_soc_fraction`` and ``max_soc_fraction``.
-        - If a Pyomo dispatch solver is provided, the battery will simulate
-          dispatch decisions using solver inputs.
     """
 
     def initialize(self):
@@ -179,29 +120,12 @@ class PySAMBatteryPerformanceModel(StoragePerformanceBase):
         # Initialize the PySAM BatteryStateful model with defaults
         self.system_model = BatteryStateful.default(self.config.chemistry)
 
-        # Renaming outputs from battery to storage
-        # battery_electricity_discharge -> storage_electricity_discharge
-        # battery_electricity_charge -> storage_electricity_charge
-        # battery_electricity_out -> storage_electricity_out
-
     def compute(self, inputs, outputs, discrete_inputs=[], discrete_outputs=[]):
         """Run the PySAM Battery model for one simulation step.
 
         Configures the battery stateful model parameters (SOC limits, timestep,
         thermal properties, etc.), executes the simulation, and stores the
         results in OpenMDAO outputs.
-
-        Args:
-            inputs (dict):
-                Continuous input values (e.g., electricity_in, electricity_demand) or
-                battery design parameters.
-            outputs (dict):
-                Dictionary where model outputs (SOC, battery_discharge, unmet demand, etc.)
-                are written.
-            discrete_inputs (dict):
-                Discrete inputs such as control mode or Pyomo solver.
-            discrete_outputs (dict):
-                Discrete outputs (unused in this component).
         """
 
         # Size the battery based on inputs -> method brought from HOPP
@@ -241,7 +165,7 @@ class PySAMBatteryPerformanceModel(StoragePerformanceBase):
         self.system_model.value("input_power", 0.0)
         self.system_model.execute(0)
 
-        self.run_storage(
+        outputs = self.run_storage(
             inputs["max_charge_rate"][0],
             inputs["max_charge_rate"][0],
             inputs["storage_capacity"][0],
@@ -384,8 +308,3 @@ class PySAMBatteryPerformanceModel(StoragePerformanceBase):
             self.system_model.value("input_current", input_current)
             # Either `input_power` or `input_current`; need to adjust `control_mode` above
             self.control_variable = control_variable
-
-
-def dummy_function():
-    # this function is required for initializing the pyomo control input and nothing else
-    pass
