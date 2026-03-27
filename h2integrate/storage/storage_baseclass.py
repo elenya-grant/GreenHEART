@@ -12,10 +12,8 @@ class StoragePerformanceBaseConfig(BaseConfig):
     Configuration class for the StoragePerformanceBase model.
 
      Attributes:
-        min_soc_fraction (float):
-            Minimum allowable state of charge as a fraction (0 to 1).
-        max_soc_fraction (float):
-            Maximum allowable state of charge as a fraction (0 to 1).
+        min_soc_fraction (float): Minimum allowable state of charge as a fraction (0 to 1).
+        max_soc_fraction (float): Maximum allowable state of charge as a fraction (0 to 1).
         demand_profile (int | float | list): Demand values for each timestep, in
             the same units as `commodity_rate_units`. May be a scalar for constant
             demand or a list/array for time-varying demand.
@@ -89,6 +87,39 @@ class StoragePerformanceBaseConfig(BaseConfig):
 class StoragePerformanceBase(PerformanceModelBaseClass):
     """
     Baseclass for storage performance models
+
+    Attributes:
+        config (StoragePerformanceModelConfig):
+            Configuration parameters for the storage performance model.
+        current_soc (float): soc at the start of each interval that the simulate()
+            method is called
+        dt_hr (float): timestep in hours.
+
+
+    Methods:
+        setup():
+            Defines model inputs, outputs, configuration, and connections
+            to plant-level dispatch (if applicable).
+        compute(inputs, outputs, discrete_inputs, discrete_outputs):
+            Runs the storage model for a simulation timestep,
+            updating outputs such as SOC, charge/discharge limits, unmet
+            demand, and unused commodities.
+        simulate(commodity_in, commodity_demand, time_step_duration, control_variable,
+            sim_start_index=0):
+            Simulates the storage behavior across timesteps using input commodity as control.
+            This method is similar to what is
+            provided in typical compute methods in H2Integrate for running models, but
+            needs to be a separate method here to allow the dispatch function to call
+            and manage the performance model.
+
+
+
+    Notes:
+        - Default timestep is 1 hour (``dt=1.0``).
+        - State of charge (SOC) bounds are set using the configuration's
+          ``min_soc_fraction`` and ``max_soc_fraction``.
+        - If a Pyomo dispatch solver is provided, the storage will simulate
+          dispatch decisions using solver inputs.
     """
 
     def setup(self):
