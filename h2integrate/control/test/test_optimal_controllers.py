@@ -658,8 +658,8 @@ def test_optimal_control_config_with_commodity_buying(subtests):
 
     with subtests.test("check commodity_buy_price is None"):
         assert config.commodity_buy_price is None
-    with subtests.test("check max_system_capacity is None"):
-        assert config.max_system_capacity is None
+    with subtests.test("check commodity_import_limit is None"):
+        assert config.commodity_import_limit is None
 
     config_data["allow_commodity_buying"] = True
 
@@ -679,7 +679,7 @@ def test_optimal_control_config_with_commodity_buying(subtests):
             data = deepcopy(config_data)
             data["allow_commodity_buying"] = True
             data["commodity_buy_price"] = 0.4
-            data["max_system_capacity"] = 0.0
+            data["commodity_import_limit"] = 0.0
             OptimizedDispatchControllerConfig.from_dict(data)
 
 
@@ -690,7 +690,7 @@ def test_optimal_control_with_commodity_buying_generic_storage(
     commodity_demand = np.full(48, 5.0)
     commodity_in = np.tile(np.concat([np.zeros(3), np.cumsum(np.ones(15)), np.full(6, 4.0)]), 2)
     commodity_buy_price = np.tile(np.concat([np.arange(-3, 9), np.arange(8, -4, -1)]), 2)
-    max_system_capacity = 7
+    commodity_import_limit = 7
 
     # Set grid charging parameters
     tech_config_generic["technologies"]["h2_storage"]["model_inputs"]["control_parameters"] = {
@@ -704,7 +704,7 @@ def test_optimal_control_with_commodity_buying_generic_storage(
         "n_control_window": 24,
         "allow_commodity_buying": True,
         "commodity_buy_price": 1,
-        "max_system_capacity": max_system_capacity,
+        "commodity_import_limit": commodity_import_limit,
     }
 
     # Setup the OpenMDAO problem and add subsystems
@@ -862,6 +862,6 @@ def test_optimal_control_with_commodity_buying_generic_storage(
     with subtests.test("Output never exceeds system commodity draw limit"):
         np.testing.assert_allclose(
             prob.get_val("h2_storage.storage_hydrogen_charge", units="kg/h").min(),
-            -max_system_capacity,
+            -commodity_import_limit,
             rtol=1e-6,
         )

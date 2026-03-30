@@ -115,7 +115,7 @@ class PyomoRuleStorageMinOperatingCosts:
         if self.allow_commodity_buying:
             # This preserves the possibility of a variable interconnect limit
             self.set_timeseries_parameter(
-                "commodity_import_limit", dispatch_inputs["max_system_capacity"]
+                "commodity_import_limit", dispatch_inputs["commodity_import_limit"]
             )
             self.set_timeseries_from_list("commodity_buy_price", commodity_buy_price_in)
 
@@ -627,7 +627,7 @@ class PyomoRuleStorageMinOperatingCosts:
         if self.allow_commodity_buying:
             initialize_dict["commodity_bought"] = hybrid_model.commodity_bought
 
-        tech_port = Port(initialize_dict)
+        tech_port = Port(initialize=initialize_dict)
 
         hybrid_model.__setattr__(f"{tech_name}_port", tech_port)
 
