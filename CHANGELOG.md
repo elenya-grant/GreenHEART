@@ -28,6 +28,7 @@
 - Added base class (`StorageOpenLoopControlBase`) and base configuration class (`StorageOpenLoopControlBaseConfig`) for open-loop storage control strategies and updated the existing open-loop storage control strategies to inherit these [PR 619](https://github.com/NatLabRockies/H2Integrate/pull/619)
 - Added a generic cost model for converters [PR 622](https://github.com/NatLabRockies/H2Integrate/pull/622)
 - Updated the `StorageAutoSizingModel` model to be compatible with Pyomo control strategies [PR 621](https://github.com/NatLabRockies/H2Integrate/pull/621)
+- Added a storage performance baseclass model `StoragePerformanceBase` and updated the other storage performance models to inherit it [PR 624](https://github.com/NatLabRockies/H2Integrate/pull/624)
 
 ## 0.7.1 [March 13, 2026]
 
