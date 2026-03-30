@@ -186,7 +186,8 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
             "demand_met_value",
             val=self.config.demand_met_value,
             shape=self.n_timesteps,
-            units="USD/" + self.config.commodity_rate_units,
+            units=f"USD/({self.config.commodity_rate_units})",
+            # should these be USD/commodity_amount_units?
             desc="Value of meeting the demand",
         )
 
@@ -195,7 +196,8 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
                 f"{self.config.commodity}_buy_price",
                 val=self.config.commodity_buy_price,
                 shape=self.n_timesteps,
-                units="USD/" + self.config.commodity_rate_units,
+                units=f"USD/({self.config.commodity_rate_units})",
+                # should these be USD/commodity_amount_units?
                 desc="Value of meeting the demand",
             )
 
