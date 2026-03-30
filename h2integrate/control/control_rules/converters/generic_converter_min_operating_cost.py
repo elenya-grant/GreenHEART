@@ -67,9 +67,9 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
                 Dictionary of numpy arrays (length = self.n_timesteps) containing at least:
                     f"{commodity}_in"           : Available generated commodity profile.
                     f"{commodity}_demand"       : Demanded commodity output profile.
-                    f"{commodity}_met_value_in" : Variable weight for meeting the load
-                    if allow_grid_charging:
-                        f"{commodity}_buy_price_in"   : Variable cost of energy from the grid
+                    "demand_met_value"          : Variable weight for meeting the load
+                    if allow_commodity_buying:
+                        f"{commodity}_buy_price"   : Variable cost of buying commodity for charging
                                                     (e.g. could be a grid price)
             dispatch_inputs (dict): Dictionary of the dispatch input parameters from config
 
@@ -196,11 +196,12 @@ class PyomoDispatchGenericConverterMinOperatingCosts:
         Args:
             commodity_in (list): List of generated commodity in for this time slice.
             commodity_demand (list): The demanded commodity for this time slice.
-            commodity_met_value (list): List of variable value of meeting the provided load
+            demand_met_value (list): List of variable value of meeting the provided load
             updated_initial_soc (float): The updated initial state of charge for storage
                 technologies for the current time slice.
-            if allow_grid_charging:
-                commodity_buy_price (list): List of variable electricity price from the grid.
+            if allow_commodity_buying:
+                commodity_buy_price (list): List of variable cost of buying commodity for charging
+                                            (e.g. could be a grid price)
         """
         self.time_duration = [1.0] * len(self.blocks.index_set())
         self.available_production = [

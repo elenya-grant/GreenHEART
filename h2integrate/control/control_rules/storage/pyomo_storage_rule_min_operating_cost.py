@@ -75,9 +75,9 @@ class PyomoRuleStorageMinOperatingCosts:
                 Dictionary of numpy arrays (length = self.n_timesteps) containing at least:
                     f"{commodity}_in"           : Available generated commodity profile.
                     f"{commodity}_demand"       : Demanded commodity output profile.
-                    "demand_met_value" : Variable weight for meeting the load
+                    "demand_met_value"          : Variable weight for meeting the load
                     if allow_commodity_buying:
-                        f"{commodity}_buy_price"   : Variable cost of energy from the grid
+                        f"{commodity}_buy_price"   : Variable cost of buying commodity for charging
                                                     (e.g. could be a grid price)
             dispatch_inputs (dict): Dictionary of the dispatch input parameters from config
 
@@ -551,7 +551,8 @@ class PyomoRuleStorageMinOperatingCosts:
             updated_initial_soc (float): The updated initial state of charge for storage
                 technologies for the current time slice.
             if allow_commodity_buying:
-                commodity_buy_price (list): List of variable electricity price from the grid.
+                commodity_buy_price (list): List of variable cost of buying commodity for charging
+                                            (e.g. could be a grid price)
         """
         # TODO: Standardize the inputs for this function
         self.time_duration = [1.0] * len(self.blocks.index_set())
