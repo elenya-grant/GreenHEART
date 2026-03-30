@@ -113,8 +113,8 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
             # Check max system capacity
             if self.commodity_import_limit == 0 or self.commodity_import_limit is None:
                 raise ValueError(
-                    "commodity_import_limit must be defined as an input\
-                        and >0 if using grid charging"
+                    "commodity_import_limit must be defined as an input and \
+                        >0 if using grid charging"
                 )
 
     def make_dispatch_inputs(self):
