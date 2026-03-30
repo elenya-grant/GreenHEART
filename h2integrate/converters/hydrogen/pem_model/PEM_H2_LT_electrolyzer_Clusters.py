@@ -29,6 +29,8 @@ import pandas as pd
 import rainflow
 from scipy import interpolate
 
+from h2integrate.tools.constants import O2_MW
+
 
 np.set_printoptions(threshold=sys.maxsize)
 
@@ -222,6 +224,11 @@ class PEM_H2_Clusters:
 
         h20_gal_used_system = self.water_supply(h2_kg_hr_system)
 
+        # Get oxygen production and rated used
+        rated_o2_hr = self.rated_o2_prod()
+        o2_kg_hr_system_init = self.o2_production_rate(stack_current, self.n_stacks_op)
+        o2_kg_hr_system = o2_kg_hr_system_init * h2_multiplier
+
         pem_cf = np.sum(h2_kg_hr_system) / (rated_h2_hr * len(input_power_kw) * self.max_stacks)
         efficiency = self.system_efficiency(input_power_kw, stack_current)  # Efficiency as %-HHV
 
@@ -231,6 +238,7 @@ class PEM_H2_Clusters:
         h2_results["hydrogen production no start-up time"] = h2_kg_hr_system_init
         h2_results["hydrogen_hourly_production"] = h2_kg_hr_system
         h2_results["water_hourly_usage_kg"] = h20_gal_used_system * 3.79
+        h2_results["oxygen_hourly_production"] = o2_kg_hr_system
         h2_results["electrolyzer_total_efficiency_perc"] = efficiency
         h2_results["kwh_per_kgH2"] = input_power_kw / h2_kg_hr_system
         h2_results["Power Consumed [kWh]"] = system_power_consumed
@@ -246,12 +254,16 @@ class PEM_H2_Clusters:
             p_consumed_max * self.max_stacks
         )
         h2_results_aggregates["Cluster Rated H2 Production [kg/hr]"] = rated_h2_hr * self.max_stacks
+        h2_results_aggregates["Cluster Rated O2 Production [kg/hr]"] = rated_o2_hr * self.max_stacks
         h2_results_aggregates["gal H20 per kg H2"] = np.sum(h20_gal_used_system) / np.sum(
             h2_kg_hr_system
         )
         h2_results_aggregates["Stack Rated Efficiency [kWh/kg]"] = p_consumed_max / rated_h2_hr
         h2_results_aggregates["Cluster Rated H2 Production [kg/yr]"] = (
             rated_h2_hr * len(input_power_kw) * self.max_stacks
+        )
+        h2_results_aggregates["Cluster Rated O2 Production [kg/yr]"] = (
+            rated_o2_hr * len(input_power_kw) * self.max_stacks
         )
         h2_results_aggregates["Operational Time / Simulation Time (ratio)"] = (
             self.percent_of_sim_operating
@@ -370,10 +382,14 @@ class PEM_H2_Clusters:
         h2_multiplier = np.where(cluster_cycling > 0, startup_ratio, 1)
 
         _, rated_h2_pr_stack_BOL = self.rated_h2_prod()
+        rated_o2_pr_stack_BOL = self.rated_o2_prod()
         rated_h2_pr_sim = rated_h2_pr_stack_BOL * self.max_stacks * sim_length
+        rated_o2_pr_sim = rated_o2_pr_stack_BOL * self.max_stacks * sim_length
 
         kg_h2_pr_sim = np.zeros(int(self.plant_life_years))
+        kg_o2_pr_sim = np.zeros(int(self.plant_life_years))
         capfac_per_sim = np.zeros(int(self.plant_life_years))
+        o2_capfac_per_sim = np.zeros(int(self.plant_life_years))
         d_sim = np.zeros(int(self.plant_life_years))
         power_pr_yr_kWh = np.zeros(int(self.plant_life_years))
         Vdeg0 = 0
@@ -396,11 +412,16 @@ class PEM_H2_Clusters:
                     power_in_kW, V_cell, V_deg_pr_sim
                 )
                 h2_kg_hr_system_init = self.h2_production_rate(stack_current, self.n_stacks_op)
+                o2_kg_hr_system_init = self.o2_production_rate(stack_current, self.n_stacks_op)
                 # total_sim_input_power = self.max_stacks*np.sum(power_in_kW)
                 power_pr_yr_kWh[i] = self.max_stacks * np.sum(power_in_kW)
             else:
                 h2_kg_hr_system_init = self.h2_production_rate(I_op, self.n_stacks_op)
                 h2_kg_hr_system_init = h2_kg_hr_system_init * np.ones(len(power_in_kW))
+
+                o2_kg_hr_system_init = self.o2_production_rate(I_op, self.n_stacks_op)
+                o2_kg_hr_system_init = o2_kg_hr_system_init * np.ones(len(power_in_kW))
+
                 annual_power_consumed_kWh = (
                     self.max_stacks * I_op * (V_cell + V_deg_pr_sim) * self.N_cells / 1000
                 )
@@ -408,8 +429,11 @@ class PEM_H2_Clusters:
                 power_pr_yr_kWh[i] = np.sum(annual_power_consumed_kWh)
 
             h2_kg_hr_system = h2_kg_hr_system_init * h2_multiplier
+            o2_kg_hr_system = o2_kg_hr_system_init * h2_multiplier
+            kg_o2_pr_sim[i] = np.sum(o2_kg_hr_system)
             kg_h2_pr_sim[i] = np.sum(h2_kg_hr_system)
             capfac_per_sim[i] = np.sum(h2_kg_hr_system) / rated_h2_pr_sim
+            o2_capfac_per_sim[i] = np.sum(o2_kg_hr_system) / rated_o2_pr_sim
             d_sim[i] = V_deg_pr_sim[sim_length - 1]
             Vdeg0 = V_deg_pr_sim[sim_length - 1]
         performance_by_year = {}
@@ -427,7 +451,8 @@ class PEM_H2_Clusters:
             zip(year, self.eta_h2_hhv / (power_pr_yr_kWh / kg_h2_pr_sim))
         )
         performance_by_year["Annual Energy Used [kWh/year]"] = dict(zip(year, power_pr_yr_kWh))
-
+        performance_by_year["Annual O2 Production [kg/year]"] = dict(zip(year, kg_o2_pr_sim))
+        performance_by_year["O2 Capacity Factor [-]"] = dict(zip(year, o2_capfac_per_sim))
         return performance_by_year
 
     def reset_uptime_degradation_rate(self, uptime_hours_until_eol):
@@ -605,6 +630,17 @@ class PEM_H2_Clusters:
         P_consumed_stack_kw = I_max * V_max * self.N_cells / 1000
         max_h2_stack_kg = self.h2_production_rate(I_max, 1)
         return P_consumed_stack_kw, max_h2_stack_kg
+
+    def rated_o2_prod(self):
+        i = self.output_dict["BOL Efficiency Curve Info"].index[
+            self.output_dict["BOL Efficiency Curve Info"]["Power Sent [kWh]"]
+            == self.stack_rating_kW
+        ]
+        I_max = self.output_dict["BOL Efficiency Curve Info"]["Current"].iloc[i].values[0]
+        # I_max = calc_current((self.stack_rating_kW,self.T_C),*self.curve_coeff)
+
+        max_o2_stack_kg = self.o2_production_rate(I_max, 1)
+        return max_o2_stack_kg
 
     def external_power_supply(self, input_external_power_kw):
         """
@@ -891,6 +927,16 @@ class PEM_H2_Clusters:
         self.output_dict["h2_produced_kg_hr_system"] = h2_produced_kg_hr_system
 
         return h2_produced_kg_hr_system
+
+    def o2_production_rate(self, stack_current, n_stacks_op):
+        n_Tot = self.faradaic_efficiency(stack_current)
+        o2_production_rate = n_Tot * ((self.N_cells * stack_current) / (4 * self.F))  # mol/s
+        # O2_MW is in g/mol
+        # mol/s * g/mol = g/s
+        o2_production_rate_g_s = o2_production_rate * O2_MW
+        o2_produced_kg_dt = o2_production_rate_g_s * self.dt / 1000
+        o2_produced_kg_dt_system = o2_produced_kg_dt * n_stacks_op
+        return o2_produced_kg_dt_system
 
     def water_supply(self, h2_kg_hr):
         """
