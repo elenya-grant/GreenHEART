@@ -115,7 +115,7 @@ class PyomoRuleStorageMinOperatingCosts:
         if self.allow_commodity_buying:
             # This preserves the possibility of a variable interconnect limit
             self.set_timeseries_parameter(
-                "load_production_limit", dispatch_inputs["max_system_capacity"]
+                "commodity_import_limit", dispatch_inputs["max_system_capacity"]
             )
             self.set_timeseries_from_list("commodity_buy_price", commodity_buy_price_in)
 
@@ -271,7 +271,7 @@ class PyomoRuleStorageMinOperatingCosts:
             mutable=True,
             units=self.rate_units_pyo,
         )
-        # Add variables that allow charging from the grid
+        # Add parameters that allow for buying commodity for storage charging
         if self.allow_commodity_buying:
             pyomo_model.commodity_buy_price = pyo.Param(
                 doc=f"Commodity buy price per generation [$/{self.commodity_storage_units}]",
@@ -280,8 +280,9 @@ class PyomoRuleStorageMinOperatingCosts:
                 mutable=True,
                 units=self.cost_units_per_amount_pyo,
             )
-            pyomo_model.load_production_limit = pyo.Param(
-                doc=f"Grid inport limit for load [$/{self.commodity_storage_units}]",
+            pyomo_model.commodity_import_limit = pyo.Param(
+                doc=f"External commodity source import limit \
+                        [$/{self.commodity_storage_units}]",
                 default=1000.0,
                 within=pyo.NonNegativeReals,
                 mutable=True,
@@ -361,12 +362,12 @@ class PyomoRuleStorageMinOperatingCosts:
             domain=pyo.Binary,
             units=pyo.units.dimensionless,
         )
-        # Add variables that allow charging from the grid
+        # Add variables that allow for buying commodity for storage charging
         if self.allow_commodity_buying:
             pyomo_model.commodity_bought = pyo.Var(
                 doc=f"Commodity bought for the system [{self.commodity_storage_units}]",
                 domain=pyo.NonNegativeReals,
-                bounds=(0, pyomo_model.load_production_limit),
+                bounds=(0, pyomo_model.commodity_import_limit),
                 units=self.rate_units_pyo,
             )
 
@@ -419,7 +420,7 @@ class PyomoRuleStorageMinOperatingCosts:
         ##################################
         if self.allow_commodity_buying:
             pyomo_model.balance = pyo.Constraint(
-                doc="System balance",
+                doc="Commodity system balance",
                 expr=(
                     pyomo_model.commodity_out - pyomo_model.commodity_bought
                     == pyomo_model.system_production - pyomo_model.system_load
@@ -427,26 +428,25 @@ class PyomoRuleStorageMinOperatingCosts:
             )
         else:
             pyomo_model.balance = pyo.Constraint(
-                doc="System balance",
+                doc="Commodity system balance",
                 expr=(
                     pyomo_model.commodity_out
                     == pyomo_model.system_production - pyomo_model.system_load
                 ),
             )
         pyomo_model.production_limit = pyo.Constraint(
-            doc="Transmission limit on electricity sales",
+            doc="Upper limit on system production",
             expr=pyomo_model.commodity_out
             <= pyomo_model.commodity_load_demand * pyomo_model.is_generating,
         )
-        # Add variables that allow charging from the grid
-        # NOTE: This constraint prevents buying and selling to the grid at the same time
+        # Add variables that allow for buying commodity for storage charging
+        # NOTE: This constraint prevents buying and selling the commodity at the same time
         if self.allow_commodity_buying:
-            pyomo_model.purchases_transmission_limit = pyo.Constraint(
-                doc="Transmission limit on commodity purchases",
+            pyomo_model.upper_purchase_limit = pyo.Constraint(
+                doc="Upper limit on commodity purchases",
                 expr=(
                     pyomo_model.commodity_bought
-                    # <= pyomo_model.load_production_limit
-                    <= pyomo_model.load_production_limit * (1 - pyomo_model.is_generating)
+                    <= pyomo_model.commodity_import_limit * (1 - pyomo_model.is_generating)
                 ),
             )
 
@@ -532,7 +532,7 @@ class PyomoRuleStorageMinOperatingCosts:
         pyomo_model.port.add(pyomo_model.system_production)
         pyomo_model.port.add(pyomo_model.system_load)
         pyomo_model.port.add(pyomo_model.commodity_out)
-        # Add variables that allow charging from the grid
+        # Add variables that allow for buying commodity for storage charging
         if self.allow_commodity_buying:
             pyomo_model.port.add(pyomo_model.commodity_bought)
 
@@ -567,7 +567,7 @@ class PyomoRuleStorageMinOperatingCosts:
         ]
         self.model.initial_soc = updated_initial_soc
         self.initial_soc = updated_initial_soc
-        # Add variables that allow charging from the grid
+        # Add variables that allow for buying commodity for storage charging
         if self.allow_commodity_buying:
             self.commodity_buy_price = [
                 time_update_inputs[f"{self.commodity_name}_buy_price"][t]
@@ -617,27 +617,18 @@ class PyomoRuleStorageMinOperatingCosts:
             tech_name (str): The name or key identifying the technology for which
             ports are created.
         """
+        initialize_dict = {
+            "system_production": hybrid_model.system_production,
+            "system_load": hybrid_model.system_load,
+            "commodity_out": hybrid_model.commodity_out,
+            "charge_commodity": hybrid_model.charge_commodity,
+            "discharge_commodity": hybrid_model.discharge_commodity,
+        }
         if self.allow_commodity_buying:
-            tech_port = Port(
-                initialize={
-                    "system_production": hybrid_model.system_production,
-                    "system_load": hybrid_model.system_load,
-                    "commodity_out": hybrid_model.commodity_out,
-                    "charge_commodity": hybrid_model.charge_commodity,
-                    "discharge_commodity": hybrid_model.discharge_commodity,
-                    "commodity_bought": hybrid_model.commodity_bought,
-                }
-            )
-        else:
-            tech_port = Port(
-                initialize={
-                    "system_production": hybrid_model.system_production,
-                    "system_load": hybrid_model.system_load,
-                    "commodity_out": hybrid_model.commodity_out,
-                    "charge_commodity": hybrid_model.charge_commodity,
-                    "discharge_commodity": hybrid_model.discharge_commodity,
-                }
-            )
+            initialize_dict["commodity_bought"] = hybrid_model.commodity_bought
+
+        tech_port = Port(initialize_dict)
+
         hybrid_model.__setattr__(f"{tech_name}_port", tech_port)
 
         return hybrid_model.__getattribute__(f"{tech_name}_port")
@@ -669,7 +660,7 @@ class PyomoRuleStorageMinOperatingCosts:
             domain=pyo.NonNegativeReals,
             units=self.rate_units_pyo,
         )
-        # Add variables that allow charging from the grid
+        # Add variables that allow for buying commodity for storage charging
         if self.allow_commodity_buying:
             hybrid_model.commodity_bought = pyo.Var(
                 doc=f"{self.commodity_name} bought [{self.commodity_storage_units}]",
