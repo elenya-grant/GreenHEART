@@ -88,33 +88,33 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
     commodity_buy_price: int | float | list = field(default=None)
 
     def __attrs_post_init__(self):
-        # Check inputs for grid parameters
+        # Check inputs for commodity buying parameters
         if self.allow_commodity_buying:
             if self.commodity_buy_price:
-                # Check grid buy price
+                # Check commodity buy price
                 if isinstance(self.commodity_buy_price, float | int):
                     if self.commodity_buy_price == 0:
                         raise ValueError(
                             "commodity_buy_price must be defined as an input and >0 \
-                                if using grid charging"
+                                if using commodity buying"
                         )
                 if isinstance(self.commodity_buy_price, list) or self.commodity_buy_price is None:
                     if all(self.commodity_buy_price) == 0:
                         raise ValueError(
                             "commodity_buy_price must be defined as an input and >0 \
-                                if using grid charging"
+                                if using commodity buying"
                         )
             else:
                 raise ValueError(
                     "commodity_buy_price must be defined as an input and >0 \
-                        if using grid charging"
+                        if using commodity buying"
                 )
 
             # Check max system capacity
             if self.commodity_import_limit == 0 or self.commodity_import_limit is None:
                 raise ValueError(
                     "commodity_import_limit must be defined as an input and \
-                        >0 if using grid charging"
+                        >0 if using commodity buying"
                 )
 
     def make_dispatch_inputs(self):
