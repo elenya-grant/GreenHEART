@@ -37,26 +37,8 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
         dt_hr (float): timestep in hours.
 
 
-    Methods:
-        setup():
-            Defines model inputs, outputs, configuration, and connections
-            to plant-level dispatch (if applicable).
-        compute(inputs, outputs, discrete_inputs, discrete_outputs):
-            Runs the storage model for a simulation timestep,
-            updating outputs such as SOC, charge/discharge limits, unmet
-            demand, and unused commodities.
-        simulate(commodity_in, commodity_demand, time_step_duration, control_variable,
-            sim_start_index=0):
-            Simulates the storage behavior across timesteps using input commodity as control.
-            This method is similar to what is
-            provided in typical compute methods in H2Integrate for running models, but
-            needs to be a separate method here to allow the dispatch function to call
-            and manage the performance model.
-
-
-
     Notes:
-        - Default timestep is 1 hour (``dt=1.0``).
+        - Default timestep is 1 hour (``dt=3600.0``).
         - State of charge (SOC) bounds are set using the configuration's
           ``min_soc_fraction`` and ``max_soc_fraction``.
         - If a Pyomo dispatch solver is provided, the storage will simulate
