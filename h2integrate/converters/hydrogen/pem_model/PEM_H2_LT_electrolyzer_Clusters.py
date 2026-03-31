@@ -632,6 +632,11 @@ class PEM_H2_Clusters:
         return P_consumed_stack_kw, max_h2_stack_kg
 
     def rated_o2_prod(self):
+        """Calculates the oxygen production per stack at the rated current in kg
+
+        Returns:
+            float: rated oxygen production in kg/dt
+        """
         i = self.output_dict["BOL Efficiency Curve Info"].index[
             self.output_dict["BOL Efficiency Curve Info"]["Power Sent [kWh]"]
             == self.stack_rating_kW
@@ -929,6 +934,15 @@ class PEM_H2_Clusters:
         return h2_produced_kg_hr_system
 
     def o2_production_rate(self, stack_current, n_stacks_op):
+        """Calculate the oxygen production rate of the cluster without warm-up losses.
+
+        Args:
+            stack_current (float | np.array): current of the stack in A
+            n_stacks_op (int | np.array[int]): number of stacks that are operating in the stack.
+
+        Returns:
+            float | np.array: oxygen production profile of the cluster in kg/dt
+        """
         n_Tot = self.faradaic_efficiency(stack_current)
         o2_production_rate = n_Tot * ((self.N_cells * stack_current) / (4 * self.F))  # mol/s
         # O2_MW is in g/mol
