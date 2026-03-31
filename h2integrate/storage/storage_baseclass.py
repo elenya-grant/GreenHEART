@@ -19,7 +19,7 @@ class StoragePerformanceBaseConfig(BaseConfig):
             demand or a list/array for time-varying demand.
     """
 
-    # Below is used in all storage models
+    # Below are used in all storage models
     min_soc_fraction: float = field(validator=range_val(0, 1))
     max_soc_fraction: float = field(validator=range_val(0, 1))
     demand_profile: int | float | list = field()
@@ -58,61 +58,66 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
         # self.commodity_rate_units = self.config.commodity_rate_units
         # self.commodity_amount_units = self.config.commodity_amount_units
 
-        # Initialize standard performance model outptus
+        # Initialize standard performance model outputs
         super().setup()
+
+        commodity = self.commodity
+        commodity_rate_units = self.commodity_rate_units
+        commodity_amount_units = self.commodity_amount_units
+        n_timesteps = self.n_timesteps
 
         # Input timeseries
         self.add_input(
-            f"{self.commodity}_demand",
+            f"{commodity}_demand",
             val=self.config.demand_profile,
-            shape=self.n_timesteps,
-            units=self.commodity_rate_units,
-            desc=f"{self.commodity} demand profile",
+            shape=n_timesteps,
+            units=commodity_rate_units,
+            desc=f"{commodity} demand profile",
         )
 
         self.add_input(
-            f"{self.commodity}_in",
+            f"{commodity}_in",
             val=0,
-            shape=self.n_timesteps,
-            units=self.commodity_rate_units,
-            desc=f"{self.commodity} input",
+            shape=n_timesteps,
+            units=commodity_rate_units,
+            desc=f"{commodity} input",
         )
 
         # Input storage design parameters
-        if "max_charge_rate" in self.config.as_dict():
+        if hasattr(self.config, "max_charge_rate"):
             self.add_input(
                 "max_charge_rate",
                 val=self.config.max_charge_rate,
-                units=self.commodity_rate_units,
+                units=commodity_rate_units,
                 desc="Storage charge rate",
             )
 
-        if "max_capacity" in self.config.as_dict():
+        if hasattr(self.config, "max_capacity"):
             self.add_input(
                 "storage_capacity",
                 val=self.config.max_capacity,
-                units=self.commodity_amount_units,
+                units=commodity_amount_units,
                 desc="Storage capacity",
             )
 
-        if not self.config.as_dict().get("charge_equals_discharge", True):
+        if not getattr(self.config, "charge_equals_discharge", True):
             # add if max_discharge_rate in config
             self.add_input(
                 "max_discharge_rate",
                 val=self.config.max_discharge_rate,
-                units=self.commodity_rate_units,
+                units=commodity_rate_units,
                 desc="Storage discharge rate",
             )
 
         # Storage design outputs:
         default_storage_duration = 0.0
-        if "max_charge_rate" in self.config.as_dict() and "max_capacity" in self.config.as_dict():
+        if hasattr(self.config, "max_charge_rate") and hasattr(self.config, "max_capacity"):
             default_storage_duration = self.config.max_capacity / self.config.max_charge_rate
 
         self.add_output(
             "storage_duration",
             val=default_storage_duration,
-            units=f"({self.commodity_amount_units})/({self.commodity_rate_units})",
+            units=f"({commodity_amount_units})/({commodity_rate_units})",
             desc="Storage duration capacity",
         )
 
@@ -120,48 +125,48 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
         self.add_output(
             "SOC",
             val=0.0,
-            shape=self.n_timesteps,
+            shape=n_timesteps,
             units="percent",
             desc="State of charge of storage",
         )
 
         self.add_output(
-            f"storage_{self.commodity}_discharge",
+            f"storage_{commodity}_discharge",
             val=0.0,
-            shape=self.n_timesteps,
-            units=self.commodity_rate_units,
-            desc=f"{self.commodity} output from storage only",
+            shape=n_timesteps,
+            units=commodity_rate_units,
+            desc=f"{commodity} output from storage only",
         )
 
         self.add_output(
-            f"storage_{self.commodity}_charge",
+            f"storage_{commodity}_charge",
             val=0.0,
-            shape=self.n_timesteps,
-            units=self.commodity_rate_units,
-            desc=f"{self.commodity} input to storage only",
+            shape=n_timesteps,
+            units=commodity_rate_units,
+            desc=f"{commodity} input to storage only",
         )
 
         self.add_output(
-            f"storage_{self.commodity}_out",
+            f"storage_{commodity}_out",
             val=0.0,
-            shape=self.n_timesteps,
-            units=self.commodity_rate_units,
-            desc=f"{self.commodity} input and output from storage",
+            shape=n_timesteps,
+            units=commodity_rate_units,
+            desc=f"{commodity} input and output from storage",
         )
 
         self.add_output(
-            f"unmet_{self.commodity}_demand_out",
+            f"unmet_{commodity}_demand_out",
             val=0.0,
-            shape=self.n_timesteps,
-            units=self.commodity_rate_units,
-            desc=f"Unmet {self.commodity} demand",
+            shape=n_timesteps,
+            units=commodity_rate_units,
+            desc=f"Unmet {commodity} demand",
         )
 
         self.add_output(
-            f"unused_{self.commodity}_out",
+            f"unused_{commodity}_out",
             val=0.0,
-            shape=self.n_timesteps,
-            units=self.commodity_rate_units,
+            shape=n_timesteps,
+            units=commodity_rate_units,
             desc="Unused generated commodity",
         )
 
@@ -177,19 +182,19 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
                 "tech_to_dispatch_connections"
             ]:
                 if any(intended_dispatch_tech in name for name in self.tech_group_name):
-                    self.add_discrete_input("pyomo_dispatch_solver", val=dummy_function)
+                    self.add_discrete_input("pyomo_dispatch_solver", val=lambda: None)
                     # set the using feedback control variable to True
                     using_feedback_control = True
                     break
         if not using_feedback_control:
             # using an open-loop storage controller
             self.add_input(
-                f"{self.commodity}_set_point",
+                f"{commodity}_set_point",
                 val=0.0,
-                shape=self.n_timesteps,
-                units=self.commodity_rate_units,
+                shape=n_timesteps,
+                units=commodity_rate_units,
             )
-
+        # convert from seconds to hours
         self.dt_hr = int(self.options["plant_config"]["plant"]["simulation"]["dt"]) / (
             3600
         )  # convert from seconds to hours
@@ -239,7 +244,6 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
             >>> outputs = self.run_storage(
             ... charge_rate, discharge_rate, storage_capacity, inputs, outputs, discrete_inputs
             >>> )
-
 
         Args:
             charge_rate (float): storage charge rate in commodity_rate_units
@@ -456,8 +460,3 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
         # Pyomo controller across rolling windows) start where we left off.
         self.current_soc = soc
         return storage_commodity_out_timesteps, soc_timesteps
-
-
-def dummy_function():
-    # this function is required for initializing the pyomo control input and nothing else
-    pass
