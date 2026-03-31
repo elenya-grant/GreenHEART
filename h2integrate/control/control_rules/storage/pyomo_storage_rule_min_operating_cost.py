@@ -442,7 +442,7 @@ class PyomoRuleStorageMinOperatingCosts:
         # Add variables that allow for buying commodity for storage charging
         # NOTE: This constraint prevents buying and selling the commodity at the same time
         if self.allow_commodity_buying:
-            pyomo_model.upper_purchase_limit = pyo.Constraint(
+            pyomo_model.purchase_limit = pyo.Constraint(
                 doc="Upper limit on commodity purchases",
                 expr=(
                     pyomo_model.commodity_bought

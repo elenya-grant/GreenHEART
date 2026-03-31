@@ -748,6 +748,7 @@ def test_optimal_control_with_commodity_buying_generic_storage(
     print("demand: ", prob.get_val("h2_storage.hydrogen_demand"))
     print("commodity_buy: ", prob.get_val("hydrogen_buy_price"))
     print("hydrogen_out: ", prob.get_val("hydrogen_out"))
+    print("hydrogen bought: ", prob.get_val("hydrogen_bought_for_storage"))
 
     # Test that discharge is always positive
     with subtests.test("Discharge is always positive"):
@@ -864,4 +865,15 @@ def test_optimal_control_with_commodity_buying_generic_storage(
             prob.get_val("h2_storage.storage_hydrogen_charge", units="kg/h").min(),
             -commodity_import_limit,
             rtol=1e-6,
+        )
+
+    with subtests.test("Expected bought commodity"):
+        expected_commodity_bought = np.concat(
+            [np.ones(3) * 7, np.zeros(18), np.ones(3) * 7, [0], [5], np.zeros(19), np.ones(3) * 7]
+        )
+        np.testing.assert_allclose(
+            prob.get_val("hydrogen_bought_for_storage", units="kg/h"),
+            expected_commodity_bought,
+            rtol=1e-6,
+            atol=1e-6,
         )

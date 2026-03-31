@@ -187,6 +187,19 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
                 units="USD/" + self.config.commodity_rate_units,
                 desc="Value of meeting the demand",
             )
+            self.add_input(
+                f"{self.config.commodity}_available_to_buy",
+                val=self.config.commodity_import_limit,
+                shape=self.n_timesteps,
+                units=self.config.commodity_rate_units,
+            )
+
+            self.add_output(
+                f"{self.config.commodity}_bought_for_storage",
+                val=0,
+                shape=self.n_timesteps,
+                units=self.config.commodity_rate_units,
+            )
 
         super().setup()
 
@@ -200,7 +213,7 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
 
         self.dispatch_inputs = self.config.make_dispatch_inputs()
 
-    def pyomo_setup(self, discrete_inputs):
+    def pyomo_setup(self, discrete_inputs, outputs):
         """Create the Pyomo model, extract dispatch technology names, and return dispatch solver.
 
         Returns:
@@ -281,6 +294,8 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
             # initialize outputs
             storage_commodity_out = np.zeros(self.n_timesteps)
             soc = np.zeros(self.n_timesteps)
+            if self.config.allow_commodity_buying:
+                commodity_bought = np.zeros(self.n_timesteps)
 
             # get the starting index for each control window
             window_start_indices = list(range(0, self.n_timesteps, self.config.n_control_window))
@@ -334,7 +349,13 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
                     # simulation
                     storage_commodity_out[j] = storage_commodity_out_control_window[j - t]
                     soc[j] = soc_control_window[j - t]
+                    if self.config.allow_commodity_buying:
+                        commodity_bought[j] = self.hybrid_dispatch_rule.storage_commodity_bought[
+                            j - t
+                        ]
 
+            if self.config.allow_commodity_buying:
+                outputs[f"{self.config.commodity}_bought_for_storage"] = commodity_bought
             return storage_commodity_out, soc
 
         return pyomo_dispatch_solver
@@ -471,7 +492,7 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
                 f"{self.config.commodity}_buy_price"
             ][:]
 
-        discrete_outputs["pyomo_dispatch_solver"] = self.pyomo_setup(discrete_inputs)
+        discrete_outputs["pyomo_dispatch_solver"] = self.pyomo_setup(discrete_inputs, outputs)
 
     @staticmethod
     def glpk_solve_call(
