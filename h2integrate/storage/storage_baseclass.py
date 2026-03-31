@@ -96,7 +96,7 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
             )
 
         if not self.config.as_dict().get("charge_equals_discharge", True):
-            # add if max_discharge_rate in config
+            # add max_discharge_rate if discharge rate != charge rate
             self.add_input(
                 "max_discharge_rate",
                 val=self.config.max_discharge_rate,
