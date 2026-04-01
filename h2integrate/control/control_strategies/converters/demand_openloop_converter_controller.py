@@ -87,6 +87,7 @@ class DemandOpenLoopConverterController(ConverterOpenLoopControlBase):
         outputs[f"total_{self.commodity}_produced"] = np.sum(outputs[f"{self.commodity}_out"]) * (
             self.dt / 3600
         )
+
         outputs[f"annual_{self.commodity}_produced"] = (
             outputs[f"total_{self.commodity}_produced"] / self.fraction_of_year_simulated
         )
