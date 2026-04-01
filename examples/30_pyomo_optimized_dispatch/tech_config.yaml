@@ -11,7 +11,7 @@ technologies:
       wind_speed: 9.
     model_inputs:
       performance_parameters:
-        num_turbines: 15
+        num_turbines: 25
         turbine_rating_kw: 8300
         rotor_diameter: 196.
         hub_height: 130.
@@ -70,6 +70,21 @@ technologies:
         cost_per_production: 0.0  # in $/kW, cost to use the incoming produced commodity (i.e. electricity from wind)
         time_weighting_factor: 0.995  # This parameter discounts each subsequent time step incrementally in the future in the horizon window by this amount
         n_control_window: 24  # in timesteps (currently hours), The length of time that the control is applied to in the rolling window optimization
-        max_system_capacity: 207500  # rating of the wind farm
+        commodity_import_limit: 207500  # rating of the wind farm
         allow_commodity_buying: true
         commodity_buy_price: 0.4
+
+  # grid_buy:
+  #   performance_model:
+  #     model: GridPerformanceModel
+  #   cost_model:
+  #     model: GridCostModel
+  #   model_inputs:
+  #     shared_parameters:
+  #       interconnection_size: 207500  # kW
+  #     cost_parameters:
+  #       cost_year: 2022
+  #       electricity_buy_price: 0.0  # $/kWh - only buying, no selling
+  #       interconnection_capex_per_kw: 0.0  # $/kW capital cost
+  #       interconnection_opex_per_kw: 0.0  # $/kW/year O&M cost
+  #       fixed_interconnection_cost: 0.0  # $ one-time fixed cost

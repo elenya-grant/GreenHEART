@@ -44,6 +44,7 @@ model.setup()
 model.prob.set_val("battery.electricity_demand", demand_profile, units="MW")
 # model.prob.set_val("battery.demand_met_value", commodity_met_value_profile, units="USD/kW")
 model.prob.set_val("battery.electricity_buy_price", commodity_buy_price_profile, units="USD/kW")
+# model.prob.set_val("grid_buy.electricity_buy_price", commodity_buy_price_profile, units="USD/kW")
 
 # Run the model
 model.run()
@@ -92,10 +93,17 @@ ax[1].plot(
 )
 ax[1].plot(
     range(start_hour, end_hour),
+    model.prob.get_val("battery.electricity_bought_for_storage", units="MW")[start_hour:end_hour],
+    linestyle="-",
+    label="Electricity Bought (MW)",
+)
+ax[1].plot(
+    range(start_hour, end_hour),
     model.prob.get_val("battery.battery_electricity_out", units="MW")[start_hour:end_hour],
     linestyle="-.",
     label="Battery Electricity Out (MW)",
 )
+
 print(min(model.prob.get_val("battery.electricity_out", units="MW")))
 print(min(model.prob.get_val("battery.battery_electricity_out", units="MW")))
 ax[1].plot(
@@ -106,6 +114,7 @@ ax[1].plot(
 )
 ax[1].set_ylim([-1e2, 2.5e2])
 ax[1].set_ylabel("Electricity Hourly (MW)")
+ax[1].legend()
 
 ax[2].plot(
     range(start_hour, end_hour),

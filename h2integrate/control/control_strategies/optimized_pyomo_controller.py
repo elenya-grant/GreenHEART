@@ -53,7 +53,7 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
             The cost per unit of charging the storage (in $/commodity_rate_units).
         cost_per_discharge (float):
             The cost per unit of discharging the storage (in $/commodity_rate_units).
-        demand_met_value (float):
+        demand_met_value (int, float, list):
             The penalty for not meeting the desired load demand (in $/commodity_rate_units).
         time_weighting_factor (float):
             The weighting factor applied to future time steps in the optimization objective
@@ -61,8 +61,9 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
         time_duration (float):
             The duration of each time step in the Pyomo model in hours.
             The default of this parameter is 1.0 (i.e., 1 hour time steps).
-        max_system_capacity (float):
-            Maximum amount the storage can charge (i.e. transmission limit for grid charging)
+        commodity_import_limit (float):
+            Maximum amount of the commodity that the storage/system can buy
+                (i.e. transmission limit for grid charging)
         allow_commodity_buying (bool):
             This sets whether the storage can buy commodity to charge or not
         commodity_buy_price (int, float, list):
@@ -73,6 +74,9 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
     allow_commodity_buying: bool = field()
     charge_efficiency: float = field(validator=range_val(0, 1), default=None)
     discharge_efficiency: float = field(validator=range_val(0, 1), default=None)
+    # TODO: note that this definition of cost_per_production is not generalizable to multiple
+    #       production technologies. Would need a name adjustment to connect it to
+    #       production tech
     cost_per_production: float = field(default=None)
     cost_per_charge: float = field(default=None)
     cost_per_discharge: float = field(default=None)
@@ -80,36 +84,37 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
     time_weighting_factor: float = field(validator=range_val(0, 1), default=0.995)
     time_duration: float = field(default=1.0)  # hours
     # Can we set this to interconnection? do we want to?
-    max_system_capacity: float = field(default=None)
+    commodity_import_limit: float = field(default=None)
     commodity_buy_price: int | float | list = field(default=None)
 
     def __attrs_post_init__(self):
-        # Check inputs for grid parameters
+        # Check inputs for commodity buying parameters
         if self.allow_commodity_buying:
             if self.commodity_buy_price:
-                # Check grid buy price
+                # Check commodity buy price
                 if isinstance(self.commodity_buy_price, float | int):
                     if self.commodity_buy_price == 0:
                         raise ValueError(
                             "commodity_buy_price must be defined as an input and >0 \
-                                if using grid charging"
+                                if using commodity buying"
                         )
                 if isinstance(self.commodity_buy_price, list) or self.commodity_buy_price is None:
                     if all(self.commodity_buy_price) == 0:
                         raise ValueError(
                             "commodity_buy_price must be defined as an input and >0 \
-                                if using grid charging"
+                                if using commodity buying"
                         )
             else:
                 raise ValueError(
                     "commodity_buy_price must be defined as an input and >0 \
-                        if using grid charging"
+                        if using commodity buying"
                 )
 
             # Check max system capacity
-            if self.max_system_capacity == 0 or self.max_system_capacity is None:
+            if self.commodity_import_limit == 0 or self.commodity_import_limit is None:
                 raise ValueError(
-                    "max_system_capacity must be defined as an input and >0 if using grid charging"
+                    "commodity_import_limit must be defined as an input and \
+                        >0 if using commodity buying"
                 )
 
     def make_dispatch_inputs(self):
@@ -128,7 +133,7 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
         ]
 
         if self.allow_commodity_buying:
-            dispatch_keys.append("max_system_capacity")
+            dispatch_keys.append("commodity_import_limit")
             dispatch_keys.append("commodity_buy_price")
 
         dispatch_inputs = {k: self.as_dict()[k] for k in dispatch_keys}
@@ -166,22 +171,6 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
 
         self.n_timesteps = self.options["plant_config"]["plant"]["simulation"]["n_timesteps"]
 
-        super().setup()
-
-        self.n_control_window = self.config.n_control_window
-        self.updated_initial_soc = self.config.init_soc_fraction
-
-        # Is this the best place to put this???
-        self.commodity_info = {
-            "commodity_name": self.config.commodity,
-            "commodity_storage_units": self.config.commodity_rate_units,
-        }
-        # TODO: note that this definition of cost_per_production is not generalizable to multiple
-        #       production technologies. Would need a name adjustment to connect it to
-        #       production tech
-
-        self.dispatch_inputs = self.config.make_dispatch_inputs()
-
         self.add_input(
             "demand_met_value",
             val=self.config.demand_met_value,
@@ -200,8 +189,33 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
                 # should these be USD/commodity_amount_units?
                 desc="Value of meeting the demand",
             )
+            self.add_input(
+                f"{self.config.commodity}_available_to_buy",
+                val=self.config.commodity_import_limit,
+                shape=self.n_timesteps,
+                units=self.config.commodity_rate_units,
+            )
 
-    def pyomo_setup(self, discrete_inputs):
+            self.add_output(
+                f"{self.config.commodity}_bought_for_storage",
+                val=0,
+                shape=self.n_timesteps,
+                units=self.config.commodity_rate_units,
+            )
+
+        super().setup()
+
+        self.n_control_window = self.config.n_control_window
+        self.updated_initial_soc = self.config.init_soc_fraction
+
+        self.commodity_info = {
+            "commodity_name": self.config.commodity,
+            "commodity_storage_units": self.config.commodity_rate_units,
+        }
+
+        self.dispatch_inputs = self.config.make_dispatch_inputs()
+
+    def pyomo_setup(self, discrete_inputs, outputs):
         """Create the Pyomo model, extract dispatch technology names, and return dispatch solver.
 
         Returns:
@@ -282,6 +296,8 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
             # initialize outputs
             storage_commodity_out = np.zeros(self.n_timesteps)
             soc = np.zeros(self.n_timesteps)
+            if self.config.allow_commodity_buying:
+                commodity_bought = np.zeros(self.n_timesteps)
 
             # get the starting index for each control window
             window_start_indices = list(range(0, self.n_timesteps, self.config.n_control_window))
@@ -335,7 +351,13 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
                     # simulation
                     storage_commodity_out[j] = storage_commodity_out_control_window[j - t]
                     soc[j] = soc_control_window[j - t]
+                    if self.config.allow_commodity_buying:
+                        commodity_bought[j] = self.hybrid_dispatch_rule.storage_commodity_bought[
+                            j - t
+                        ]
 
+            if self.config.allow_commodity_buying:
+                outputs[f"{self.config.commodity}_bought_for_storage"] = commodity_bought
             return storage_commodity_out, soc
 
         return pyomo_dispatch_solver
@@ -472,7 +494,7 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
                 f"{self.config.commodity}_buy_price"
             ][:]
 
-        discrete_outputs["pyomo_dispatch_solver"] = self.pyomo_setup(discrete_inputs)
+        discrete_outputs["pyomo_dispatch_solver"] = self.pyomo_setup(discrete_inputs, outputs)
 
     @staticmethod
     def glpk_solve_call(

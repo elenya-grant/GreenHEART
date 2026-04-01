@@ -248,3 +248,9 @@ class PyomoDispatchPlantModel:
             self.blocks[t].discharge_commodity.value - self.blocks[t].charge_commodity.value
             for t in self.blocks.index_set()
         ]
+
+    @property
+    def storage_commodity_bought(self) -> list:
+        # This is used in the storage_dispatch_commands method of the control strategy
+        """Storage commodity bought."""
+        return [self.blocks[t].commodity_bought.value for t in self.blocks.index_set()]
