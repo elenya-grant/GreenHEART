@@ -55,7 +55,7 @@ def test_pass_through_controller(subtests):
     # Set up the OpenMDAO problem
     prob = om.Problem()
 
-    plant_config = {"plant": {"plant_life": 30, "simulation": {"n_timesteps": 10}}}
+    plant_config = {"plant": {"plant_life": 30, "simulation": {"n_timesteps": 10, "dt": 3600}}}
 
     prob.model.add_subsystem(
         name="IVC",
@@ -532,7 +532,7 @@ def test_demand_converter_controller(subtests):
         },
     }
 
-    plant_config = {"plant": {"plant_life": 30, "simulation": {"n_timesteps": 10}}}
+    plant_config = {"plant": {"plant_life": 30, "simulation": {"n_timesteps": 10, "dt": 3600}}}
 
     # Set up OpenMDAO problem
     prob = om.Problem()
@@ -611,7 +611,7 @@ def test_flexible_demand_converter_controller(subtests, variable_h2_production_p
     plant_config = {
         "plant": {
             "plant_life": 30,
-            "simulation": {"n_timesteps": len(variable_h2_production_profile)},
+            "simulation": {"n_timesteps": len(variable_h2_production_profile), "dt": 3600},
         }
     }
 
@@ -721,7 +721,7 @@ def test_flexible_demand_converter_controller_min_utilization(
     plant_config = {
         "plant": {
             "plant_life": 30,
-            "simulation": {"n_timesteps": len(variable_h2_production_profile)},
+            "simulation": {"n_timesteps": len(variable_h2_production_profile), "dt": 3600},
         }
     }
 
