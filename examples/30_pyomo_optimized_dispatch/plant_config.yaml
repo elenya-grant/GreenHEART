@@ -17,6 +17,15 @@ plant:
 # this will naturally grow as we mature the interconnected tech
 technology_interconnections:
   - [wind, battery, electricity, cable]
+  # Below is attempt with grid
+  - [battery, grid_buy, [electricity_bought_for_storage, electricity_demand]]
+  - [battery, combiner, electricity, cable]
+  - [grid_buy, combiner, electricity, cable]
+  # Below is attempt with feedstock
+  # - [electricity_feedstock_source, battery, [electricity_out, electricity_available_to_buy]]
+  # - [battery, electricity_feedstock, [electricity_bought_for_storage, electricity_consumed]]
+  # CANT USE WITH COMBINER BC FEEDSTOCK DOESNT HAVE CAPACITY FACTOR
+  # - [electricity_feedstock, combiner, [electricity_consumed, electricity_in1]]
   # - [battery, grid_buy, [unmet_electricity_demand_out, electricity_demand], cable]
 # array of arrays containing left-to-right technology, technology doing the dispatching
 # in this case, battery is connected to battery because there are controls rules for
@@ -60,7 +69,16 @@ finance_parameters:
       finance_groups: [profast_model]
       # technologies: [wind, battery, grid_buy]
       technologies: [wind, battery]
-
+    # electricity:
+    #   commodity: electricity
+    #   commodity_stream:
+    #   finance_groups: [profast_model]
+    #   technologies: [wind, battery, electricity_feedstock]
+    electricity:
+      commodity: electricity
+      commodity_stream: combiner
+      finance_groups: [profast_model]
+      technologies: [wind, battery, grid_buy]
       # dispatched_electricity:
       #   commodity: "electricity"
       #   commodity_stream: "battery" #use only dispatched electricity from battery in finance calc

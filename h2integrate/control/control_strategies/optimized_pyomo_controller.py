@@ -357,7 +357,9 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
                         ]
 
             if self.config.allow_commodity_buying:
-                outputs[f"{self.config.commodity}_bought_for_storage"] = commodity_bought
+                outputs[f"{self.config.commodity}_bought_for_storage"] = np.maximum(
+                    commodity_bought, 0
+                )
             return storage_commodity_out, soc
 
         return pyomo_dispatch_solver

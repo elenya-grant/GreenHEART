@@ -1,11 +1,15 @@
+import os
+from pathlib import Path
+
 import numpy as np
 from matplotlib import pyplot as plt
 
 from h2integrate.core.h2integrate_model import H2IntegrateModel
+from h2integrate.core.inputs.validation import load_tech_yaml, load_plant_yaml, load_driver_yaml
 
 
-# Create an H2Integrate model
-model = H2IntegrateModel("pyomo_optimized_dispatch.yaml")
+os.chdir(Path(__file__).parent)
+
 
 # --- Parameters ---
 amplitude = 0.9  # Amplitude of the sine wave
@@ -38,13 +42,35 @@ commodity_buy_price_profile = noisy_signal
 
 demand_profile = np.ones(8760) * 100.0
 
+# Modify stuff
+tech_config = load_tech_yaml("tech_config.yaml")
+plant_config = load_plant_yaml("plant_config.yaml")
+driver_config = load_driver_yaml("driver_config.yaml")
+
+tech_config["technologies"]["grid_buy"]["model_inputs"]["cost_parameters"][
+    "electricity_buy_price"
+] = commodity_buy_price_profile
+
+config = {
+    "plant_config": plant_config,
+    "technology_config": tech_config,
+    "driver_config": driver_config,
+}
+
+# Create an H2Integrate model
+model = H2IntegrateModel(config)
+
 
 # TODO: Update with demand module once it is developed
 model.setup()
 model.prob.set_val("battery.electricity_demand", demand_profile, units="MW")
 # model.prob.set_val("battery.demand_met_value", commodity_met_value_profile, units="USD/kW")
 model.prob.set_val("battery.electricity_buy_price", commodity_buy_price_profile, units="USD/kW")
-# model.prob.set_val("grid_buy.electricity_buy_price", commodity_buy_price_profile, units="USD/kW")
+# model.prob.set_val("electricity_feedstock.price", commodity_buy_price_profile, units="USD/(kW*h)")
+model.prob.set_val(
+    "grid_buy.electricity_buy_price", commodity_buy_price_profile, units="USD/(kW*h)"
+)
+
 
 # Run the model
 model.run()

@@ -74,17 +74,41 @@ technologies:
         allow_commodity_buying: true
         commodity_buy_price: 0.4
 
-  # grid_buy:
+  # electricity_feedstock:
   #   performance_model:
-  #     model: GridPerformanceModel
+  #     model: FeedstockPerformanceModel
   #   cost_model:
-  #     model: GridCostModel
+  #     model: FeedstockCostModel
   #   model_inputs:
   #     shared_parameters:
-  #       interconnection_size: 207500  # kW
+  #       commodity: electricity
+  #       commodity_rate_units: kW
+  #     performance_parameters:
+  #       rated_capacity: 207500
   #     cost_parameters:
+  #       price: 0.05  # USD/kWh
+  #       annual_cost: 0.0
+  #       start_up_cost: 0.0
+  #       commodity_amount_units: kW*h
   #       cost_year: 2022
-  #       electricity_buy_price: 0.0  # $/kWh - only buying, no selling
-  #       interconnection_capex_per_kw: 0.0  # $/kW capital cost
-  #       interconnection_opex_per_kw: 0.0  # $/kW/year O&M cost
-  #       fixed_interconnection_cost: 0.0  # $ one-time fixed cost
+  grid_buy:
+    performance_model:
+      model: GridPerformanceModel
+    cost_model:
+      model: GridCostModel
+    model_inputs:
+      shared_parameters:
+        interconnection_size: 207500  # kW
+      cost_parameters:
+        cost_year: 2022
+        electricity_buy_price: 0.05  # $/kWh - only buying, no selling
+        interconnection_capex_per_kw: 0.0  # $/kW capital cost
+        interconnection_opex_per_kw: 0.0  # $/kW/year O&M cost
+        fixed_interconnection_cost: 0.0  # $ one-time fixed cost
+  combiner:
+    performance_model:
+      model: GenericCombinerPerformanceModel
+    model_inputs:
+      performance_parameters:
+        commodity: electricity
+        commodity_rate_units: kW
