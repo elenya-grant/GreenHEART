@@ -64,15 +64,12 @@ class FlexibleDemandOpenLoopConverterController(ConverterOpenLoopControlBase):
         )
         super().setup()
 
-        n_timesteps = int(self.options["plant_config"]["plant"]["simulation"]["n_timesteps"])
-        commodity = self.config.commodity
-
         self.add_input(
-            f"rated_{commodity}_demand",
+            f"rated_{self.commodity}_demand",
             val=self.config.demand_profile,
-            shape=(n_timesteps),
-            units=self.config.commodity_rate_units,
-            desc=f"Rated demand of {commodity}",
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc=f"Rated demand of {self.commodity}",
         )
 
         self.add_input(
@@ -104,11 +101,11 @@ class FlexibleDemandOpenLoopConverterController(ConverterOpenLoopControlBase):
         )
 
         self.add_output(
-            f"{commodity}_flexible_demand_profile",
+            f"{self.commodity}_flexible_demand_profile",
             val=0.0,
-            shape=(n_timesteps),
+            shape=self.n_timesteps,
             units=self.config.commodity_rate_units,
-            desc=f"Flexible demand profile of {commodity}",
+            desc=f"Flexible demand profile of {self.commodity}",
         )
 
     def adjust_demand_for_ramping(self, pre_demand_met_clipped, demand_bounds, ramp_rate_bounds):
@@ -263,15 +260,15 @@ class FlexibleDemandOpenLoopConverterController(ConverterOpenLoopControlBase):
             outputs (dict-like): Mapping where computed outputs are written.
 
         """
-        commodity = self.config.commodity
-        remaining_demand = inputs[f"{commodity}_demand"] - inputs[f"{commodity}_in"]
+
+        remaining_demand = inputs[f"{self.commodity}_demand"] - inputs[f"{self.commodity}_in"]
 
         if self.config.min_utilization == 1.0:
             # Calculate missed load and curtailed production
-            outputs[f"unmet_{commodity}_demand_out"] = np.where(
+            outputs[f"unmet_{self.commodity}_demand_out"] = np.where(
                 remaining_demand > 0, remaining_demand, 0
             )
-            outputs[f"unused_{commodity}_out"] = np.where(
+            outputs[f"unused_{self.commodity}_out"] = np.where(
                 remaining_demand < 0, -1 * remaining_demand, 0
             )
         else:
@@ -280,23 +277,42 @@ class FlexibleDemandOpenLoopConverterController(ConverterOpenLoopControlBase):
             curtailed = np.where(remaining_demand < 0, -1 * remaining_demand, 0)
 
             # subtract out the excess input commodity
-            inflexible_out = inputs[f"{commodity}_in"] - curtailed
+            inflexible_out = inputs[f"{self.commodity}_in"] - curtailed
 
             flexible_demand_profile = self.make_flexible_demand(
-                inputs[f"{commodity}_demand"], inflexible_out, inputs
+                inputs[f"{self.commodity}_demand"], inflexible_out, inputs
             )
 
-            outputs[f"{commodity}_flexible_demand_profile"] = flexible_demand_profile
-            flexible_remaining_demand = flexible_demand_profile - inputs[f"{commodity}_in"]
+            outputs[f"{self.commodity}_flexible_demand_profile"] = flexible_demand_profile
+            flexible_remaining_demand = flexible_demand_profile - inputs[f"{self.commodity}_in"]
 
-            outputs[f"unmet_{commodity}_demand_out"] = np.where(
+            outputs[f"unmet_{self.commodity}_demand_out"] = np.where(
                 flexible_remaining_demand > 0, flexible_remaining_demand, 0
             )
-            outputs[f"unused_{commodity}_out"] = np.where(
+            outputs[f"unused_{self.commodity}_out"] = np.where(
                 flexible_remaining_demand < 0, -1 * flexible_remaining_demand, 0
             )
 
         # Calculate actual output based on demand met and curtailment
-        outputs[f"{commodity}_set_point"] = (
-            inputs[f"{commodity}_in"] - outputs[f"unused_{commodity}_out"]
+        outputs[f"{self.commodity}_set_point"] = (
+            inputs[f"{self.commodity}_in"] - outputs[f"unused_{self.commodity}_out"]
+        )
+
+        # Calculate performance model outputs
+        outputs[f"{self.commodity}_out"] = (
+            inputs[f"{self.commodity}_in"] - outputs[f"unused_{self.commodity}_out"]
+        )
+        outputs[f"rated_{self.commodity}_production"] = inputs[
+            f"rated_{self.commodity}_demand"
+        ].mean()
+
+        outputs[f"total_{self.commodity}_produced"] = np.sum(outputs[f"{self.commodity}_out"]) * (
+            self.dt / 3600
+        )
+        outputs[f"annual_{self.commodity}_produced"] = (
+            outputs[f"total_{self.commodity}_produced"] / self.fraction_of_year_simulated
+        )
+
+        outputs["capacity_factor"] = (
+            outputs[f"{self.commodity}_set_point"].sum() / inputs[f"{self.commodity}_demand"].sum()
         )

@@ -1,7 +1,7 @@
-import openmdao.api as om
 from attrs import field, define
 
 from h2integrate.core.utilities import BaseConfig
+from h2integrate.core.model_baseclasses import PerformanceModelBaseClass
 
 
 @define(kw_only=True)
@@ -25,7 +25,7 @@ class ConverterOpenLoopControlBaseConfig(BaseConfig):
     demand_profile: int | float | list = field()
 
 
-class ConverterOpenLoopControlBase(om.ExplicitComponent):
+class ConverterOpenLoopControlBase(PerformanceModelBaseClass):
     """Base OpenMDAO component for open-loop demand tracking.
 
     This component defines the interfaces required for open-loop demand
@@ -34,21 +34,6 @@ class ConverterOpenLoopControlBase(om.ExplicitComponent):
     Subclasses must implement the :meth:`compute` method to define the
     controller behavior.
     """
-
-    def initialize(self):
-        """Declare component options.
-
-        Options:
-            driver_config (dict): Driver-level configuration parameters.
-            plant_config (dict): Plant-level configuration, including number of
-                simulation timesteps.
-            tech_config (dict): Technology-specific configuration, including
-                controller settings.
-
-        """
-        self.options.declare("driver_config", types=dict)
-        self.options.declare("plant_config", types=dict)
-        self.options.declare("tech_config", types=dict)
 
     def setup(self):
         """Define inputs and outputs for demand control.
@@ -61,48 +46,52 @@ class ConverterOpenLoopControlBase(om.ExplicitComponent):
             KeyError: If required configuration keys are missing from
                 ``plant_config`` or ``tech_config``.
         """
-        n_timesteps = int(self.options["plant_config"]["plant"]["simulation"]["n_timesteps"])
+        self.commodity = self.config.commodity
+        self.commodity_rate_units = self.config.commodity_rate_units
+        self.commodity_amount_units = getattr(
+            self.config, "commodity_amount_units", f"({self.config.commodity_rate_units})*h"
+        )
 
-        commodity = self.config.commodity
+        super().setup()
 
         self.add_input(
-            f"{commodity}_demand",
+            f"{self.commodity}_demand",
             val=self.config.demand_profile,
-            shape=(n_timesteps),
-            units=self.config.commodity_rate_units,  # NOTE: hardcoded to align with controllers
-            desc=f"Demand profile of {commodity}",
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,  # NOTE: hardcoded to align with controllers
+            desc=f"Demand profile of {self.commodity}",
         )
 
         self.add_input(
-            f"{commodity}_in",
+            f"{self.commodity}_in",
             val=0.0,
-            shape=(n_timesteps),
-            units=self.config.commodity_rate_units,
-            desc=f"Amount of {commodity} demand that has already been supplied",
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc=f"Amount of {self.commodity} demand that has already been supplied",
         )
 
         self.add_output(
-            f"unmet_{commodity}_demand_out",
+            f"unmet_{self.commodity}_demand_out",
             val=self.config.demand_profile,
-            shape=(n_timesteps),
-            units=self.config.commodity_rate_units,
-            desc=f"Remaining demand profile of {commodity}",
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc=f"Remaining demand profile of {self.commodity}",
         )
 
         self.add_output(
-            f"unused_{commodity}_out",
+            f"unused_{self.commodity}_out",
             val=0.0,
-            shape=(n_timesteps),
-            units=self.config.commodity_rate_units,
-            desc=f"Excess production of {commodity}",
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc=f"Excess production of {self.commodity}",
         )
 
         self.add_output(
-            f"{commodity}_set_point",
+            f"{self.commodity}_set_point",
             val=0.0,
-            shape=(n_timesteps),
-            units=self.config.commodity_rate_units,
-            desc=f"Production profile of {commodity}",
+            shape=self.n_timesteps,
+            units=self.commodity_rate_units,
+            desc=f"Production profile of {self.commodity}",
         )
 
         # self.add_output(
