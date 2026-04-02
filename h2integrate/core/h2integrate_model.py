@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 
 from h2integrate.core.sites import SiteLocationComponent
 from h2integrate.core.utilities import create_xdsm_from_config
+from h2integrate.core.dict_utils import check_inputs
 from h2integrate.core.file_utils import get_path, find_file, load_yaml
 from h2integrate.finances.finances import AdjustedCapexOpexComp
 from h2integrate.core.supported_models import supported_models
@@ -1322,6 +1323,9 @@ class H2IntegrateModel:
         """
         Extremely light wrapper to setup the OpenMDAO problem and track setup status.
         """
+        for tech, tech_info in self.technology_config.items():
+            check_inputs(self.prob, tech, tech_info)
+
         self.setup_has_been_called = True
         self.prob.setup()
 

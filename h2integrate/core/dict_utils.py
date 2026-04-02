@@ -217,3 +217,89 @@ def rename_dict_keys(input_dict, init_keyname, new_keyname):
     input_dict = update_keyname(input_dict, init_keyname, new_keyname)
     input_dict = remove_keynames(input_dict, init_keyname)
     return input_dict
+
+
+def check_inputs(prob, tech: str, tech_info: dict):
+    msg = None
+    if "control_strategy" in tech_info or "dispatch_rule_set" in tech_info:
+        group = getattr(prob.model, tech)
+        control_sys = getattr(group, tech_info["control_strategy"]["model"], None)
+        dispatch_sys = getattr(group, tech_info["dispatch_rule_set"]["model"], None)
+        cost_sys = getattr(group, tech_info["cost_model"]["model"], None)
+        perf_sys = getattr(group, tech_info["performance_model"]["model"], None)
+
+        restructured_params = {}
+        if control_sys is not None:
+            restructured_params["control_parameters"] = control_sys.config.as_dict()
+        if dispatch_sys is not None:
+            restructured_params["dispatch_parameters"] = dispatch_sys.config.as_dict()
+        if cost_sys is not None:
+            restructured_params["cost_parameters"] = cost_sys.config.as_dict()
+        if perf_sys is not None:
+            restructured_params["performance_parameters"] = perf_sys.config.as_dict()
+
+        # Reconstruct the model_inputs with shared params
+        shared_params = {}
+        for param_key, v in restructured_params.items():
+            other_keys = [ok for ok in restructured_params.keys() if ok != param_key]
+            for other_key in other_keys:
+                if any(ok in v for ok in restructured_params[other_key].keys()):
+                    # get keys shared between other_key and param_key
+                    shared_other_param = {
+                        ok: ov for ok, ov in restructured_params[other_key].items() if ok in v
+                    }
+                    shared_params.update(shared_other_param)
+                    # remove the shared params from other_key dictionary
+                    other_key_items = {
+                        k: v
+                        for k, v in restructured_params[other_key].items()
+                        if k not in shared_params
+                    }
+                    restructured_params[other_key] = other_key_items
+            # remove shared params from param_key
+            param_key_items = {
+                k: v for k, v in restructured_params[param_key].items() if k not in shared_params
+            }
+            restructured_params[param_key] = param_key_items
+
+        restructured_params["shared_parameters"] = shared_params
+
+        for param_key in (
+            restructured_params.keys()
+        ):  # NOTE: maybe this could just be used for shared_parameters
+            if param_key in tech_info["model_inputs"] and param_key in restructured_params:
+                dict_differences = {
+                    k: tech_info["model_inputs"][param_key][k]
+                    for k in set(tech_info["model_inputs"][param_key])
+                    - set(restructured_params[param_key])
+                }
+                if len(dict_differences) > 0:
+                    if param_key == "shared_parameters":
+                        # check if the parameter is not shared, but used by one tech
+                        for other_key, other_params in restructured_params.items():
+                            if other_key == param_key:
+                                continue
+                            if any(k in other_params for k in dict_differences):
+                                unshared_params = [k for k in dict_differences if k in other_params]
+                                msg = (
+                                    f"The attributes: {unshared_params} found in shared_parameters "
+                                    f"but should be in {other_key} for technology {tech}"
+                                )
+                        if msg is None:
+                            # the parameter is not used by any tech
+                            msg = (
+                                f"The attributes: {dict_differences.keys()} found in "
+                                f"shared_parameters are not used by any of the models for "
+                                f"technology {tech}"
+                            )
+
+                    else:
+                        msg = (
+                            f"The attribute {dict_differences.keys()} found in "
+                            f"{param_key} is not used"
+                        )
+
+    if msg is None:
+        return
+
+    raise AttributeError(msg)
