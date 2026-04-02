@@ -1,9 +1,64 @@
 # Changelog
 
 ## Unreleased
+- Update energy conversion ratio in H2 SMR model [PR 606](https://github.com/NatLabRockies/H2Integrate/pull/606)
+- Update iron models and examples [PR 601](https://github.com/NatLabRockies/H2Integrate/pull/601)
+  - Remove outdated iron files
+  - Consolidate iron examples into a single main folder
+  - Add documentation for Rosner iron DRI and steel EAF models
+- Breaks out pyomo controller simulation code from base class to individual controllers. [PR 587](https://github.com/NatLabRockies/H2Integrate/pull/587)
+- Add tests for non-one valued charge, discharge, and round-trip efficiencies for the open-loop demand controller [PR 610](https://github.com/NatLabRockies/H2Integrate/pull/610)
+- Updated the `StorageAutoSizingModel` and `PassThroughOpenLoopController` so that `commodity_set_point` is used as the storage dispatch command [PR 608](https://github.com/NatLabRockies/H2Integrate/pull/608)
+- Updated the `SimpleGenericStorage` and `DemandOpenLoopStorageController` so that `commodity_set_point` is used as the storage dispatch command [PR 612](https://github.com/NatLabRockies/H2Integrate/pull/612)
+- Add PySAM marine models [PR 607](https://github.com/NatLabRockies/H2Integrate/pull/607)
+  - Add tidal resource model
+  - Add pysam tidal performance model
+  - Add pysam marine hydrokinetic cost model
+- Updated the `StoragePerformanceModel` and `PySAMBatteryPerformanceModel` to be compatible with the open-loop storage control strategies [PR 613](https://github.com/NatLabRockies/H2Integrate/pull/613)
+  - Removed `SimpleGenericStorage` and replaced usage with `StoragePerformanceModel`
+  - Renamed `PassThroughOpenLoopController` to `SimpleStorageOpenLoopController`
+  - Bugfix in pyomo control rules so that units such as `kg/h` can be used
+  - Bugfix in tests of pyomo control strategies with `StoragePerformanceModel` so that the pathname attribute is correct
+  - Added `demand_profile` as an input to `StoragePerformanceModel` and `PySAMBatteryPerformanceModel`
+  - Renamed `xx_charge_fraction` to `xx_soc_fraction`
+- Bugfix in `StoragePerformanceModel` and `PySAMBatteryPerformanceModel` for setting control inputs to account for cases with multiple storage technologies with different control strategy types [PR 615](https://github.com/NatLabRockies/H2Integrate/pull/615)
+- Bugfix input energy to OAE financial model [PR 617](https://github.com/NatLabRockies/H2Integrate/pull/617)
+  - Remove `MarineCarbonCapture` base classes
+- Added the notion of multivariable commodity streams, which allow users to connect multiple variables between technologies with a single connection specification. [PR 480](https://github.com/NatLabRockies/H2Integrate/pull/480)
+- Added base class (`StorageOpenLoopControlBase`) and base configuration class (`StorageOpenLoopControlBaseConfig`) for open-loop storage control strategies and updated the existing open-loop storage control strategies to inherit these [PR 619](https://github.com/NatLabRockies/H2Integrate/pull/619)
+- Added a generic cost model for converters [PR 622](https://github.com/NatLabRockies/H2Integrate/pull/622)
+- Updated the `StorageAutoSizingModel` model to be compatible with Pyomo control strategies [PR 621](https://github.com/NatLabRockies/H2Integrate/pull/621)
+- Removed a few usages of `shape_by_conn` due to issues with OpenMDAO v3.43.0 release on some computers [PR 632](https://github.com/NatLabRockies/H2Integrate/pull/632)
+- Made generating an XDSM diagram from connections in a model optional and added documentation on model visualization. [PR 629](https://github.com/NatLabRockies/H2Integrate/pull/629)
+- Added a storage performance baseclass model `StoragePerformanceBase` and updated the other storage performance models to inherit it [PR 624](https://github.com/NatLabRockies/H2Integrate/pull/624)
 
+## 0.7.1 [March 13, 2026]
+
+### Updates
+
+- PySAM battery now takes in charge rate and storage capacity as inputs [PR 557](https://github.com/NatLabRockies/H2Integrate/pull/557)
+- Removed unnecessary `tech_name` designations for some control techs in yamls [PR 559](https://github.com/NatLabRockies/H2Integrate/pull/559)
+- Added a generic storage model that is compatible with the Pyomo controllers [PR 571](https://github.com/NatLabRockies/H2Integrate/pull/571)
+- Add hydrogen steam methane reforming (SMR) performance and cost converter [PR 594](https://github.com/NatLabRockies/H2Integrate/pull/594)
+- Introduced a keyword arg to `post_process` to allow users to choose if results are printed to the console. [PR 597](https://github.com/NatLabRockies/H2Integrate/pull/597)
+- Renamed `min_charge_percent`, `max_charge_percent`, and `init_charge_percent` to
+  `min_charge_fraction`, `max_charge_fraction`, and `init_charge_fraction` across all
+  configuration classes, YAML configs, tests, and examples. These values are fractions
+  between 0 and 1, so the previous "percent" naming was misleading. [PR 581](https://github.com/NatLabRockies/H2Integrate/pull/581)
+- Reorganized utilities, split them out to appropriate modules [PR 586](https://github.com/NatLabRockies/H2Integrate/pull/586)
 - Updates the PR Changelog requirement to include complete descriptions of updates and a link to the
   associated PR. [PR 572](https://github.com/NatLabRockies/H2Integrate/pull/572)
+- Added a test and docs for sql to csv. [PR 582](https://github.com/NatLabRockies/H2Integrate/pull/582)
+- Switch to using NLR instead of NREL throughout, especially for API key usage for resource acquisition. [PR 583](https://github.com/NatLabRockies/H2Integrate/pull/583)
+
+### Fixes
+
+- Fixed docs/example drift in design of experiments case. [PR 584](https://github.com/NatLabRockies/H2Integrate/pull/584)
+- Fixed a bug within the H2 storage cost models that used max rate instead of average for H2 flows [PR 588](https://github.com/NatLabRockies/H2Integrate/pull/588)
+- Fixed a bug in the discrete variable instantiation within the iron processing stack that caused a failure with OpenMDAO v3.43 [PR 595](https://github.com/NatLabRockies/H2Integrate/pull/595)
+- Fixed a bug in model setup where transporters were added to the system at the end of the system instead after their source [PR 591](https://github.com/NatLabRockies/H2Integrate/pull/591)
+- Fixed a bug in example 1 (steel) where a cable was included between the combiner to steel, but steel uses an internal grid connection [PR 591](https://github.com/NatLabRockies/H2Integrate/pull/591)
+- Fixed a bug in charge and discharge efficiency handling in `StoragePerformanceModel` [PR 600](https://github.com/NatLabRockies/H2Integrate/pull/600)
 
 ## 0.7 [March 3, 2026]
 

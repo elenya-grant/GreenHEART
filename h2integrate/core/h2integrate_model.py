@@ -1,22 +1,25 @@
 import importlib.util
 
+import numpy as np
 import networkx as nx
 import openmdao.api as om
 import matplotlib.pyplot as plt
 
 from h2integrate.core.sites import SiteLocationComponent
-from h2integrate.core.utilities import (
-    get_path,
-    find_file,
-    load_yaml,
-    print_results,
-    create_xdsm_from_config,
-)
+from h2integrate.core.utilities import create_xdsm_from_config
+from h2integrate.core.file_utils import get_path, find_file, load_yaml
 from h2integrate.finances.finances import AdjustedCapexOpexComp
-from h2integrate.core.supported_models import supported_models, is_electricity_producer
+from h2integrate.core.supported_models import supported_models
 from h2integrate.core.inputs.validation import load_tech_yaml, load_plant_yaml, load_driver_yaml
 from h2integrate.core.pose_optimization import PoseOptimization
 from h2integrate.postprocess.sql_to_csv import convert_sql_to_csv_summary
+from h2integrate.core.commodity_stream_definitions import (
+    multivariable_streams,
+    is_electricity_producer,
+)
+from h2integrate.control.control_strategies.pyomo_controller_baseclass import (
+    PyomoControllerBaseClass,
+)
 
 
 try:
@@ -189,19 +192,20 @@ class H2IntegrateModel:
         )
 
         for name, vals in self.technology_config["technologies"].items():
-            if "control_parameters" in vals["model_inputs"]:
-                val = self.technology_config["technologies"][name]["model_inputs"][
-                    "control_parameters"
-                ]
-                updated = {"tech_name": name}
-                if val is not None:
-                    self.technology_config["technologies"][name]["model_inputs"][
-                        "control_parameters"
-                    ].update(updated)
-                else:
-                    self.technology_config["technologies"][name]["model_inputs"][
-                        "control_parameters"
-                    ] = updated
+            if "control_strategy" in vals:
+                controller_model_name = vals["control_strategy"]["model"]
+                controller_cls = supported_models.get(controller_model_name)
+                if controller_cls is not None and issubclass(
+                    controller_cls, PyomoControllerBaseClass
+                ):
+                    model_inputs = self.technology_config["technologies"][name]["model_inputs"]
+                    if (
+                        "control_parameters" not in model_inputs
+                        or model_inputs["control_parameters"] is None
+                    ):
+                        model_inputs["control_parameters"] = {"tech_name": name}
+                    else:
+                        model_inputs["control_parameters"]["tech_name"] = name
 
     def create_custom_models(self, model_config, config_parent_path, model_types, prefix=""):
         """This method loads custom models from the specified directory and adds them to the
@@ -346,6 +350,9 @@ class H2IntegrateModel:
         and resources models (if provided in the configuration) for that site.
         """
         # Loop through each site defined in the plant config
+        # If no sites defined in plant_config, nothing to do
+        if "sites" not in self.plant_config or not self.plant_config["sites"]:
+            return
         for site_name, site_info in self.plant_config["sites"].items():
             # Reorganize the plant config to be formatted as expected by the
             # resource models
@@ -947,6 +954,50 @@ class H2IntegrateModel:
 
         self.finance_subgroups = finance_subgroups
 
+    def _connect_multivariable_stream(
+        self, source_tech, dest_tech, stream_name, combiner_counts, splitter_counts
+    ):
+        """Connect a multivariable stream between source and destination technologies.
+
+        Handles combiner indexing (numbered inputs), splitter indexing (numbered outputs),
+        and direct connections. Updates combiner_counts/splitter_counts dicts in-place.
+
+        Args:
+            source_tech (str): Name of the source technology.
+            dest_tech (str): Name of the destination technology.
+            stream_name (str): Name of the multivariable stream (key in multivariable_streams).
+            combiner_counts (dict): Tracks the next input index per combiner technology.
+            splitter_counts (dict): Tracks the next output index per splitter technology.
+        """
+        if "combiner" in dest_tech:
+            if dest_tech not in combiner_counts:
+                combiner_counts[dest_tech] = 1
+            else:
+                combiner_counts[dest_tech] += 1
+            stream_index = combiner_counts[dest_tech]
+            for var_name in multivariable_streams[stream_name]:
+                self.plant.connect(
+                    f"{source_tech}.{stream_name}:{var_name}_out",
+                    f"{dest_tech}.{stream_name}:{var_name}_in{stream_index}",
+                )
+        elif "splitter" in source_tech:
+            if source_tech not in splitter_counts:
+                splitter_counts[source_tech] = 1
+            else:
+                splitter_counts[source_tech] += 1
+            stream_index = splitter_counts[source_tech]
+            for var_name in multivariable_streams[stream_name]:
+                self.plant.connect(
+                    f"{source_tech}.{stream_name}:{var_name}_out{stream_index}",
+                    f"{dest_tech}.{stream_name}:{var_name}_in",
+                )
+        else:
+            for var_name in multivariable_streams[stream_name]:
+                self.plant.connect(
+                    f"{source_tech}.{stream_name}:{var_name}_out",
+                    f"{dest_tech}.{stream_name}:{var_name}_in",
+                )
+
     def connect_technologies(self):
         technology_interconnections = self.plant_config.get("technology_interconnections", [])
 
@@ -958,6 +1009,18 @@ class H2IntegrateModel:
         for connection in technology_interconnections:
             if len(connection) == 4:
                 source_tech, dest_tech, transport_item, transport_type = connection
+
+                # Check if this is a multivariable stream connection
+                # Format: [source, dest, stream_name, transport_type]
+                if transport_item in multivariable_streams:
+                    self._connect_multivariable_stream(
+                        source_tech,
+                        dest_tech,
+                        transport_item,
+                        combiner_counts,
+                        splitter_counts,
+                    )
+                    continue  # Skip the rest of the 4-element handling
 
                 if transport_type in self.tech_names:
                     # if the transport type is already a technology, skip creating a new component
@@ -989,11 +1052,19 @@ class H2IntegrateModel:
                     pass
                 else:
                     connection_component = self.supported_models[transport_type](
-                        transport_item=transport_item
+                        transport_item=transport_item, plant_config=self.plant_config
                     )
 
                     # Add the connection component to the model
                     self.plant.add_subsystem(connection_name, connection_component)
+
+                    # Reorder the subsystems so transporters comes after their source technology
+                    # NOTE: the private method must be used because setup() has not been called
+                    subsystem_names = list(self.plant._static_subsystems_allprocs)
+                    subsystem_names.remove(connection_name)
+                    insert_idx = subsystem_names.index(source_tech) + 1
+                    subsystem_names.insert(insert_idx, connection_name)
+                    self.plant.set_order(subsystem_names)
 
                 # Check if the source technology is a splitter
                 if "splitter" in source_tech:
@@ -1053,13 +1124,34 @@ class H2IntegrateModel:
                 source_tech, dest_tech, connected_parameter = connection
                 if isinstance(connected_parameter, tuple | list):
                     source_parameter, dest_parameter = connected_parameter
-                    self.plant.connect(
-                        f"{source_tech}.{source_parameter}", f"{dest_tech}.{dest_parameter}"
-                    )
+                    # Check if this is a multivariable stream connection
+                    if source_parameter in multivariable_streams:
+                        self._connect_multivariable_stream(
+                            source_tech,
+                            dest_tech,
+                            source_parameter,
+                            combiner_counts,
+                            splitter_counts,
+                        )
+                    else:
+                        self.plant.connect(
+                            f"{source_tech}.{source_parameter}", f"{dest_tech}.{dest_parameter}"
+                        )
                 else:
-                    self.plant.connect(
-                        f"{source_tech}.{connected_parameter}", f"{dest_tech}.{connected_parameter}"
-                    )
+                    # Check if the connected_parameter is a multivariable stream
+                    if connected_parameter in multivariable_streams:
+                        self._connect_multivariable_stream(
+                            source_tech,
+                            dest_tech,
+                            connected_parameter,
+                            combiner_counts,
+                            splitter_counts,
+                        )
+                    else:
+                        self.plant.connect(
+                            f"{source_tech}.{connected_parameter}",
+                            f"{dest_tech}.{connected_parameter}",
+                        )
 
             else:
                 err_msg = f"Invalid connection: {connection}"
@@ -1073,49 +1165,49 @@ class H2IntegrateModel:
                 for resource_key, resource_params in site_grp_inputs.get("resources", {}).items():
                     resource_models[f"{site_grp}-{resource_key}"] = resource_params
 
-        resource_source_connections = [c[0] for c in resource_to_tech_connections]
-        # Check if there is a missing resource to tech connection or missing resource model
-        if len(resource_models) != len(resource_source_connections):
-            if len(resource_models) > len(resource_source_connections):
-                # more resource models than resources connected to technologies
-                non_connected_resource = [
-                    k for k in resource_models if k not in resource_source_connections
-                ]
-                # check if theres a resource model that isn't connected to a technology
-                if len(non_connected_resource) > 0:
-                    msg = (
-                        "Some resources are not connected to a technology. Resource models "
-                        f"{non_connected_resource} are not included in "
-                        "`resource_to_tech_connections`. Please connect these resources "
-                        "to their technologies under `resource_to_tech_connections` in "
-                        "the plant config file."
-                    )
-                    raise ValueError(msg)
-            if len(resource_source_connections) > len(resource_models):
-                # more resources connected than resource models
-                missing_resource = [
-                    k for k in resource_source_connections if k not in resource_models
-                ]
-                # check if theres a resource model that isn't connected to a technology
-                if len(missing_resource) > 0:
-                    msg = (
-                        "Missing resource(s) are not defined but are connected to a technology. "
-                        f"Missing resource(s) are {missing_resource}. "
-                        "Please check ``resource_to_tech_connections`` in the plant config file "
-                        "or add the missing resources"
-                        " to plant_config['site']['resources']."
-                    )
-                    raise ValueError(msg)
+            resource_source_connections = [c[0] for c in resource_to_tech_connections]
+            # Check if there is a missing resource to tech connection or missing resource model
+            if len(resource_models) != len(resource_source_connections):
+                if len(resource_models) > len(resource_source_connections):
+                    # more resource models than resources connected to technologies
+                    non_connected_resource = [
+                        k for k in resource_models if k not in resource_source_connections
+                    ]
+                    # check if theres a resource model that isn't connected to a technology
+                    if len(non_connected_resource) > 0:
+                        msg = (
+                            "Some resources are not connected to a technology. Resource models "
+                            f"{non_connected_resource} are not included in "
+                            "`resource_to_tech_connections`. Please connect these resources "
+                            "to their technologies under `resource_to_tech_connections` in "
+                            "the plant config file."
+                        )
+                        raise ValueError(msg)
+                if len(resource_source_connections) > len(resource_models):
+                    # more resources connected than resource models
+                    missing_resource = [
+                        k for k in resource_source_connections if k not in resource_models
+                    ]
+                    # check if theres a resource model that isn't connected to a technology
+                    if len(missing_resource) > 0:
+                        msg = (
+                            "Missing resource(s) are not defined but are connected to a"
+                            f" technology. Missing resource(s) are {missing_resource}. "
+                            "Please check ``resource_to_tech_connections`` in the plant"
+                            " config file or add the missing resources"
+                            " to plant_config['site']['resources']."
+                        )
+                        raise ValueError(msg)
 
-        for connection in resource_to_tech_connections:
-            if len(connection) != 3:
-                err_msg = f"Invalid resource to tech connection: {connection}"
-                raise ValueError(err_msg)
+            for connection in resource_to_tech_connections:
+                if len(connection) != 3:
+                    err_msg = f"Invalid resource to tech connection: {connection}"
+                    raise ValueError(err_msg)
 
-            resource_name, tech_name, variable = connection
+                resource_name, tech_name, variable = connection
 
-            # Connect the resource output to the technology input
-            self.model.connect(f"{resource_name}.{variable}", f"{tech_name}.{variable}")
+                # Connect the resource output to the technology input
+                self.model.connect(f"{resource_name}.{variable}", f"{tech_name}.{variable}")
 
         # connect outputs of the technology models to the cost and finance models of the
         # same name if the cost and finance models are not None
@@ -1200,17 +1292,16 @@ class H2IntegrateModel:
             if tech_name == dispatching_tech_name:
                 continue
             else:
-                # Connect the dispatch rules output to the dispatching_tech_name input
-                self.model.connect(
-                    f"{tech_name}.dispatch_block_rule_function",
-                    f"{dispatching_tech_name}.dispatch_block_rule_function_{tech_name}",
+                # Only connect dispatch rules if they are defined in the tech_config
+                tech_dispatch_rule = self.technology_config.get(tech_name, {}).get(
+                    "dispatch_rule_set", False
                 )
-
-        if (pyxdsm is not None) and (len(technology_interconnections) > 0):
-            try:
-                create_xdsm_from_config(self.plant_config)
-            except FileNotFoundError as e:
-                print(f"Unable to create system XDSM diagram. Error: {e}")
+                if tech_dispatch_rule:
+                    # Connect the dispatch rules output to the dispatching_tech_name input
+                    self.model.connect(
+                        f"{tech_name}.dispatch_block_rule_function",
+                        f"{dispatching_tech_name}.dispatch_block_rule_function_{tech_name}",
+                    )
 
     def create_driver_model(self):
         """
@@ -1243,23 +1334,25 @@ class H2IntegrateModel:
 
         self.prob.run_driver()
 
-    def post_process(self, summarize_sql=False, show_plots=False):
+    def post_process(self, print_results=True, summarize_sql=False, show_plots=False):
+        """Post-process the results of the OpenMDAO model.
+
+        Prints the inputs and outputs to all systems in the model, excluding any
+        variables with "resource_data" in the name since those are large dictionary
+        variables that are not correctly formatted when printing.
+
+        Args:
+            print_results (bool): If True, print a summary of all model inputs
+                and outputs. Defaults to True.
+            summarize_sql (bool): If True and a recorder file was written,
+                convert the SQL recorder file to a CSV summary. Defaults to False.
+            show_plots (bool): If True, run post-processing plots for any
+                performance models that support them. Defaults to False.
         """
-        Post-process the results of the OpenMDAO model.
-
-        Right now, this means printing the inputs and outputs to all systems in the model.
-        We currently exclude any variables with "resource_data" in the name, since those
-        are large dictionary variables that are not correctly formatted when printing.
-
-        If `summarize_sql` is set to True and a recorder file was written, the results
-        in the recorder file will be summarized and saved as a .csv file.
-
-        Also, if `show_plots` is set to True, then any performance models with post-processing
-        plots available will be run and shown.
-        """
-        # Use custom summary printer instead of OpenMDAO's built-in printing so we can
-        # suppress internal value printing and display only mean values.
-        print_results(self.prob.model, excludes=["*resource_data"])
+        if print_results:
+            # Use custom summary printer instead of OpenMDAO's built-in printing so we can
+            # suppress internal value printing and display only mean values.
+            self.print_results(self.prob.model, excludes=["*resource_data"])
 
         if summarize_sql and self.recorder_path is not None:
             convert_sql_to_csv_summary(self.recorder_path, save_to_file=True)
@@ -1269,3 +1362,194 @@ class H2IntegrateModel:
                 model.post_process(show_plots=show_plots)
                 if show_plots:
                     plt.show()
+
+    @staticmethod
+    def print_results(model, includes=None, excludes=None, show_units=True):
+        """Print hierarchical inputs plus explicit/implicit outputs (means only) using Rich.
+
+        Order of rows preserves OpenMDAO's original ordering from list_inputs/list_outputs.
+        Group rows are emitted lazily the first time a variable within that path appears.
+        """
+
+        def _gather_outputs(explicit=True, implicit=False):
+            return model.list_outputs(
+                explicit=explicit,
+                implicit=implicit,
+                val=True,
+                prom_name=True,
+                units=show_units,
+                shape=True,
+                includes=includes,
+                excludes=excludes,
+                out_stream=None,
+                return_format="list",
+            )
+
+        explicit_meta = _gather_outputs(explicit=True, implicit=False)
+        implicit_meta = _gather_outputs(explicit=False, implicit=True)
+
+        # Gather inputs (no explicit/implicit split in OpenMDAO API)
+        input_meta = model.list_inputs(
+            val=True,
+            prom_name=True,
+            units=show_units,
+            shape=True,
+            includes=includes,
+            excludes=excludes,
+            out_stream=None,
+            return_format="list",
+        )
+
+        def _mean(val):
+            if isinstance(val, np.ndarray):
+                return "nan" if val.size == 0 else f"{np.mean(val)}"
+            if isinstance(val, int | float | np.number):
+                return f"{val}"
+            return "n/a"
+
+        from rich import box
+        from rich.table import Table
+        from rich.console import Console
+
+        console = Console()
+
+        def _emit_section(title, meta_list, kind_label="outputs"):
+            if not meta_list:
+                return
+            console.print(f"\n{len(meta_list)} {title.lower()} {kind_label}:")
+            table = Table(show_header=True, header_style="bold", box=box.MINIMAL, pad_edge=False)
+            table.add_column("Variable", overflow="fold")
+            table.add_column("Mean", justify="right")
+            if show_units:
+                table.add_column("Units")
+            table.add_column("Shape")
+            table.add_column("Promoted name", overflow="fold")
+
+            emitted_groups = set()
+            for abs_name, meta in meta_list:
+                parts = abs_name.split(".")
+                # emit group rows
+                for depth in range(len(parts) - 1):
+                    grp_path = ".".join(parts[: depth + 1])
+                    if grp_path not in emitted_groups:
+                        emitted_groups.add(grp_path)
+                        indent = "  " * depth
+                        grp_name = parts[depth]
+                        if show_units:
+                            table.add_row(f"{indent}{grp_name}", "", "", "", "")
+                        else:
+                            table.add_row(f"{indent}{grp_name}", "", "", "")
+                var = parts[-1]
+                indent = "  " * (len(parts) - 1)
+                mean_raw = _mean(meta.get("val"))
+                try:
+                    val = float(mean_raw)
+                    units_val_raw = meta.get("units")
+                    # Format as integer if units are 'year' or variable name is 'cost_year'
+                    if units_val_raw == "year" or var == "cost_year":
+                        mean_val = str(int(val))
+                    elif abs(val) >= 1e5:
+                        formatted = f"{val:,.2f}"
+                        mean_val = formatted.rstrip("0")
+                        if mean_val.endswith("."):
+                            mean_val = mean_val  # Keep e.g. "520." format
+                        else:
+                            mean_val = mean_val + "." if "." not in mean_val else mean_val
+                    else:
+                        formatted = f"{val:,.4f}"
+                        mean_val = formatted.rstrip("0")
+                        # Ensure we end with "." if all decimals were zeros
+                        if mean_val.endswith("."):
+                            pass  # Keep as e.g. "520." or "0."
+                        elif "." not in mean_val:
+                            mean_val = mean_val + "."
+                except (ValueError, TypeError):
+                    mean_val = str(mean_raw)
+                units_val = (
+                    "n/a"
+                    if (var == "cost_year" or meta.get("units") is None)
+                    else str(meta.get("units"))
+                    if show_units
+                    else ""
+                )
+                shape_meta = meta.get("shape", "")
+                if var == "cost_year":
+                    shape_str = "n/a"
+                elif isinstance(shape_meta, tuple | list) and len(shape_meta) > 0:
+                    shape_str = str(shape_meta[0])
+                else:
+                    shape_str = "" if shape_meta in (None, "", ()) else str(shape_meta)
+                promoted = meta.get("prom_name", "")
+                if show_units:
+                    table.add_row(f"{indent}{var}", mean_val, units_val, shape_str, promoted)
+                else:
+                    table.add_row(f"{indent}{var}", mean_val, shape_str, promoted)
+            console.print(table)
+
+        # Emit sections (inside function scope)
+        _emit_section("Explicit", input_meta, kind_label="inputs")
+        _emit_section("Explicit", explicit_meta, kind_label="outputs")
+        _emit_section("Implicit", implicit_meta, kind_label="outputs")
+
+        # structured return
+        def _structured(meta_list):
+            return {
+                name: {
+                    "mean": _mean(meta.get("val")),
+                    **(
+                        {
+                            "units": (
+                                "n/a"
+                                if name.split(".")[-1] == "cost_year" or meta.get("units") is None
+                                else meta.get("units")
+                            )
+                        }
+                        if show_units
+                        else {}
+                    ),
+                    "shape": (
+                        "n/a"
+                        if name.split(".")[-1] == "cost_year"
+                        else meta.get("shape")[0]
+                        if isinstance(meta.get("shape"), tuple | list)
+                        and len(meta.get("shape")) > 0
+                        else ""
+                        if meta.get("shape") in (None, "", ())
+                        else meta.get("shape")
+                    ),
+                    "promoted_name": meta.get("prom_name"),
+                }
+                for name, meta in meta_list
+            }
+
+        return {
+            "inputs": _structured(input_meta),
+            "explicit_outputs": _structured(explicit_meta),
+            "implicit_outputs": _structured(implicit_meta),
+        }
+
+    def create_xdsm(self, outfile="connections_xdsm"):
+        """Create an XDSM diagram from the plant technology interconnections.
+
+        This method reads ``technology_interconnections`` from ``self.plant_config``
+        and delegates diagram generation to
+        :func:`h2integrate.core.utilities.create_xdsm_from_config`.
+
+        Args:
+            outfile (str, optional): Base filename for the generated XDSM output.
+                The default is ``"connections_xdsm"``.
+
+        Raises:
+            ValueError: If ``technology_interconnections`` is empty or missing from
+                the plant configuration.
+        """
+
+        technology_interconnections = self.plant_config.get("technology_interconnections", [])
+
+        if len(technology_interconnections) > 0:
+            create_xdsm_from_config(self.plant_config, output_file=outfile)
+        else:
+            raise ValueError(
+                "Generating an XDSM diagram requires technology interconnections, "
+                "but none were found."
+            )
