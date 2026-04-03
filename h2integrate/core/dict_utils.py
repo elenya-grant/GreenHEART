@@ -247,6 +247,9 @@ def check_inputs(prob, tech: str, tech_info: dict):
         if "performance_model" in tech_info:
             perf_sys = getattr(group, tech_info["performance_model"]["model"], None)
 
+        # NOTE: could add a check here to only run the remainder of the code if more than 3
+        # systems are included. Aka - dont run if the system only includes performance parameters
+        # and control strategies
         restructured_params = {}
         if control_sys is not None:
             restructured_params["control_parameters"] = control_sys.config.as_dict()
@@ -301,15 +304,16 @@ def check_inputs(prob, tech: str, tech_info: dict):
                             if any(k in other_params for k in dict_differences):
                                 unshared_params = [k for k in dict_differences if k in other_params]
                                 msg = (
-                                    f"The attributes: {unshared_params} found in shared_parameters "
-                                    f"but should be in {other_key} for technology {tech}"
+                                    f"The parameter(s): {unshared_params} found in "
+                                    f"shared_parameters but should be in {other_key} "
+                                    f"for technology {tech}"
                                 )
                                 raise AttributeError(msg)
 
                         if msg is None:
                             # the parameter is not used by any tech
                             msg = (
-                                f"The attributes: {dict_differences.keys()} found in "
+                                f"The parameter(s): {list(dict_differences.keys())} found in "
                                 f"shared_parameters are not used by any of the models for "
                                 f"technology {tech}"
                             )
@@ -328,13 +332,14 @@ def check_inputs(prob, tech: str, tech_info: dict):
                             ]
                             msg = (
                                 f"The parameter(s) {should_be_shared_keys} found in "
-                                f"{param_key} is a shared parameter for technology {tech}"
+                                f"{param_key} should be under shared_parameter(s) for "
+                                f"technology {tech}"
                             )
                             raise AttributeError(msg)
 
                         msg = (
-                            f"The attribute {dict_differences.keys()} found in "
-                            f"{param_key} is not used for technology {tech}"
+                            f"The parameter(s) {list(dict_differences.keys())} found in "
+                            f"{param_key} are not used for technology {tech}"
                         )
                         raise AttributeError(msg)
 
