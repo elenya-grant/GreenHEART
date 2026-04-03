@@ -316,6 +316,22 @@ def check_inputs(prob, tech: str, tech_info: dict):
                             raise AttributeError(msg)
 
                     else:
+                        # check if parameter is shared but only under one technology
+                        if any(
+                            k in restructured_params.get("shared_parameters", {})
+                            for k in dict_differences
+                        ):
+                            should_be_shared_keys = [
+                                k
+                                for k in dict_differences
+                                if k in restructured_params.get("shared_parameters", {})
+                            ]
+                            msg = (
+                                f"The parameter(s) {should_be_shared_keys} found in "
+                                f"{param_key} is a shared parameter for technology {tech}"
+                            )
+                            raise AttributeError(msg)
+
                         msg = (
                             f"The attribute {dict_differences.keys()} found in "
                             f"{param_key} is not used for technology {tech}"
