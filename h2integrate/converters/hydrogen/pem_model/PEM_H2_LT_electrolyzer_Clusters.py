@@ -176,7 +176,7 @@ class PEM_H2_Clusters:
         cluster_cycling = np.array(cluster_cycling)
 
         # how much to reduce h2 by based on cycling status
-        h2_multiplier = np.where(cluster_cycling > 0, startup_ratio, 1)
+        production_multiplier = np.where(cluster_cycling > 0, startup_ratio, 1)
         # number of "stacks" on at a single time
         self.n_stacks_op = self.max_stacks * self.cluster_status
         # n_stacks_op is now either number of pem per cluster or 0 if cluster is off!
@@ -220,14 +220,14 @@ class PEM_H2_Clusters:
         # h20_gal_used_system=self.water_supply(h2_kg_hr_system_init)
         p_consumed_max, rated_h2_hr = self.rated_h2_prod()
         # scales h2 production to account for start-up time if going from off->on
-        h2_kg_hr_system = h2_kg_hr_system_init * h2_multiplier
+        h2_kg_hr_system = h2_kg_hr_system_init * production_multiplier
 
         h20_gal_used_system = self.water_supply(h2_kg_hr_system)
 
         # Get oxygen production and rated used
         rated_o2_hr = self.rated_o2_prod()
         o2_kg_hr_system_init = self.o2_production_rate(stack_current, self.n_stacks_op)
-        o2_kg_hr_system = o2_kg_hr_system_init * h2_multiplier
+        o2_kg_hr_system = o2_kg_hr_system_init * production_multiplier
 
         pem_cf = np.sum(h2_kg_hr_system) / (rated_h2_hr * len(input_power_kw) * self.max_stacks)
         efficiency = self.system_efficiency(input_power_kw, stack_current)  # Efficiency as %-HHV
@@ -379,7 +379,7 @@ class PEM_H2_Clusters:
         cluster_cycling = [0, *list(np.diff(self.cluster_status))]  # no delay at beginning of sim
         cluster_cycling = np.array(cluster_cycling)
         startup_ratio = 1 - (600 / 3600)  # TODO: don't have this hard-coded
-        h2_multiplier = np.where(cluster_cycling > 0, startup_ratio, 1)
+        production_multiplier = np.where(cluster_cycling > 0, startup_ratio, 1)
 
         _, rated_h2_pr_stack_BOL = self.rated_h2_prod()
         rated_o2_pr_stack_BOL = self.rated_o2_prod()
@@ -428,8 +428,8 @@ class PEM_H2_Clusters:
                 # total_sim_input_power = np.sum(annual_power_consumed_kWh)
                 power_pr_yr_kWh[i] = np.sum(annual_power_consumed_kWh)
 
-            h2_kg_hr_system = h2_kg_hr_system_init * h2_multiplier
-            o2_kg_hr_system = o2_kg_hr_system_init * h2_multiplier
+            h2_kg_hr_system = h2_kg_hr_system_init * production_multiplier
+            o2_kg_hr_system = o2_kg_hr_system_init * production_multiplier
             kg_o2_pr_sim[i] = np.sum(o2_kg_hr_system)
             kg_h2_pr_sim[i] = np.sum(h2_kg_hr_system)
             capfac_per_sim[i] = np.sum(h2_kg_hr_system) / rated_h2_pr_sim
@@ -935,6 +935,12 @@ class PEM_H2_Clusters:
 
     def o2_production_rate(self, stack_current, n_stacks_op):
         """Calculate the oxygen production rate of the cluster without warm-up losses.
+        These equations are based on Faraday's law:
+
+        O2 [mol/sec] = eta_F*(n_cells*I)/(4F)
+
+        where eta_F is the faradaic efficiency. This can be found in Equation 12 of
+        `Simple PEM water electrolyser model and experimental validation <http://dx.doi.org/10.1016/j.ijhydene.2011.09.027>`_.
 
         Args:
             stack_current (float | np.array): current of the stack in A
@@ -943,7 +949,9 @@ class PEM_H2_Clusters:
         Returns:
             float | np.array: oxygen production profile of the cluster in kg/dt
         """
+        # Calculate the faradaic efficiency
         n_Tot = self.faradaic_efficiency(stack_current)
+        # Faraday's law
         o2_production_rate = n_Tot * ((self.N_cells * stack_current) / (4 * self.F))  # mol/s
         # O2_MW is in g/mol
         # mol/s * g/mol = g/s
@@ -980,7 +988,7 @@ class PEM_H2_Clusters:
         cluster_cycling = np.array(cluster_cycling)
         power_per_stack = np.where(self.n_stacks_op > 0, power_input_signal / self.n_stacks_op, 0)
 
-        h2_multiplier = np.where(cluster_cycling > 0, startup_ratio, 1)
+        production_multiplier = np.where(cluster_cycling > 0, startup_ratio, 1)
         self.n_stacks_op = self.max_stacks * self.cluster_status
 
         V_init = self.cell_design(self.T_C, current_signal)
@@ -996,7 +1004,9 @@ class PEM_H2_Clusters:
 
         h2_kg_hr_system_init = self.h2_production_rate(current_signal, self.n_stacks_op)
         p_consumed_max, rated_h2_hr = self.rated_h2_prod()
-        h2_kg_hr_system = h2_kg_hr_system_init * h2_multiplier  # scales h2 production to account
+        h2_kg_hr_system = (
+            h2_kg_hr_system_init * production_multiplier
+        )  # scales h2 production to account
         # for start-up time if going from off->on
         h20_gal_used_system = self.water_supply(h2_kg_hr_system)
 
