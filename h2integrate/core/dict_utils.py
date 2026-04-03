@@ -220,6 +220,16 @@ def rename_dict_keys(input_dict, init_keyname, new_keyname):
 
 
 def check_inputs(prob, tech: str, tech_info: dict):
+    """_summary_
+
+    Args:
+        prob (om.Problem): _description_
+        tech (str): _description_
+        tech_info (dict): _description_
+
+    Raises:
+        AttributeError: _description_
+    """
     msg = None
     if "control_strategy" in tech_info or "dispatch_rule_set" in tech_info:
         group = getattr(prob.model, tech)

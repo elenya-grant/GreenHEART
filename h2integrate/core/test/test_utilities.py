@@ -5,12 +5,14 @@ from pathlib import Path
 import yaml
 import numpy as np
 import pytest
+import openmdao.api as om
 from attrs import field, define
 
 from h2integrate import ROOT_DIR, EXAMPLE_DIR, RESOURCE_DEFAULT_DIR
 from h2integrate.core.utilities import BaseConfig
-from h2integrate.core.dict_utils import dict_to_yaml_formatting
+from h2integrate.core.dict_utils import check_inputs, dict_to_yaml_formatting
 from h2integrate.core.file_utils import get_path, find_file, load_yaml, make_unique_case_name
+from h2integrate.core.supported_models import supported_models
 from h2integrate.core.inputs.validation import load_tech_yaml
 
 
@@ -547,3 +549,56 @@ def test_yaml_no_duplicate_keys(subtests):
         sample = load_yaml(inputs / fn)
         traverse_dict(sample)
         load_tech_yaml(inputs / fn)
+
+
+@pytest.mark.unit
+def test_check_inputs_battery(subtests):
+    plant_config_base = {
+        "plant": {
+            "plant_life": 30,
+            "simulation": {
+                "dt": 3600,
+                "n_timesteps": 8760,
+            },
+        },
+        "tech_to_dispatch_connections": [
+            ["wind", "battery"],
+            ["battery", "battery"],
+        ],
+    }
+
+    correct_tech_config_fpath = Path(__file__).parent / "inputs" / "no_duplicates.yaml"
+    tech_config_no_problems = load_tech_yaml(correct_tech_config_fpath)
+    prob = om.Problem(reports=False)
+    model = prob.model
+    plant_group = om.Group()
+    plant = model.add_subsystem("plant", plant_group, promotes=["*"])
+
+    model_types = [
+        "dispatch_rule_set",
+        "control_strategy",
+        "performance_model",
+        "cost_model",
+    ]
+    for tech_name, individual_tech_config in tech_config_no_problems["technologies"].items():
+        tech_group = plant.add_subsystem(tech_name, om.Group())
+
+        for model_type in model_types:
+            if model_type in individual_tech_config:
+                model_name = individual_tech_config[model_type]["model"]
+                model_object = supported_models[model_name]
+                om_model_object = tech_group.add_subsystem(
+                    model_name,
+                    model_object(
+                        driver_config={},
+                        plant_config=plant_config_base,
+                        tech_config=individual_tech_config,
+                    ),
+                    promotes=["*"],
+                )
+        return om_model_object
+
+    prob.setup()
+
+    for tech, tech_info in tech_config_no_problems["technologies"].items():
+        check_inputs(prob, tech, tech_info)

@@ -1323,11 +1323,12 @@ class H2IntegrateModel:
         """
         Extremely light wrapper to setup the OpenMDAO problem and track setup status.
         """
-        for tech, tech_info in self.technology_config.items():
-            check_inputs(self.prob, tech, tech_info)
 
         self.setup_has_been_called = True
         self.prob.setup()
+
+        for tech, tech_info in self.technology_config.items():
+            check_inputs(self.prob, tech, tech_info)
 
     def run(self):
         # do model setup based on the driver config
