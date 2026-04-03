@@ -286,10 +286,12 @@ def check_inputs(prob, tech: str, tech_info: dict):
 
         restructured_params["shared_parameters"] = shared_params
 
-        for param_key in (
-            restructured_params.keys()
-        ):  # NOTE: maybe this could just be used for shared_parameters
+        # loop through the parameters in the restructed parameters dictionary
+        for param_key in restructured_params.keys():
+            # NOTE: maybe this could just be used for shared_parameters
             if param_key in tech_info["model_inputs"] and param_key in restructured_params:
+                # check that the parameter key exists in both the model inputs and
+                # restructured parameters
                 dict_differences = {
                     k: tech_info["model_inputs"][param_key][k]
                     for k in set(tech_info["model_inputs"][param_key])

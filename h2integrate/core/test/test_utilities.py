@@ -551,8 +551,7 @@ def test_yaml_no_duplicate_keys(subtests):
         load_tech_yaml(inputs / fn)
 
 
-@pytest.mark.unit
-def test_check_inputs_battery(subtests):
+def create_om_problem(tech_config):
     plant_config_base = {
         "plant": {
             "plant_life": 30,
@@ -567,8 +566,6 @@ def test_check_inputs_battery(subtests):
         ],
     }
 
-    correct_tech_config_fpath = Path(__file__).parent / "inputs" / "no_duplicates.yaml"
-    tech_config_no_problems = load_tech_yaml(correct_tech_config_fpath)
     prob = om.Problem(reports=False)
     model = prob.model
     plant_group = om.Group()
@@ -580,14 +577,22 @@ def test_check_inputs_battery(subtests):
         "performance_model",
         "cost_model",
     ]
-    for tech_name, individual_tech_config in tech_config_no_problems["technologies"].items():
+    for tech_name, individual_tech_config in tech_config["technologies"].items():
         tech_group = plant.add_subsystem(tech_name, om.Group())
 
         for model_type in model_types:
             if model_type in individual_tech_config:
+                if model_type == "control_strategy":
+                    control_params = individual_tech_config["model_inputs"].get(
+                        "control_parameters", {}
+                    )
+                    control_params["tech_name"] = tech_name
+                    individual_tech_config["model_inputs"].update(
+                        {"control_parameters": control_params}
+                    )
                 model_name = individual_tech_config[model_type]["model"]
                 model_object = supported_models[model_name]
-                om_model_object = tech_group.add_subsystem(
+                tech_group.add_subsystem(
                     model_name,
                     model_object(
                         driver_config={},
@@ -596,9 +601,80 @@ def test_check_inputs_battery(subtests):
                     ),
                     promotes=["*"],
                 )
-        return om_model_object
 
     prob.setup()
+    return prob
 
-    for tech, tech_info in tech_config_no_problems["technologies"].items():
-        check_inputs(prob, tech, tech_info)
+
+@pytest.mark.unit
+def test_check_inputs(subtests):
+    tech_config_fpath = Path(__file__).parent / "inputs" / "no_duplicates.yaml"
+
+    # 1: check for an unused parameter under performance_parameters
+    tech_config = load_tech_yaml(tech_config_fpath)
+    prob = create_om_problem(tech_config)
+
+    for tech, tech_info in tech_config["technologies"].items():
+        if tech == "battery":
+            with pytest.raises(AttributeError) as excinfo:
+                check_inputs(prob, tech, tech_info)
+                expected_error = (
+                    "The parameter(s) ['system_model_source'] found in performance_parameters "
+                    "are not used for technology battery"
+                )
+                assert expected_error == str(excinfo.value)
+        else:
+            check_inputs(prob, tech, tech_info)
+
+    # 2: check when not-shared parameters are under shared_parameters
+    tech_config = load_tech_yaml(tech_config_fpath)
+    tech_config["technologies"]["battery"]["model_inputs"]["performance_parameters"].pop(
+        "system_model_source"
+    )
+    prob = create_om_problem(tech_config)
+
+    for tech, tech_info in tech_config["technologies"].items():
+        if tech == "battery":
+            with pytest.raises(AttributeError) as excinfo:
+                check_inputs(prob, tech, tech_info)
+                expected_error = (
+                    "The parameter(s) ['n_control_window', 'system_commodity_interface_limit'] "
+                    "found in shared_parameters but should be in control_parameters for technology "
+                    "battery"
+                )
+                assert expected_error == str(excinfo.value)
+        else:
+            check_inputs(prob, tech, tech_info)
+
+    # 3: check when an unused parameter is under shared_parameters
+    tech_config = load_tech_yaml(tech_config_fpath)
+    control_parameters = {}
+    tech_config["technologies"]["battery"]["model_inputs"]["performance_parameters"].pop(
+        "system_model_source"
+    )
+    control_parameters["n_control_window"] = tech_config["technologies"]["battery"]["model_inputs"][
+        "shared_parameters"
+    ].pop("n_control_window")
+    control_parameters["system_commodity_interface_limit"] = tech_config["technologies"]["battery"][
+        "model_inputs"
+    ]["shared_parameters"].pop("system_commodity_interface_limit")
+    tech_config["technologies"]["battery"]["model_inputs"].update(
+        {"control_parameters": control_parameters}
+    )
+    # add unused parameter to shared
+    tech_config["technologies"]["battery"]["model_inputs"]["shared_parameters"].update(
+        {"test_unused_input": "fake"}
+    )
+    prob = create_om_problem(tech_config)
+
+    for tech, tech_info in tech_config["technologies"].items():
+        if tech == "battery":
+            with pytest.raises(AttributeError) as excinfo:
+                check_inputs(prob, tech, tech_info)
+                expected_error = (
+                    "The parameter(s) ['test_unused_input'] found in "
+                    "shared_parameters are not used by any of the models for technology battery"
+                )
+                assert expected_error == str(excinfo.value)
+        else:
+            check_inputs(prob, tech, tech_info)
