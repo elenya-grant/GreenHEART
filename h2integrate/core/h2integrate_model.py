@@ -1327,7 +1327,7 @@ class H2IntegrateModel:
         self.setup_has_been_called = True
         self.prob.setup()
 
-        for tech, tech_info in self.technology_config.items():
+        for tech, tech_info in self.technology_config["technologies"].items():
             check_inputs(self.prob, tech, tech_info)
 
     def run(self):
