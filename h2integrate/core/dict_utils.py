@@ -232,11 +232,20 @@ def check_inputs(prob, tech: str, tech_info: dict):
     """
     msg = None
     if "control_strategy" in tech_info or "dispatch_rule_set" in tech_info:
-        group = getattr(prob.model, tech)
-        control_sys = getattr(group, tech_info["control_strategy"]["model"], None)
-        dispatch_sys = getattr(group, tech_info["dispatch_rule_set"]["model"], None)
-        cost_sys = getattr(group, tech_info["cost_model"]["model"], None)
-        perf_sys = getattr(group, tech_info["performance_model"]["model"], None)
+        control_sys = None
+        dispatch_sys = None
+        cost_sys = None
+        perf_sys = None
+        group = getattr(prob.model.plant, tech)
+
+        if "control_strategy" in tech_info:
+            control_sys = getattr(group, tech_info["control_strategy"]["model"], None)
+        if "dispatch_rule_set" in tech_info:
+            dispatch_sys = getattr(group, tech_info["dispatch_rule_set"]["model"], None)
+        if "cost_model" in tech_info:
+            cost_sys = getattr(group, tech_info["cost_model"]["model"], None)
+        if "performance_model" in tech_info:
+            perf_sys = getattr(group, tech_info["performance_model"]["model"], None)
 
         restructured_params = {}
         if control_sys is not None:
@@ -295,6 +304,8 @@ def check_inputs(prob, tech: str, tech_info: dict):
                                     f"The attributes: {unshared_params} found in shared_parameters "
                                     f"but should be in {other_key} for technology {tech}"
                                 )
+                                raise AttributeError(msg)
+
                         if msg is None:
                             # the parameter is not used by any tech
                             msg = (
@@ -302,14 +313,14 @@ def check_inputs(prob, tech: str, tech_info: dict):
                                 f"shared_parameters are not used by any of the models for "
                                 f"technology {tech}"
                             )
+                            raise AttributeError(msg)
 
                     else:
                         msg = (
                             f"The attribute {dict_differences.keys()} found in "
-                            f"{param_key} is not used"
+                            f"{param_key} is not used for technology {tech}"
                         )
+                        raise AttributeError(msg)
 
     if msg is None:
         return
-
-    raise AttributeError(msg)
