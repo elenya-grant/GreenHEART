@@ -678,3 +678,42 @@ def test_check_inputs(subtests):
                 assert expected_error == str(excinfo.value)
         else:
             check_inputs(prob, tech, tech_info)
+    # 4: check when parameters are shared but specified individually
+    combiner_tech = {
+        "performance_model": {"model": "GenericCombinerPerformanceModel"},
+        "dispatch_rule_set": {"model": "PyomoDispatchGenericConverter"},
+        "model_inputs": {
+            "performance_parameters": {"commodity": "electricity", "commodity_rate_units": "kW"},
+            "dispatch_rule_parameters": {"commodity": "electricity", "commodity_rate_units": "kW"},
+        },
+    }
+    # 3: check when an unused parameter is under shared_parameters
+    tech_config = load_tech_yaml(tech_config_fpath)
+    control_parameters = {}
+    tech_config["technologies"]["battery"]["model_inputs"]["performance_parameters"].pop(
+        "system_model_source"
+    )
+    control_parameters["n_control_window"] = tech_config["technologies"]["battery"]["model_inputs"][
+        "shared_parameters"
+    ].pop("n_control_window")
+    control_parameters["system_commodity_interface_limit"] = tech_config["technologies"]["battery"][
+        "model_inputs"
+    ]["shared_parameters"].pop("system_commodity_interface_limit")
+    tech_config["technologies"]["battery"]["model_inputs"].update(
+        {"control_parameters": control_parameters}
+    )
+    tech_config["technologies"].update({"combiner": combiner_tech})
+    prob = create_om_problem(tech_config)
+
+    for tech, tech_info in tech_config["technologies"].items():
+        if tech == "combiner":
+            with pytest.raises(AttributeError) as excinfo:
+                check_inputs(prob, tech, tech_info)
+                expected_error = (
+                    "The parameter(s) ['commodity', 'commodity_rate_units] found in "
+                    "performance_parameters should be under shared_parameter(s) for "
+                    "technology combiner"
+                )
+                assert expected_error == str(excinfo.value)
+        else:
+            check_inputs(prob, tech, tech_info)
