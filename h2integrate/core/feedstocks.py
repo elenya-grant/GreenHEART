@@ -88,7 +88,7 @@ class FeedstockCostModel(CostModelBaseClass):
             merge_shared_inputs(self.options["tech_config"]["model_inputs"], "cost"),
             additional_cls_name=self.__class__.__name__,
         )
-        n_timesteps = self.options["plant_config"]["plant"]["simulation"]["n_timesteps"]
+        self.n_timesteps = int(self.options["plant_config"]["plant"]["simulation"]["n_timesteps"])
         plant_life = int(self.options["plant_config"]["plant"]["plant_life"])
 
         # Set cost outputs
@@ -97,20 +97,23 @@ class FeedstockCostModel(CostModelBaseClass):
         self.add_input(
             f"{self.config.commodity}_consumed",
             val=0.0,
-            shape=int(n_timesteps),
+            shape=self.n_timesteps,
             units=self.config.commodity_rate_units,
             desc=f"Consumption profile of {self.config.commodity}",
         )
         self.add_input(
-            f"{self.commodity}_out", val=0, shape=self.n_timesteps, units=self.commodity_rate_units
+            f"{self.config.commodity}_out",
+            val=0,
+            shape=self.n_timesteps,
+            units=self.config.commodity_rate_units,
         )
 
         self.add_input(
             "price",
             val=self.config.price,
             shape=self.n_timesteps,
-            units=f"USD/({self.commodity_amount_units})",
-            desc=f"Price profile of {self.commodity}",
+            units=f"USD/({self.config.commodity_amount_units})",
+            desc=f"Price profile of {self.config.commodity}",
         )
 
         self.dt = self.options["plant_config"]["plant"]["simulation"]["dt"]
@@ -120,13 +123,15 @@ class FeedstockCostModel(CostModelBaseClass):
         self.fraction_of_year_simulated = hours_simulated / hours_per_year
 
         self.add_output(
-            f"total_{self.commodity}_consumed", val=0.0, units=self.commodity_amount_units
+            f"total_{self.config.commodity}_consumed",
+            val=0.0,
+            units=self.config.commodity_amount_units,
         )
         self.add_output(
-            f"annual_{self.commodity}_consumed",
+            f"annual_{self.config.commodity}_consumed",
             val=0.0,
             shape=self.plant_life,
-            units=f"({self.commodity_amount_units})/year",
+            units=f"({self.config.commodity_amount_units})/year",
         )
         self.add_output(
             "capacity_factor",
@@ -137,9 +142,9 @@ class FeedstockCostModel(CostModelBaseClass):
         )
 
         self.add_output(
-            f"rated_{self.commodity}_production",
+            f"rated_{self.config.commodity}_production",
             val=0,
-            units=self.commodity_rate_units,
+            units=self.config.commodity_rate_units,
         )
 
         # lifetime estimate of item replacements, represented as a fraction of the capacity.
@@ -150,26 +155,29 @@ class FeedstockCostModel(CostModelBaseClass):
 
         # Capacity factor is the total amount consumed / the total amount available
         outputs["capacity_factor"] = (
-            inputs[f"{self.commodity}_consumed"].sum() / inputs[f"{self.commodity}_out"].sum()
+            inputs[f"{self.config.commodity}_consumed"].sum()
+            / inputs[f"{self.config.commodity}_out"].sum()
         )
 
         # Sum the amount consumed
-        outputs[f"total_{self.commodity}_consumed"] = inputs[f"{self.commodity}_consumed"].sum() * (
-            self.dt / 3600
-        )
+        outputs[f"total_{self.config.commodity}_consumed"] = inputs[
+            f"{self.config.commodity}_consumed"
+        ].sum() * (self.dt / 3600)
 
         # Estimate annual consumption based on consumption over the simulation
         # NOTE: once we standardize feedstock consumption outputs in models, this should
         # be updated to handle consumption that varies over years of operation
-        outputs[f"annual_{self.commodity}_consumed"] = outputs[
-            f"total_{self.commodity}_consumed"
+        outputs[f"annual_{self.config.commodity}_consumed"] = outputs[
+            f"total_{self.config.commodity}_consumed"
         ] * (1 / self.fraction_of_year_simulated)
 
-        outputs[f"rated_{self.commodity}_production"] = inputs[f"{self.commodity}_out"].max()
+        outputs[f"rated_{self.config.commodity}_production"] = inputs[
+            f"{self.config.commodity}_out"
+        ].max()
 
         # Calculate costs
         price = inputs["price"]
-        hourly_consumption = inputs[f"{self.commodity}_consumed"]
+        hourly_consumption = inputs[f"{self.config.commodity}_consumed"]
         cost_per_year = sum(price * hourly_consumption)
 
         outputs["CapEx"] = self.config.start_up_cost
