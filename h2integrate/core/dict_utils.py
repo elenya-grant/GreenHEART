@@ -236,147 +236,149 @@ def check_inputs(prob, tech: str, tech_info: dict):
     Raises:
         AttributeError: _description_
     """
+    # Only check models that have a control strategy or dispatch rule set
+    if not {"control_strategy", "dispatch_rule_set"}.intersection(tech_info):
+        return
+
     msg = None
 
-    # Only check models that have a control strategy or dispatch rule set
-    if "control_strategy" in tech_info or "dispatch_rule_set" in tech_info:
-        # Initialize the model classes
-        control_sys = None
-        dispatch_sys = None
-        cost_sys = None
-        perf_sys = None
+    # Initialize the model classes
+    control_sys = None
+    dispatch_sys = None
+    cost_sys = None
+    perf_sys = None
 
-        # Get the technology group from the plant model
-        group = getattr(prob.model.plant, tech)
+    # Get the technology group from the plant model
+    group = getattr(prob.model.plant, tech)
 
-        # Check what models were defined for the technology
-        if "control_strategy" in tech_info:
-            # Get the control strategy class of the technology
-            control_sys = getattr(group, tech_info["control_strategy"]["model"], None)
-        if "dispatch_rule_set" in tech_info:
-            # Get the dispatch rule set class of the technology
-            dispatch_sys = getattr(group, tech_info["dispatch_rule_set"]["model"], None)
-        if "cost_model" in tech_info:
-            # Get the cost model class of the technology
-            cost_sys = getattr(group, tech_info["cost_model"]["model"], None)
-        if "performance_model" in tech_info:
-            # Get the performance model class of the technology
-            perf_sys = getattr(group, tech_info["performance_model"]["model"], None)
+    # Check what models were defined for the technology
+    if "control_strategy" in tech_info:
+        # Get the control strategy class of the technology
+        control_sys = getattr(group, tech_info["control_strategy"]["model"], None)
+    if "dispatch_rule_set" in tech_info:
+        # Get the dispatch rule set class of the technology
+        dispatch_sys = getattr(group, tech_info["dispatch_rule_set"]["model"], None)
+    if "cost_model" in tech_info:
+        # Get the cost model class of the technology
+        cost_sys = getattr(group, tech_info["cost_model"]["model"], None)
+    if "performance_model" in tech_info:
+        # Get the performance model class of the technology
+        perf_sys = getattr(group, tech_info["performance_model"]["model"], None)
 
-        # NOTE: could add a check here to only run the remainder of the code if more than 3
-        # systems are included. Aka - dont run if the system only includes performance parameters
-        # and control strategies
+    # NOTE: could add a check here to only run the remainder of the code if more than 3
+    # systems are included. Aka - dont run if the system only includes performance parameters
+    # and control strategies
 
-        # Re-build what the model_inputs dictionary should look like from the instantiated config
-        # attributes of the technology classes. The re-built model_inputs is the
-        # `restructured_params` dictionary
-        restructured_params = {}
-        if control_sys is not None:
-            # Get the instantiated control strategy configuration inputs from the control strategy
-            # class
-            restructured_params["control_parameters"] = control_sys.config.as_dict()
-        if dispatch_sys is not None:
-            # Get the instantiated dispatch rule configuration inputs from the dispatch rule set
-            # class
-            restructured_params["dispatch_parameters"] = dispatch_sys.config.as_dict()
-        if cost_sys is not None:
-            # Get the instantiated cost configuration inputs from the cost model class
-            restructured_params["cost_parameters"] = cost_sys.config.as_dict()
-        if perf_sys is not None:
-            # Get the instantiated performance configuration inputs from the performance model class
-            restructured_params["performance_parameters"] = perf_sys.config.as_dict()
+    # Re-build what the model_inputs dictionary should look like from the instantiated config
+    # attributes of the technology classes. The re-built model_inputs is the
+    # `restructured_params` dictionary
+    restructured_params = {}
+    if control_sys is not None:
+        # Get the instantiated control strategy configuration inputs from the control strategy
+        # class
+        restructured_params["control_parameters"] = control_sys.config.as_dict()
+    if dispatch_sys is not None:
+        # Get the instantiated dispatch rule configuration inputs from the dispatch rule set
+        # class
+        restructured_params["dispatch_parameters"] = dispatch_sys.config.as_dict()
+    if cost_sys is not None:
+        # Get the instantiated cost configuration inputs from the cost model class
+        restructured_params["cost_parameters"] = cost_sys.config.as_dict()
+    if perf_sys is not None:
+        # Get the instantiated performance configuration inputs from the performance model class
+        restructured_params["performance_parameters"] = perf_sys.config.as_dict()
 
-        # Reconstruct the shared_parameters part of model_inputs
-        shared_params = {}
-        for param_key, v in restructured_params.items():
-            other_keys = [ok for ok in restructured_params.keys() if ok != param_key]
-            for other_key in other_keys:
-                if any(ok in v for ok in restructured_params[other_key].keys()):
-                    # get keys shared between other_key and param_key
-                    shared_other_param = {
-                        ok: ov for ok, ov in restructured_params[other_key].items() if ok in v
-                    }
-                    shared_params.update(shared_other_param)
-                    # remove the shared params from other_key dictionary
-                    other_key_items = {
-                        k: v
-                        for k, v in restructured_params[other_key].items()
-                        if k not in shared_params
-                    }
-                    restructured_params[other_key] = other_key_items
-            # remove shared params from param_key
-            param_key_items = {
-                k: v for k, v in restructured_params[param_key].items() if k not in shared_params
-            }
-            restructured_params[param_key] = param_key_items
-
-        restructured_params["shared_parameters"] = shared_params
-        # Now, restructured_params is what the model_inputs configuration should be
-
-        # Check each parameter dictionary of the restructured model_inputs against the user-provided
-        # model_inputs by looping through the parameters in the restructed_parameters dictionary.
-        # `param_key` is 'performance_parameters', 'control_parameters', 'shared_parameters', etc
-        for param_key in restructured_params.keys():
-            # check that the parameter key exists in both the user-provided model_inputs and
-            # the restructured parameters
-            if param_key in tech_info["model_inputs"] and param_key in restructured_params:
-                # Get the difference between the user-input parameters and the restructured
-                # parameters
-                dict_differences = {
-                    k: tech_info["model_inputs"][param_key][k]
-                    for k in set(tech_info["model_inputs"][param_key])
-                    - set(restructured_params[param_key])
+    # Reconstruct the shared_parameters part of model_inputs
+    shared_params = {}
+    for param_key, v in restructured_params.items():
+        other_keys = [ok for ok in restructured_params.keys() if ok != param_key]
+        for other_key in other_keys:
+            if any(ok in v for ok in restructured_params[other_key].keys()):
+                # get keys shared between other_key and param_key
+                shared_other_param = {
+                    ok: ov for ok, ov in restructured_params[other_key].items() if ok in v
                 }
-                # Only check for keys that are defined in the user-input parameters that aren't
-                # found in the restructured parameters to avoid throwing errors when users did
-                # not provide optional configuration inputs
-                if len(dict_differences) > 0:
-                    if param_key == "shared_parameters":
-                        # check if the parameter is not shared, but used by one tech
-                        for other_key, other_params in restructured_params.items():
-                            if other_key == param_key:
-                                continue
-                            if any(k in other_params for k in dict_differences):
-                                unshared_params = [k for k in dict_differences if k in other_params]
-                                msg = (
-                                    f"The parameter(s): {unshared_params} found in "
-                                    f"shared_parameters but should be in {other_key} "
-                                    f"for technology {tech}"
-                                )
-                                raise AttributeError(msg)
+                shared_params.update(shared_other_param)
+                # remove the shared params from other_key dictionary
+                other_key_items = {
+                    k: v
+                    for k, v in restructured_params[other_key].items()
+                    if k not in shared_params
+                }
+                restructured_params[other_key] = other_key_items
+        # remove shared params from param_key
+        param_key_items = {
+            k: v for k, v in restructured_params[param_key].items() if k not in shared_params
+        }
+        restructured_params[param_key] = param_key_items
 
-                        if msg is None:
-                            # the parameter is not used by any tech
+    restructured_params["shared_parameters"] = shared_params
+    # Now, restructured_params is what the model_inputs configuration should be
+
+    # Check each parameter dictionary of the restructured model_inputs against the user-provided
+    # model_inputs by looping through the parameters in the restructed_parameters dictionary.
+    # `param_key` is 'performance_parameters', 'control_parameters', 'shared_parameters', etc
+    for param_key in restructured_params.keys():
+        # check that the parameter key exists in both the user-provided model_inputs and
+        # the restructured parameters
+        if param_key in tech_info["model_inputs"] and param_key in restructured_params:
+            # Get the difference between the user-input parameters and the restructured
+            # parameters
+            dict_differences = {
+                k: tech_info["model_inputs"][param_key][k]
+                for k in set(tech_info["model_inputs"][param_key])
+                - set(restructured_params[param_key])
+            }
+            # Only check for keys that are defined in the user-input parameters that aren't
+            # found in the restructured parameters to avoid throwing errors when users did
+            # not provide optional configuration inputs
+            if len(dict_differences) > 0:
+                if param_key == "shared_parameters":
+                    # check if the parameter is not shared, but used by one tech
+                    for other_key, other_params in restructured_params.items():
+                        if other_key == param_key:
+                            continue
+                        if any(k in other_params for k in dict_differences):
+                            unshared_params = [k for k in dict_differences if k in other_params]
                             msg = (
-                                f"The parameter(s): {list(dict_differences.keys())} found in "
-                                f"shared_parameters are not used by any of the models for "
-                                f"technology {tech}"
+                                f"The parameter(s): {unshared_params} found in "
+                                f"shared_parameters but should be in {other_key} "
+                                f"for technology {tech}"
                             )
                             raise AttributeError(msg)
 
-                    else:
-                        # check if parameter is shared but only under one technology
-                        if any(
-                            k in restructured_params.get("shared_parameters", {})
-                            for k in dict_differences
-                        ):
-                            should_be_shared_keys = [
-                                k
-                                for k in dict_differences
-                                if k in restructured_params.get("shared_parameters", {})
-                            ]
-                            msg = (
-                                f"The parameter(s) {should_be_shared_keys} found in "
-                                f"{param_key} should be under shared_parameter(s) for "
-                                f"technology {tech}"
-                            )
-                            raise AttributeError(msg)
-
+                    if msg is None:
+                        # the parameter is not used by any tech
                         msg = (
-                            f"The parameter(s) {list(dict_differences.keys())} found in "
-                            f"{param_key} are not used for technology {tech}"
+                            f"The parameter(s): {list(dict_differences.keys())} found in "
+                            f"shared_parameters are not used by any of the models for "
+                            f"technology {tech}"
                         )
                         raise AttributeError(msg)
+
+                else:
+                    # check if parameter is shared but only under one technology
+                    if any(
+                        k in restructured_params.get("shared_parameters", {})
+                        for k in dict_differences
+                    ):
+                        should_be_shared_keys = [
+                            k
+                            for k in dict_differences
+                            if k in restructured_params.get("shared_parameters", {})
+                        ]
+                        msg = (
+                            f"The parameter(s) {should_be_shared_keys} found in "
+                            f"{param_key} should be under shared_parameter(s) for "
+                            f"technology {tech}"
+                        )
+                        raise AttributeError(msg)
+
+                    msg = (
+                        f"The parameter(s) {list(dict_differences.keys())} found in "
+                        f"{param_key} are not used for technology {tech}"
+                    )
+                    raise AttributeError(msg)
 
     if msg is None:
         return
