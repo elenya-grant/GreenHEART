@@ -220,47 +220,73 @@ def rename_dict_keys(input_dict, init_keyname, new_keyname):
 
 
 def check_inputs(prob, tech: str, tech_info: dict):
-    """_summary_
+    """Check the user-input technology configuration inputs against the
+    instantiated technology configuration classes to ensure that:
+
+    1. All user-input parameters are used in at least 1 configuration class
+    2. User-input `shared_parameters` are shared across at least 2 configuration classes
+    3. User-input parameters that are not-shared are only used in 1 configuration class
 
     Args:
-        prob (om.Problem): _description_
-        tech (str): _description_
-        tech_info (dict): _description_
+        prob (om.Problem): OpenMDAO problem defined in H2IntegrateModel
+        tech (str): name of technology that the tech_info is for.
+        tech_info (dict): technology input dictionary, including the
+            technology model names and `model_inputs`.
 
     Raises:
         AttributeError: _description_
     """
     msg = None
+
+    # Only check models that have a control strategy or dispatch rule set
     if "control_strategy" in tech_info or "dispatch_rule_set" in tech_info:
+        # Initialize the model classes
         control_sys = None
         dispatch_sys = None
         cost_sys = None
         perf_sys = None
+
+        # Get the technology group from the plant model
         group = getattr(prob.model.plant, tech)
 
+        # Check what models were defined for the technology
         if "control_strategy" in tech_info:
+            # Get the control strategy class of the technology
             control_sys = getattr(group, tech_info["control_strategy"]["model"], None)
         if "dispatch_rule_set" in tech_info:
+            # Get the dispatch rule set class of the technology
             dispatch_sys = getattr(group, tech_info["dispatch_rule_set"]["model"], None)
         if "cost_model" in tech_info:
+            # Get the cost model class of the technology
             cost_sys = getattr(group, tech_info["cost_model"]["model"], None)
         if "performance_model" in tech_info:
+            # Get the performance model class of the technology
             perf_sys = getattr(group, tech_info["performance_model"]["model"], None)
 
         # NOTE: could add a check here to only run the remainder of the code if more than 3
         # systems are included. Aka - dont run if the system only includes performance parameters
         # and control strategies
+
+        # Re-build what the model_inputs dictionary should look like from the instantiated config
+        # attributes of the technology classes. The re-built model_inputs is the
+        # `restructured_params` dictionary
         restructured_params = {}
         if control_sys is not None:
+            # Get the instantiated control strategy configuration inputs from the control strategy
+            # class
             restructured_params["control_parameters"] = control_sys.config.as_dict()
         if dispatch_sys is not None:
+            # Get the instantiated dispatch rule configuration inputs from the dispatch rule set
+            # class
             restructured_params["dispatch_parameters"] = dispatch_sys.config.as_dict()
         if cost_sys is not None:
+            # Get the instantiated cost configuration inputs from the cost model class
             restructured_params["cost_parameters"] = cost_sys.config.as_dict()
         if perf_sys is not None:
+            # Get the instantiated performance configuration inputs from the performance model class
             restructured_params["performance_parameters"] = perf_sys.config.as_dict()
 
-        # Reconstruct the model_inputs with shared params
+        # Reconstruct the shared_parameters part of model_inputs
         shared_params = {}
         for param_key, v in restructured_params.items():
             other_keys = [ok for ok in restructured_params.keys() if ok != param_key]
@@ -285,18 +311,25 @@ def check_inputs(prob, tech: str, tech_info: dict):
             restructured_params[param_key] = param_key_items
 
         restructured_params["shared_parameters"] = shared_params
+        # Now, restructured_params is what the model_inputs configuration should be
 
-        # loop through the parameters in the restructed parameters dictionary
+        # Check each parameter dictionary of the restructured model_inputs against the user-provided
+        # model_inputs by looping through the parameters in the restructed_parameters dictionary.
+        # `param_key` is 'performance_parameters', 'control_parameters', 'shared_parameters', etc
         for param_key in restructured_params.keys():
-            # NOTE: maybe this could just be used for shared_parameters
+            # check that the parameter key exists in both the user-provided model_inputs and
+            # the restructured parameters
             if param_key in tech_info["model_inputs"] and param_key in restructured_params:
-                # check that the parameter key exists in both the model inputs and
-                # restructured parameters
+                # Get the difference between the user-input parameters and the restructured
+                # parameters
                 dict_differences = {
                     k: tech_info["model_inputs"][param_key][k]
                     for k in set(tech_info["model_inputs"][param_key])
                     - set(restructured_params[param_key])
                 }
+                # Only check for keys that are defined in the user-input parameters that aren't
+                # found in the restructured parameters to avoid throwing errors when users did
+                # not provide optional configuration inputs
                 if len(dict_differences) > 0:
                     if param_key == "shared_parameters":
                         # check if the parameter is not shared, but used by one tech
