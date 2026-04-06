@@ -151,8 +151,6 @@ class FeedstockCostModel(CostModelBaseClass):
         self.add_output("replacement_schedule", val=0.0, shape=plant_life, units="unitless")
 
     def compute(self, inputs, outputs, discrete_inputs, discrete_outputs):
-        # Calculate performance based on consumption
-
         # Capacity factor is the total amount consumed / the total amount available
         outputs["capacity_factor"] = (
             inputs[f"{self.config.commodity}_consumed"].sum()
