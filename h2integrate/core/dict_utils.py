@@ -1,6 +1,7 @@
 import copy
 import operator
 from functools import reduce
+from collections import Counter
 
 import numpy as np
 
@@ -261,19 +262,34 @@ def check_inputs(prob, tech: str, tech_info: dict):
     restructured_params = {}
     if "control_strategy" in tech_info:
         if (control_sys := getattr(group, tech_info["control_strategy"]["model"])) is not None:
-            restructured_params["control_parameters"] = control_sys.config.as_dict()
+            control_params = control_sys.config.as_dict()
     if "dispatch_rule_set" in tech_info:
         if (dispatch_sys := getattr(group, tech_info["dispatch_rule_set"]["model"])) is not None:
-            restructured_params["dispatch_parameters"] = dispatch_sys.config.as_dict()
+            dispatch_params = dispatch_sys.config.as_dict()
     if "cost_model" in tech_info:
         if (cost_sys := getattr(group, tech_info["cost_model"]["model"])) is not None:
-            restructured_params["cost_parameters"] = cost_sys.config.as_dict()
+            cost_params = cost_sys.config.as_dict()
     if "performance_model" in tech_info:
         if (perf_sys := getattr(group, tech_info["performance_model"]["model"])) is not None:
-            restructured_params["performance_parameters"] = perf_sys.config.as_dict()
+            performance_params = perf_sys.config.as_dict()
 
-    # Reconstruct the shared_parameters part of model_inputs
-    shared_params = {}
+    # Check for overlapping keys between any two sets of configurations to reconstruct
+    # the shared parameters
+    all_parameters = (control_params, dispatch_params, cost_params, performance_params)
+    _share_check = Counter([x for el in all_parameters for x in set(el)])
+    shared = {k for k, v in _share_check.items() if v > 1}
+    shared_params = {k: control_params.pop(k) for k in shared.intersection(control_params)}
+    shared_params |= {k: dispatch_params.pop(k) for k in shared.intersection(dispatch_params)}
+    shared_params |= {k: cost_params.pop(k) for k in shared.intersection(cost_params)}
+    shared_params |= {k: performance_params.pop(k) for k in shared.intersection(performance_params)}
+    restructured_params = {
+        "control_parameters": control_params,
+        "dispatch_parameters": dispatch_params,
+        "cost_parameters": cost_params,
+        "performance_parameters": performance_params,
+        "shared_parameters": shared_params,
+    }
+
     for param_key, v in restructured_params.items():
         other_keys = [ok for ok in restructured_params.keys() if ok != param_key]
         for other_key in other_keys:
