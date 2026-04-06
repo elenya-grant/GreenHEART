@@ -240,53 +240,37 @@ def check_inputs(prob, tech: str, tech_info: dict):
     if not {"control_strategy", "dispatch_rule_set"}.intersection(tech_info):
         return
 
-    msg = None
+    # Get the technology group from the plant model
+    group = getattr(prob.model.plant, tech)
 
-    # Initialize the model classes
+    # Only check for shared inputs when the system contains at least one technology
+    # in addition to a performance and control model
+    check_keys = ("control_strategy", "dispatch_rule_set", "cost_model", "performance_model")
+    minimal_keys = {"control_strategy", "performance_model"}
+    overlap = set(tech_info).intersection(check_keys)
+    if overlap == minimal_keys or len(overlap) < 3:
+        return
+
+    msg = None
     control_sys = None
     dispatch_sys = None
     cost_sys = None
     perf_sys = None
 
-    # Get the technology group from the plant model
-    group = getattr(prob.model.plant, tech)
-
-    # Check what models were defined for the technology
-    if "control_strategy" in tech_info:
-        # Get the control strategy class of the technology
-        control_sys = getattr(group, tech_info["control_strategy"]["model"], None)
-    if "dispatch_rule_set" in tech_info:
-        # Get the dispatch rule set class of the technology
-        dispatch_sys = getattr(group, tech_info["dispatch_rule_set"]["model"], None)
-    if "cost_model" in tech_info:
-        # Get the cost model class of the technology
-        cost_sys = getattr(group, tech_info["cost_model"]["model"], None)
-    if "performance_model" in tech_info:
-        # Get the performance model class of the technology
-        perf_sys = getattr(group, tech_info["performance_model"]["model"], None)
-
-    # NOTE: could add a check here to only run the remainder of the code if more than 3
-    # systems are included. Aka - dont run if the system only includes performance parameters
-    # and control strategies
-
-    # Re-build what the model_inputs dictionary should look like from the instantiated config
-    # attributes of the technology classes. The re-built model_inputs is the
-    # `restructured_params` dictionary
+    # Rebuild the model inputs dictionary from the initialized technology parameters
     restructured_params = {}
-    if control_sys is not None:
-        # Get the instantiated control strategy configuration inputs from the control strategy
-        # class
-        restructured_params["control_parameters"] = control_sys.config.as_dict()
-    if dispatch_sys is not None:
-        # Get the instantiated dispatch rule configuration inputs from the dispatch rule set
-        # class
-        restructured_params["dispatch_parameters"] = dispatch_sys.config.as_dict()
-    if cost_sys is not None:
-        # Get the instantiated cost configuration inputs from the cost model class
-        restructured_params["cost_parameters"] = cost_sys.config.as_dict()
-    if perf_sys is not None:
-        # Get the instantiated performance configuration inputs from the performance model class
-        restructured_params["performance_parameters"] = perf_sys.config.as_dict()
+    if "control_strategy" in tech_info:
+        if (control_sys := getattr(group, tech_info["control_strategy"]["model"])) is not None:
+            restructured_params["control_parameters"] = control_sys.config.as_dict()
+    if "dispatch_rule_set" in tech_info:
+        if (dispatch_sys := getattr(group, tech_info["dispatch_rule_set"]["model"])) is not None:
+            restructured_params["dispatch_parameters"] = dispatch_sys.config.as_dict()
+    if "cost_model" in tech_info:
+        if (cost_sys := getattr(group, tech_info["cost_model"]["model"])) is not None:
+            restructured_params["cost_parameters"] = cost_sys.config.as_dict()
+    if "performance_model" in tech_info:
+        if (perf_sys := getattr(group, tech_info["performance_model"]["model"])) is not None:
+            restructured_params["performance_parameters"] = perf_sys.config.as_dict()
 
     # Reconstruct the shared_parameters part of model_inputs
     shared_params = {}
