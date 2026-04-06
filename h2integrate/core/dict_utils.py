@@ -274,7 +274,7 @@ def check_inputs(prob, tech: str, tech_info: dict):
             performance_params = perf_sys.config.as_dict()
 
     # Check for overlapping keys between any two sets of configurations to reconstruct
-    # the shared parameters
+    # the shared parameters, and create a new version of the user-provided configuration
     all_parameters = (control_params, dispatch_params, cost_params, performance_params)
     _share_check = Counter([x for el in all_parameters for x in set(el)])
     shared = {k for k, v in _share_check.items() if v > 1}
@@ -289,31 +289,6 @@ def check_inputs(prob, tech: str, tech_info: dict):
         "performance_parameters": performance_params,
         "shared_parameters": shared_params,
     }
-
-    for param_key, v in restructured_params.items():
-        other_keys = [ok for ok in restructured_params.keys() if ok != param_key]
-        for other_key in other_keys:
-            if any(ok in v for ok in restructured_params[other_key].keys()):
-                # get keys shared between other_key and param_key
-                shared_other_param = {
-                    ok: ov for ok, ov in restructured_params[other_key].items() if ok in v
-                }
-                shared_params.update(shared_other_param)
-                # remove the shared params from other_key dictionary
-                other_key_items = {
-                    k: v
-                    for k, v in restructured_params[other_key].items()
-                    if k not in shared_params
-                }
-                restructured_params[other_key] = other_key_items
-        # remove shared params from param_key
-        param_key_items = {
-            k: v for k, v in restructured_params[param_key].items() if k not in shared_params
-        }
-        restructured_params[param_key] = param_key_items
-
-    restructured_params["shared_parameters"] = shared_params
-    # Now, restructured_params is what the model_inputs configuration should be
 
     # Check each parameter dictionary of the restructured model_inputs against the user-provided
     # model_inputs by looping through the parameters in the restructed_parameters dictionary.
