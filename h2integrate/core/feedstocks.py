@@ -111,7 +111,6 @@ class FeedstockCostModel(CostModelBaseClass):
         self.add_input(
             "price",
             val=self.config.price,
-            shape=self.n_timesteps,
             units=f"USD/({self.config.commodity_amount_units})",
             desc=f"Price profile of {self.config.commodity}",
         )
