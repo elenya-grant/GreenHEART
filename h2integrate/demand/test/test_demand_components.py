@@ -1,11 +1,8 @@
-from pathlib import Path
-
 import numpy as np
 import pytest
 import openmdao.api as om
 from pytest import fixture
 
-from h2integrate.core.file_utils import load_yaml
 from h2integrate.demand.flexible_demand_openloop_controller import (
     FlexibleDemandOpenLoopConverterController,
 )
@@ -35,14 +32,8 @@ def test_demand_converter_controller(subtests):
     # Test is the same as the demand controller test test_demand_controller for the "h2_storage"
     # performance model but with the "StoragePerformanceModel" performance model
 
-    # Get the directory of the current script
-    current_dir = Path(__file__).parent
-
-    # Resolve the paths to the configuration files
-    tech_config_path = current_dir / "inputs" / "tech_config.yaml"
-
-    # Load the technology configuration
-    tech_config = load_yaml(tech_config_path)
+    # Define the technology configuration
+    tech_config = {"technologies": {}}
 
     tech_config["technologies"]["load"] = {
         "control_strategy": {
@@ -82,7 +73,7 @@ def test_demand_converter_controller(subtests):
 
     # # Run the test
     with subtests.test("Check output"):
-        assert prob.get_val("hydrogen_set_point") == pytest.approx(
+        assert prob.get_val("hydrogen_out") == pytest.approx(
             [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 5.0, 5.0, 5.0, 5.0]
         )
 
@@ -99,14 +90,8 @@ def test_demand_converter_controller(subtests):
 
 @pytest.mark.unit
 def test_flexible_demand_converter_controller(subtests, variable_h2_production_profile):
-    # Get the directory of the current script
-    current_dir = Path(__file__).parent
-
-    # Resolve the paths to the configuration files
-    tech_config_path = current_dir / "inputs" / "tech_config.yaml"
-
-    # Load the technology configuration
-    tech_config = load_yaml(tech_config_path)
+    # Define the technology configuration
+    tech_config = {"technologies": {}}
 
     end_use_rated_demand = 10.0  # kg/h
     ramp_up_rate_kg = 4.0
@@ -209,14 +194,8 @@ def test_flexible_demand_converter_controller_min_utilization(
 ):
     # give it a min utilization larger than utilization resulting from above test
 
-    # Get the directory of the current script
-    current_dir = Path(__file__).parent
-
-    # Resolve the paths to the configuration files
-    tech_config_path = current_dir / "inputs" / "tech_config.yaml"
-
-    # Load the technology configuration
-    tech_config = load_yaml(tech_config_path)
+    # Define the technology configuration
+    tech_config = {"technologies": {}}
 
     end_use_rated_demand = 10.0  # kg/h
     ramp_up_rate_kg = 4.0

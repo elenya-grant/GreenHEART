@@ -294,11 +294,6 @@ class FlexibleDemandOpenLoopConverterController(ConverterOpenLoopControlBase):
             )
 
         # Calculate actual output based on demand met and curtailment
-        outputs[f"{self.commodity}_set_point"] = (
-            inputs[f"{self.commodity}_in"] - outputs[f"unused_{self.commodity}_out"]
-        )
-
-        # Calculate performance model outputs
         outputs[f"{self.commodity}_out"] = (
             inputs[f"{self.commodity}_in"] - outputs[f"unused_{self.commodity}_out"]
         )
@@ -314,5 +309,5 @@ class FlexibleDemandOpenLoopConverterController(ConverterOpenLoopControlBase):
         )
 
         outputs["capacity_factor"] = (
-            outputs[f"{self.commodity}_set_point"].sum() / inputs[f"{self.commodity}_demand"].sum()
+            outputs[f"{self.commodity}_out"].sum() / inputs[f"{self.commodity}_demand"].sum()
         )

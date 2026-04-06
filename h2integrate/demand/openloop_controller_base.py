@@ -20,7 +20,7 @@ class ConverterOpenLoopControlBaseConfig(BaseConfig):
             demand or a list/array for time-varying demand.
     """
 
-    commodity: str = field(converter=(str.strip, str.lower))
+    commodity: str = field(converter=str.strip)
     commodity_rate_units: str = field(converter=str.strip)
     demand_profile: int | float | list = field()
 
@@ -58,7 +58,7 @@ class ConverterOpenLoopControlBase(PerformanceModelBaseClass):
             f"{self.commodity}_demand",
             val=self.config.demand_profile,
             shape=self.n_timesteps,
-            units=self.commodity_rate_units,  # NOTE: hardcoded to align with controllers
+            units=self.commodity_rate_units,
             desc=f"Demand profile of {self.commodity}",
         )
 
@@ -85,20 +85,6 @@ class ConverterOpenLoopControlBase(PerformanceModelBaseClass):
             units=self.commodity_rate_units,
             desc=f"Excess production of {self.commodity}",
         )
-
-        self.add_output(
-            f"{self.commodity}_set_point",
-            val=0.0,
-            shape=self.n_timesteps,
-            units=self.commodity_rate_units,
-            desc=f"Production profile of {self.commodity}",
-        )
-
-        # self.add_output(
-        #     f"total_{commodity}_unmet_demand",
-        #     units=self.config.commodity_rate_units,
-        #     desc="Total unmet demand",
-        # )
 
     def compute():
         """This method must be implemented by subclasses to define the
