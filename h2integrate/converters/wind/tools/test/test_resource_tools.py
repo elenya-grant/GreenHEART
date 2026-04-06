@@ -4,12 +4,12 @@ import CoolProp
 import openmdao.api as om
 from pytest import fixture
 
+from h2integrate.resource.wind.nlr_developer_wtk_api import WTKNLRDeveloperAPIWindResource
 from h2integrate.converters.wind.tools.resource_tools import (
     calculate_air_density,
     average_wind_data_for_hubheight,
     weighted_average_wind_data_for_hubheight,
 )
-from h2integrate.resource.wind.nrel_developer_wtk_api import WTKNRELDeveloperAPIWindResource
 
 
 @fixture
@@ -20,7 +20,7 @@ def wind_resource_data():
             "longitude": -102.75,
             "resources": {
                 "wind_resource": {
-                    "resource_model": "WTKNRELDeveloperAPIWindResource",
+                    "resource_model": "WTKNLRDeveloperAPIWindResource",
                     "resource_parameters": {
                         "latitude": 35.2018863,
                         "longitude": -101.945027,
@@ -41,7 +41,7 @@ def wind_resource_data():
     }
 
     prob = om.Problem()
-    comp = WTKNRELDeveloperAPIWindResource(
+    comp = WTKNLRDeveloperAPIWindResource(
         plant_config=plant_config,
         resource_config=plant_config["site"]["resources"]["wind_resource"]["resource_parameters"],
         driver_config={},
@@ -54,6 +54,7 @@ def wind_resource_data():
     return wtk_data
 
 
+@pytest.mark.unit
 def test_air_density_calcs(subtests):
     z = 0
     T = 288.15 - 0.0065 * z
@@ -72,6 +73,7 @@ def test_air_density_calcs(subtests):
         assert pytest.approx(rho500m_calc, abs=1e-3) == rho500m
 
 
+@pytest.mark.unit
 def test_resource_averaging(wind_resource_data, subtests):
     avg_windspeed = average_wind_data_for_hubheight(wind_resource_data, [100, 140], "wind_speed")
     i_lb_less_than_ub = np.argwhere(
@@ -99,6 +101,7 @@ def test_resource_averaging(wind_resource_data, subtests):
         assert pytest.approx(avg_windspeed[0], rel=1e-6) == 15.78
 
 
+@pytest.mark.unit
 def test_resource_equal_weighted_averaging(wind_resource_data, subtests):
     hub_height = 120
     avg_windspeed = weighted_average_wind_data_for_hubheight(
@@ -129,6 +132,7 @@ def test_resource_equal_weighted_averaging(wind_resource_data, subtests):
         assert pytest.approx(avg_windspeed[0], rel=1e-6) == 15.78
 
 
+@pytest.mark.unit
 def test_resource_unequal_weighted_averaging(wind_resource_data, subtests):
     hub_height = 135
     weighted_avg_windspeed = weighted_average_wind_data_for_hubheight(

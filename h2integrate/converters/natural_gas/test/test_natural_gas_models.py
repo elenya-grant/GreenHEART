@@ -71,6 +71,7 @@ def plant_config():
     }
 
 
+@pytest.mark.unit
 def test_ngcc_performance_outputs(plant_config, ngcc_performance_params, subtests):
     """Test NGCC performance model with typical operating conditions."""
     tech_config_dict = {
@@ -80,7 +81,7 @@ def test_ngcc_performance_outputs(plant_config, ngcc_performance_params, subtest
     }
 
     # Create a simple natural gas input profile (constant 750 MMBtu/h for 100 MW plant)
-    natural_gas_input = np.full(8760, 750.0)  # MMBtu
+    natural_gas_input = np.full(8760, 750.0)  # MMBtu/h
 
     prob = om.Problem()
     perf_comp = NaturalGasPerformanceModel(
@@ -173,6 +174,7 @@ def test_ngcc_performance_outputs(plant_config, ngcc_performance_params, subtest
         assert np.all(prob.get_val("comp.replacement_schedule", units="unitless") == 0)
 
 
+@pytest.mark.unit
 def test_ngcc_performance(plant_config, ngcc_performance_params, subtests):
     """Test NGCC performance model with typical operating conditions."""
     tech_config_dict = {
@@ -182,7 +184,7 @@ def test_ngcc_performance(plant_config, ngcc_performance_params, subtests):
     }
 
     # Create a simple natural gas input profile (constant 750 MMBtu/h for 100 MW plant)
-    natural_gas_input = np.full(8760, 750.0)  # MMBtu
+    natural_gas_input = np.full(8760, 750.0)  # MMBtu/h
 
     prob = om.Problem()
     perf_comp = NaturalGasPerformanceModel(
@@ -197,7 +199,7 @@ def test_ngcc_performance(plant_config, ngcc_performance_params, subtests):
     prob.set_val("natural_gas_in", natural_gas_input)
     prob.run_model()
 
-    electricity_out = prob.get_val("electricity_out")
+    electricity_out = prob.get_val("electricity_out", units="MW")
 
     with subtests.test("NGCC Electricity Output"):
         # Expected: 750 MMBtu / 7.5 MMBtu/MWh = 100 MW
@@ -209,6 +211,7 @@ def test_ngcc_performance(plant_config, ngcc_performance_params, subtests):
         assert pytest.approx(np.mean(electricity_out), rel=1e-6) == 100.0
 
 
+@pytest.mark.regression
 def test_ngct_performance(plant_config, ngct_performance_params, subtests):
     """Test NGCT performance model with typical operating conditions."""
     tech_config_dict = {
@@ -218,7 +221,7 @@ def test_ngct_performance(plant_config, ngct_performance_params, subtests):
     }
 
     # Create a simple natural gas input profile (constant 575 MMBtu/h for 50 MW plant)
-    natural_gas_input = np.full(8760, 575.0)  # MMBtu
+    natural_gas_input = np.full(8760, 575.0)  # MMBtu/h
 
     prob = om.Problem()
     perf_comp = NaturalGasPerformanceModel(
@@ -233,7 +236,7 @@ def test_ngct_performance(plant_config, ngct_performance_params, subtests):
     prob.set_val("natural_gas_in", natural_gas_input)
     prob.run_model()
 
-    electricity_out = prob.get_val("electricity_out")
+    electricity_out = prob.get_val("electricity_out", units="MW")
 
     with subtests.test("NGCT Electricity Output"):
         # Expected: 575 MMBtu / 11.5 MMBtu/MWh = 50 MW
@@ -245,6 +248,7 @@ def test_ngct_performance(plant_config, ngct_performance_params, subtests):
         assert pytest.approx(np.mean(electricity_out), rel=1e-6) == 50.0
 
 
+@pytest.mark.unit
 def test_ngcc_cost(plant_config, ngcc_cost_params, subtests):
     """Test NGCC cost model calculations."""
     tech_config_dict = {
@@ -274,8 +278,8 @@ def test_ngcc_cost(plant_config, ngcc_cost_params, subtests):
     prob.set_val("electricity_out", electricity_out)
     prob.run_model()
 
-    capex = prob.get_val("CapEx")[0]
-    opex = prob.get_val("OpEx")[0]
+    capex = prob.get_val("CapEx", units="USD")[0]
+    opex = prob.get_val("OpEx", units="USD/year")[0]
     cost_year = prob.get_val("cost_year")
 
     # Calculate expected values
@@ -294,6 +298,7 @@ def test_ngcc_cost(plant_config, ngcc_cost_params, subtests):
         assert cost_year == ngcc_cost_params["cost_year"]
 
 
+@pytest.mark.unit
 def test_ngct_cost(plant_config, ngct_cost_params, subtests):
     """Test NGCT cost model calculations."""
     tech_config_dict = {
@@ -323,8 +328,8 @@ def test_ngct_cost(plant_config, ngct_cost_params, subtests):
     prob.set_val("electricity_out", electricity_out)
     prob.run_model()
 
-    capex = prob.get_val("CapEx")[0]
-    opex = prob.get_val("OpEx")[0]
+    capex = prob.get_val("CapEx", units="USD")[0]
+    opex = prob.get_val("OpEx", units="USD/year")[0]
     cost_year = prob.get_val("cost_year")
 
     # Calculate expected values
@@ -343,6 +348,7 @@ def test_ngct_cost(plant_config, ngct_cost_params, subtests):
         assert cost_year == ngct_cost_params["cost_year"]
 
 
+@pytest.mark.unit
 def test_ngcc_performance_demand(plant_config, ngcc_performance_params, subtests):
     """Test NGCC performance model with typical operating conditions."""
     tech_config_dict = {
@@ -352,7 +358,7 @@ def test_ngcc_performance_demand(plant_config, ngcc_performance_params, subtests
     }
 
     # Create a simple natural gas input profile (constant 750 MMBtu/h for 100 MW plant)
-    natural_gas_input = np.full(8760, 750.0)  # MMBtu
+    natural_gas_input = np.full(8760, 750.0)  # MMBtu/h
     electricity_demand_section = np.linspace(
         0, 1.2 * ngcc_performance_params["system_capacity_mw"], 12
     )
@@ -372,7 +378,7 @@ def test_ngcc_performance_demand(plant_config, ngcc_performance_params, subtests
     prob.set_val("electricity_demand", electricity_demand_MW)
     prob.run_model()
 
-    electricity_out = prob.get_val("electricity_out")
+    electricity_out = prob.get_val("electricity_out", units="MW")
 
     with subtests.test("NGCC Electricity Output"):
         # Expected: 750 MMBtu / 7.5 MMBtu/MWh = 100 MW

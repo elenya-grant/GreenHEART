@@ -21,7 +21,7 @@ class WindPlantArdModelConfig(BaseConfig):
 
     Attributes:
         ard_system (dict): Dictionary of Ard system / layout parameters (turbine specs,
-            layout bounds, wake model settings, etc.) passed through to `set_up_ard_model`.
+            layout bounds, wake model settings, etc.) passed through to ``set_up_ard_model``.
         ard_data_path (str): Root path to Ard data resources (e.g., turbine libraries).
     """
 
@@ -42,14 +42,6 @@ class WindArdPerformanceCompatibilityComponent(PerformanceModelBaseClass):
         self.commodity = "electricity"
         self.commodity_rate_units = "kW"
         self.commodity_amount_units = "kW*h"
-        if set_up_ard_model is None:
-            msg = (
-                "Please install `ard-nrel` or `h2integrate[ard]` to use the"
-                " `WindArdPerformanceCompatibilityComponent` Ard-based model."
-                " It is highly recommended to run `conda install wisdem` first. See H2I's"
-                "installation instructions for further details."
-            )
-            raise ModuleNotFoundError(msg)
 
     def setup(self):
         self.config = WindPlantArdModelConfig.from_dict(
@@ -118,6 +110,7 @@ class ArdWindPlantModel(om.Group):
     """OpenMDAO Group integrating the Ard wind plant as a sub-problem.
 
     Subsystems:
+
         ard_sub_prob (SubmodelComp): Encapsulated Ard Problem exposing specified inputs/outputs.
         wind_ard_performance_compatibility (WindArdPerformanceCompatibilityComponent):
             Necessary for providing required performance metrics to H2Integrate.
@@ -125,6 +118,7 @@ class ArdWindPlantModel(om.Group):
             Necessary for providing cost_year to H2Integrate.
 
     Promoted Inputs:
+
         spacing_primary: Primary spacing parameter.
         spacing_secondary: Secondary spacing parameter.
         angle_orientation: Orientation angle.
@@ -133,6 +127,7 @@ class ArdWindPlantModel(om.Group):
         y_substations: Y-coordinates of substations.
 
     Promoted Outputs:
+
         electricity_out (float): Annual energy production (AEP) in MWh (as provided by ARD/FLORIS).
         CapEx (float): Capital expenditure from ARD turbine & balance of plant cost model.
         OpEx (float): Operating expenditure from ARD.
@@ -146,6 +141,14 @@ class ArdWindPlantModel(om.Group):
         self.options.declare("driver_config", types=dict)
         self.options.declare("plant_config", types=dict)
         self.options.declare("tech_config", types=dict)
+
+        if set_up_ard_model is None:
+            msg = (
+                "Please install `ard-nrel` or `h2integrate[ard]` to use the"
+                " `ArdWindPlantModel`. See H2I's installation instructions "
+                "for further details."
+            )
+            raise ModuleNotFoundError(msg)
 
     def setup(self):
         self.config = WindPlantArdModelConfig.from_dict(

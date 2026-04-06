@@ -1,38 +1,112 @@
+from unittest.mock import MagicMock
+
 import numpy as np
 import pytest
 import openmdao.api as om
 from pytest import fixture
 
-from h2integrate import EXAMPLE_DIR
 from h2integrate.converters.solar.solar_pysam import PYSAMSolarPlantPerformanceModel
-from h2integrate.resource.solar.nrel_developer_goes_api_models import GOESAggregatedSolarAPI
+from h2integrate.resource.solar.nlr_developer_goes_api_models import GOESAggregatedSolarAPI
 
 
-@fixture
-def plant_config():
-    plant = {
-        "plant_life": 30,
-        "simulation": {
-            "dt": 3600,
-            "n_timesteps": 8760,
-            "start_time": "01/01/1900 00:30:00",
-            "timezone": 0,
-        },
-    }
+@pytest.mark.unit
+class TestCalcTiltAngle:
+    """Unit tests for PYSAMSolarPlantPerformanceModel.calc_tilt_angle
+    with various latitudes including southern hemisphere (negative) values.
+    """
 
-    return {"plant": plant, "site": {"latitude": 30.6617, "longitude": -101.7096, "resources": {}}}
+    def _make_model(self, tilt_angle_func, tilt=None, create_model_from="default"):
+        """Create a lightweight mock of PYSAMSolarPlantPerformanceModel
+        with the minimum attributes needed by calc_tilt_angle."""
+        model = MagicMock(spec=PYSAMSolarPlantPerformanceModel)
+        model.design_config = MagicMock()
+        model.design_config.tilt_angle_func = tilt_angle_func
+        model.design_config.tilt = tilt
+        model.design_config.create_model_from = create_model_from
+        model.design_config.pysam_options = {}
+        model.system_model = MagicMock()
+        model.system_model.value.return_value = 20.0  # default tilt from PySAM model
+        return model
 
+    # --- tilt_angle_func = "lat" ---
+    @pytest.mark.parametrize(
+        "latitude, expected_tilt",
+        [
+            (30.0, 30.0),
+            (-30.0, 30.0),
+            (0.0, 0.0),
+            (45.0, 45.0),
+            (-45.0, 45.0),
+            (90.0, 90.0),
+            (-90.0, 90.0),
+        ],
+    )
+    def test_lat_mode(self, latitude, expected_tilt):
+        model = self._make_model(tilt_angle_func="lat")
+        result = PYSAMSolarPlantPerformanceModel.calc_tilt_angle(model, latitude)
+        assert result == pytest.approx(expected_tilt)
 
-@fixture
-def solar_resource_dict():
-    pv_resource_dir = EXAMPLE_DIR / "11_hybrid_energy_plant" / "tech_inputs" / "weather" / "solar"
-    pv_filename = "30.6617_-101.7096_psmv3_60_2013.csv"
-    pv_resource_dict = {
-        "resource_year": 2013,
-        "resource_dir": pv_resource_dir,
-        "resource_filename": pv_filename,
-    }
-    return pv_resource_dict
+    # --- tilt_angle_func = "lat-func" ---
+    @pytest.mark.parametrize(
+        "latitude, expected_tilt",
+        [
+            # |lat| <= 25: tilt = 0.87 * |lat|
+            (10.0, 10.0 * 0.87),
+            (-10.0, 10.0 * 0.87),
+            (25.0, 25.0 * 0.87),
+            (-25.0, 25.0 * 0.87),
+            (0.0, 0.0),
+            # 25 < |lat| <= 50: tilt = 0.76 * |lat| + 3.1
+            (30.0, 30.0 * 0.76 + 3.1),
+            (-30.0, 30.0 * 0.76 + 3.1),
+            (50.0, 50.0 * 0.76 + 3.1),
+            (-50.0, 50.0 * 0.76 + 3.1),
+            # |lat| > 50: tilt = |lat|
+            (60.0, 60.0),
+            (-60.0, 60.0),
+            (80.0, 80.0),
+            (-80.0, 80.0),
+        ],
+    )
+    def test_lat_func_mode(self, latitude, expected_tilt):
+        model = self._make_model(tilt_angle_func="lat-func")
+        result = PYSAMSolarPlantPerformanceModel.calc_tilt_angle(model, latitude)
+        assert result == pytest.approx(expected_tilt)
+
+    def test_lat_func_symmetric(self):
+        """Verify that positive and negative latitudes produce identical tilt angles."""
+        model = self._make_model(tilt_angle_func="lat-func")
+        for lat in [5, 15, 25, 30, 40, 50, 55, 70, 85]:
+            pos = PYSAMSolarPlantPerformanceModel.calc_tilt_angle(model, lat)
+            neg = PYSAMSolarPlantPerformanceModel.calc_tilt_angle(model, -lat)
+            assert pos == pytest.approx(neg), f"Mismatch at latitude {lat}: {pos} != {neg}"
+
+    # --- tilt_angle_func = "none" ---
+    def test_none_mode_default_with_user_tilt(self):
+        model = self._make_model(tilt_angle_func="none", tilt=15.0, create_model_from="default")
+        result = PYSAMSolarPlantPerformanceModel.calc_tilt_angle(model, -33.0)
+        assert result == pytest.approx(15.0)
+
+    def test_none_mode_default_without_user_tilt(self):
+        model = self._make_model(tilt_angle_func="none", tilt=None, create_model_from="default")
+        result = PYSAMSolarPlantPerformanceModel.calc_tilt_angle(model, -33.0)
+        assert result == pytest.approx(20.0)  # from system_model.value("tilt")
+
+    def test_none_mode_new_with_user_tilt(self):
+        model = self._make_model(tilt_angle_func="none", tilt=10.0, create_model_from="new")
+        result = PYSAMSolarPlantPerformanceModel.calc_tilt_angle(model, -33.0)
+        assert result == pytest.approx(10.0)
+
+    def test_none_mode_new_without_user_tilt(self):
+        model = self._make_model(tilt_angle_func="none", tilt=None, create_model_from="new")
+        model.design_config.pysam_options = {"SystemDesign": {"tilt": 22.0}}
+        result = PYSAMSolarPlantPerformanceModel.calc_tilt_angle(model, -33.0)
+        assert result == pytest.approx(22.0)
+
+    def test_none_mode_new_no_tilt_anywhere(self):
+        model = self._make_model(tilt_angle_func="none", tilt=None, create_model_from="new")
+        result = PYSAMSolarPlantPerformanceModel.calc_tilt_angle(model, -33.0)
+        assert result == pytest.approx(0)  # default fallback
 
 
 @fixture
@@ -52,6 +126,7 @@ def basic_pysam_options():
     return pysam_options
 
 
+@pytest.mark.unit
 def test_pvwatts_outputs(basic_pysam_options, solar_resource_dict, plant_config, subtests):
     basic_pysam_options["SystemDesign"].update({"tilt": 0.0})
     pv_design_dict = {
@@ -173,6 +248,7 @@ def test_pvwatts_outputs(basic_pysam_options, solar_resource_dict, plant_config,
         assert np.all(prob.get_val("comp.replacement_schedule", units="unitless") == 0)
 
 
+@pytest.mark.unit
 def test_pvwatts_singleowner_notilt(
     basic_pysam_options, solar_resource_dict, plant_config, subtests
 ):
@@ -218,9 +294,9 @@ def test_pvwatts_singleowner_notilt(
     prob.setup()
     prob.run_model()
 
-    aep = prob.get_val("pv_perf.annual_electricity_produced")[0]
-    system_capacity_AC = prob.get_val("pv_perf.system_capacity_AC")[0]
-    system_capacity_DC = prob.get_val("pv_perf.system_capacity_DC")[0]
+    aep = prob.get_val("pv_perf.annual_electricity_produced", units="kW*h/year")[0]
+    system_capacity_AC = prob.get_val("pv_perf.system_capacity_AC", units="kW")[0]
+    system_capacity_DC = prob.get_val("pv_perf.system_capacity_DC", units="kW")[0]
 
     with subtests.test("AEP"):
         assert pytest.approx(aep, rel=1e-6) == 527345996
@@ -235,6 +311,7 @@ def test_pvwatts_singleowner_notilt(
         assert pytest.approx(system_capacity_DC, rel=1e-6) == pv_design_dict["pv_capacity_kWdc"]
 
 
+@pytest.mark.unit
 def test_pvwatts_singleowner_notilt_different_site(basic_pysam_options, plant_config, subtests):
     """Test `PYSAMSolarPlantPerformanceModel` with a basic input scenario:
 
@@ -299,9 +376,9 @@ def test_pvwatts_singleowner_notilt_different_site(basic_pysam_options, plant_co
     prob.model.set_val("solar_resource.longitude", -102.75)
     prob.run_model()
 
-    aep = prob.get_val("pv_perf.annual_electricity_produced")[0]
-    system_capacity_AC = prob.get_val("pv_perf.system_capacity_AC")[0]
-    system_capacity_DC = prob.get_val("pv_perf.system_capacity_DC")[0]
+    aep = prob.get_val("pv_perf.annual_electricity_produced", units="kW*h/year")[0]
+    system_capacity_AC = prob.get_val("pv_perf.system_capacity_AC", units="kW")[0]
+    system_capacity_DC = prob.get_val("pv_perf.system_capacity_DC", units="kW")[0]
 
     with subtests.test("Got updated site lat"):
         resource_lat = prob.get_val("pv_perf.solar_resource_data").get("site_lat", 0)
@@ -324,6 +401,7 @@ def test_pvwatts_singleowner_notilt_different_site(basic_pysam_options, plant_co
         assert pytest.approx(system_capacity_DC, rel=1e-6) == pv_design_dict["pv_capacity_kWdc"]
 
 
+@pytest.mark.unit
 def test_pvwatts_singleowner_withtilt(
     basic_pysam_options, solar_resource_dict, plant_config, subtests
 ):
@@ -362,9 +440,9 @@ def test_pvwatts_singleowner_withtilt(
     prob.setup()
     prob.run_model()
 
-    aep = prob.get_val("pv_perf.annual_electricity_produced")[0]
-    system_capacity_AC = prob.get_val("pv_perf.system_capacity_AC")[0]
-    system_capacity_DC = prob.get_val("pv_perf.system_capacity_DC")[0]
+    aep = prob.get_val("pv_perf.annual_electricity_produced", units="kW*h/year")[0]
+    system_capacity_AC = prob.get_val("pv_perf.system_capacity_AC", units="kW")[0]
+    system_capacity_DC = prob.get_val("pv_perf.system_capacity_DC", units="kW")[0]
 
     with subtests.test("AEP"):
         assert pytest.approx(aep, rel=1e-6) == 556443491

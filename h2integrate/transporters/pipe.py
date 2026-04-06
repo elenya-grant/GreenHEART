@@ -16,26 +16,21 @@ class PipePerformanceModel(om.ExplicitComponent):
                 "ammonia",
                 "nitrogen",
                 "natural_gas",
-                "crude_ore",
                 "wellhead_gas",
-                "iron_ore",
-                "reformer_catalyst",
                 "water",
-                "carbon",
-                "lime",
-                "pig_iron",
             ],
         )
+        self.options.declare("plant_config", types=dict)
 
     def setup(self):
         transport_item = self.options["transport_item"]
         self.input_name = transport_item + "_in"
         self.output_name = transport_item + "_out"
 
+        n_timesteps = int(self.options["plant_config"]["plant"]["simulation"]["n_timesteps"])
+
         if transport_item == "natural_gas":
             units = "MMBtu/h"
-        elif transport_item == "reformer_catalyst":
-            units = "(m**3)"
         elif transport_item == "water":
             units = "galUS"
         elif transport_item == "co2":
@@ -46,15 +41,13 @@ class PipePerformanceModel(om.ExplicitComponent):
         self.add_input(
             self.input_name,
             val=-1.0,
-            shape_by_conn=True,
-            copy_shape=self.output_name,
+            shape=n_timesteps,
             units=units,
         )
         self.add_output(
             self.output_name,
             val=-1.0,
-            shape_by_conn=True,
-            copy_shape=self.input_name,
+            shape=n_timesteps,
             units=units,
         )
 

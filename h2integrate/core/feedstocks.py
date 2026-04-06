@@ -11,8 +11,8 @@ class FeedstockPerformanceConfig(BaseConfig):
     """Config class for feedstock.
 
     Attributes:
-        commodity (str): feedstock name
-        commodity_rate_units (str): feedstock usage units (such as "galUS/h", "kW", or "kg/h")
+        commodity (str): name of the feedstock commodity
+        commodity_rate_units (str): feedstock usage rate units (such as "galUS/h", "kg/h" or "kW")
         rated_capacity (float):  The rated capacity of the feedstock in `commodity_rate_units`.
             This is used to size the feedstock supply to meet the plant's needs.
     """
@@ -33,24 +33,23 @@ class FeedstockPerformanceModel(om.ExplicitComponent):
             merge_shared_inputs(self.options["tech_config"]["model_inputs"], "performance"),
             additional_cls_name=self.__class__.__name__,
         )
-        self.n_timesteps = int(self.options["plant_config"]["plant"]["simulation"]["n_timesteps"])
-        self.commodity = self.config.commodity
-        self.commodity_rate_units = self.config.commodity_rate_units
-
+        self.n_timesteps = self.options["plant_config"]["plant"]["simulation"]["n_timesteps"]
         self.add_input(
-            f"{self.commodity}_capacity",
+            f"{self.config.commodity}_capacity",
             val=self.config.rated_capacity,
-            units=self.commodity_rate_units,
+            units=self.config.commodity_rate_units,
         )
 
         self.add_output(
-            f"{self.commodity}_out", shape=self.n_timesteps, units=self.commodity_rate_units
+            f"{self.config.commodity}_out",
+            shape=self.n_timesteps,
+            units=self.config.commodity_rate_units,
         )
 
     def compute(self, inputs, outputs):
         # Generate feedstock array operating at full capacity for the full year
-        outputs[f"{self.commodity}_out"] = np.full(
-            self.n_timesteps, inputs[f"{self.commodity}_capacity"][0]
+        outputs[f"{self.config.commodity}_out"] = np.full(
+            self.n_timesteps, inputs[f"{self.config.commodity}_capacity"][0]
         )
 
 
@@ -59,16 +58,16 @@ class FeedstockCostConfig(CostModelBaseConfig):
     """Config class for feedstock.
 
     Attributes:
-        commodity (str): feedstock name
-        commodity_rate_units (str): feedstock usage units (such as "galUS/h", "kW", or "kg/h")
-        price (scalar or list):  The cost of the feedstock in USD/`commodity_amount_units`).
+        commodity (str): name of the feedstock commodity
+        commodity_rate_units (str): feedstock usage rate units (such as "galUS/h", "kg/h" or "kW")
+        price (scalar or list):  The cost of the feedstock in USD/`commodity_amount_units`.
             If scalar, cost is assumed to be constant for each timestep and each year.
             If list, then it can be the cost per timestep of the simulation
+        cost_year (int): dollar-year for costs.
         annual_cost (float, optional): fixed cost associated with the feedstock in USD/year
         start_up_cost (float, optional): one-time capital cost associated with the feedstock in USD.
-        cost_year (int): dollar-year for costs.
         commodity_amount_units (str | None, optional): the amount units of the commodity (i.e.,
-            "kg", "kW" or "galUS"). If None, will be set as `units`*h
+            "galUS", "kg" or "kW*h"). If None, will be set as `commodity_rate_units*h`
     """
 
     commodity: str = field()
@@ -89,30 +88,23 @@ class FeedstockCostModel(CostModelBaseClass):
             merge_shared_inputs(self.options["tech_config"]["model_inputs"], "cost"),
             additional_cls_name=self.__class__.__name__,
         )
-        self.n_timesteps = int(self.options["plant_config"]["plant"]["simulation"]["n_timesteps"])
+        n_timesteps = self.options["plant_config"]["plant"]["simulation"]["n_timesteps"]
+        plant_life = int(self.options["plant_config"]["plant"]["plant_life"])
 
         # Set cost outputs
         super().setup()
 
-        self.commodity = self.config.commodity
-        self.commodity_rate_units = self.config.commodity_rate_units
-        self.commodity_amount_units = self.config.commodity_amount_units
-
-        # Feedstock available from performance model, used to calculate CF
-        # NOTE: should f"{self.commodity}_out" be renamed to f"{self.commodity}_available"?
-        # f"{self.commodity}_out" is connected from the FeedstockPerformanceModel output
+        self.add_input(
+            f"{self.config.commodity}_consumed",
+            val=0.0,
+            shape=int(n_timesteps),
+            units=self.config.commodity_rate_units,
+            desc=f"Consumption profile of {self.config.commodity}",
+        )
         self.add_input(
             f"{self.commodity}_out", val=0, shape=self.n_timesteps, units=self.commodity_rate_units
         )
 
-        # Feedstock consumed, used to calculate VarOpEx and CF
-        self.add_input(
-            f"{self.commodity}_consumed",
-            val=0.0,
-            shape=self.n_timesteps,
-            units=self.commodity_rate_units,
-            desc=f"Consumption profile of {self.commodity}",
-        )
         self.add_input(
             "price",
             val=self.config.price,
@@ -149,6 +141,9 @@ class FeedstockCostModel(CostModelBaseClass):
             val=0,
             units=self.commodity_rate_units,
         )
+
+        # lifetime estimate of item replacements, represented as a fraction of the capacity.
+        self.add_output("replacement_schedule", val=0.0, shape=plant_life, units="unitless")
 
     def compute(self, inputs, outputs, discrete_inputs, discrete_outputs):
         # Calculate performance based on consumption

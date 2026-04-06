@@ -1,10 +1,22 @@
 import pyomo.environ as pyo
 from pyomo.network import Port
 
-from h2integrate.control.control_rules.pyomo_rule_baseclass import PyomoRuleBaseClass
+from h2integrate.core.utilities import merge_shared_inputs
+from h2integrate.control.control_rules.pyomo_rule_baseclass import (
+    PyomoRuleBaseClass,
+    PyomoRuleBaseConfig,
+)
 
 
 class PyomoDispatchGenericConverter(PyomoRuleBaseClass):
+    def setup(self):
+        self.config = PyomoRuleBaseConfig.from_dict(
+            merge_shared_inputs(self.options["tech_config"]["model_inputs"], "dispatch_rule"),
+            strict=False,
+            additional_cls_name=self.__class__.__name__,
+        )
+        super().setup()
+
     def _create_variables(self, pyomo_model: pyo.ConcreteModel, tech_name: str):
         """Create generic converter variables to add to Pyomo model instance.
 
@@ -14,6 +26,10 @@ class PyomoDispatchGenericConverter(PyomoRuleBaseClass):
             variables are created.
 
         """
+        rate_units_pyo_str = "/".join(
+            f"pyo.units.{u}" for u in self.config.commodity_rate_units.split("/")
+        )
+
         setattr(
             pyomo_model,
             f"{tech_name}_{self.config.commodity}",
@@ -21,7 +37,7 @@ class PyomoDispatchGenericConverter(PyomoRuleBaseClass):
                 doc=f"{self.config.commodity} generation \
                     from {tech_name} [{self.config.commodity_rate_units}]",
                 domain=pyo.NonNegativeReals,
-                units=eval("pyo.units." + self.config.commodity_rate_units),
+                units=eval(rate_units_pyo_str),
                 initialize=0.0,
             ),
         )

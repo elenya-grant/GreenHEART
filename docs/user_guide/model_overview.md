@@ -1,4 +1,5 @@
 
+(model-overview)=
 # Model Overview
 Currently, H2I recognizes four types of models:
 
@@ -10,22 +11,7 @@ Currently, H2I recognizes four types of models:
 
 (resource)=
 ## Resource
-`Resource` models process resource data that is usually passed to a technology model.
-
-| Resource name     | Resource Type  |
-| :---------------- | :---------------: |
-| `RiverResource`  | river resource |
-| `WTKNRELDeveloperAPIWindResource` | wind resource |
-| `OpenMeteoHistoricalWindResource` | wind resource |
-| `GOESAggregatedSolarAPI` | solar resource |
-| `GOESConusSolarAPI` | solar resource |
-| `GOESFullDiscSolarAPI` | solar resource |
-| `GOESTMYSolarAPI` | solar resource |
-| `MeteosatPrimeMeridianSolarAPI` | solar resource |
-| `MeteosatPrimeMeridianTMYSolarAPI` | solar resource |
-| `Himawari7SolarAPI` | solar resource |
-| `Himawari8SolarAPI` | solar resource |
-| `HimawariTMYSolarAPI` | solar resource |
+`Resource` models process resource data that is usually passed to a technology model. See [Resource models](#resource-models) for available models.
 
 
 (converters)=
@@ -34,29 +20,11 @@ Currently, H2I recognizes four types of models:
 - converts energy available in the 'Primary Input' to another form of energy ('Primary Commodity') OR
 - consumes the 'Primary Input' (and perhaps secondary inputs or feedstocks), which is converted to the 'Primary Commodity' through some process
 
-The inputs, outputs, and corresponding technology that are currently available in H2I are listed below:
-
-| Technology name   | Primary Commodity | Primary Input(s) |
-| :---------------- | :-----------: | ------------: |
-| `wind`           |  electricity  | wind resource |
-| `solar`          |  electricity  | solar resource |
-| `river`          |  electricity  | river resource |
-| `HOPPComponent`           |  electricity  | N/A |
-| `electrolyzer`   |  hydrogen     | electricity |
-| `geoh2`          |  hydrogen     | rock type |
-| `h2_fuel_cell`   |  electricity  | hydrogen |
-| `steel`          |  steel        | hydrogen |
-| `ammonia`        |  ammonia      | nitrogen, hydrogen |
-| `doc`   |  co2     | electricity |
-| `oae`   |  co2     | electricity |
-| `methanol`   |  methanol     | ??? |
-| `air_separator`   |  nitrogen     | electricity |
-| `desal`   |  water     | electricity |
-| `natural_gas`   |  electricity     | natural gas |
-
 ```{note}
 When the Primary Commodity is electricity, those converters are considered electricity producing technologies and their electricity production is summed for financial calculations.
 ```
+
+See [Converter models](#converter-models) for the full list of available converter technologies.
 
 (transport)=
 ## Transport
@@ -65,39 +33,24 @@ When the Primary Commodity is electricity, those converters are considered elect
 - combine multiple input streams of the 'Transport Commodity' into a single stream
 - split a single input stream of the 'Transport Commodity' into multiple output streams
 
-
-
-| Technology        | Transport Commodity |
-| :---------------- | :---------------: |
-| `cable`         |  electricity      |
-| `pipe`      |  most mass-based commodities         |
-| `combiner`      | Any    |
-| `splitter` |  Any|
-
 Connection: `[source_tech, dest_tech, transport_commodity, transport_technology]`
+
+See [Transport Models](#transport-models) for available models.
 
 (storage)=
 ## Storage
 `Storage` technologies input and output the 'Storage Commodity' at different times. These technologies can be filled or charged, then unfilled or discharged at some later time. These models are usually constrained by two key model parameters: storage capacity and charge/discharge rate.
 
-| Technology        | Storage Commodity |
-| :---------------- | :---------------: |
-| `h2_storage`      |  hydrogen         |
-| `battery`         |  electricity      |
-| `generic_storage` |  Any              |
+See [Storage Models](#storage-models) for available models.
 
 (control)=
+(controller)=
 ## Control
 `Control` models are used to control the `Storage` models and resource flows.
 
-| Controller        | Control Method |
-| :----------------------------- | :---------------: |
-| `PassThroughOpenLoopController`      |  open-loop control. directly passes the input resource flow to the output without any modifications         |
-| `DemandOpenLoopStorageController`  |  open-loop control. manages resource flow based on demand and storage constraints     |
-| `DemandOpenLoopConverterController`  |  open-loop control. manages resource flow based on demand constraints     |
-| `FlexibleDemandOpenLoopConverterController`  |  open-loop control. manages resource flow based on demand and flexibility constraints     |
-| `HeuristicLoadFollowingController` | open-loop control that works on a time window basis to set dispatch commands. Uses pyomo |
+See [Control Models](#control-models) for available models.
 
+(technology-models-overview)=
 # Technology Models Overview
 
 Below summarizes the available performance, cost, and financial models for each model type. The list of supported models is also available in [supported_models.py](../../h2integrate/core/supported_models.py)
@@ -122,10 +75,11 @@ Below summarizes the available performance, cost, and financial models for each 
         + `RiverResource`
 - `wind_resource`:
     - resource models:
-        + `WTKNRELDeveloperAPIWindResource`
+        + `WTKNLRDeveloperAPIWindResource`
         + `OpenMeteoHistoricalWindResource`
 - `solar_resource`:
     - resource models:
+        + `OpenMeteoHistoricalSolarResource`
         + `GOESAggregatedSolarAPI`
         + `GOESConusSolarAPI`
         + `GOESFullDiscSolarAPI`
@@ -138,6 +92,9 @@ Below summarizes the available performance, cost, and financial models for each 
 
 (converter-models)=
 ## Converter models
+- generic models:
+    - cost models:
+        + `GenericConverterCostModel`
 - `wind`: wind turbine
     - performance models:
         + `'PYSAMWindPlantPerformanceModel'`
@@ -168,12 +125,18 @@ Below summarizes the available performance, cost, and financial models for each 
     - cost models:
         + `'SingliticoCostModel'`
         + `'BasicElectrolyzerCostModel'`
+        + `'CustomElectrolyzerCostModel'`
 - `geoh2_well_subsurface`: geologic hydrogen well subsurface
     - performance models:
         + `'NaturalGeoH2PerformanceModel'`
         + `'StimulatedGeoH2PerformanceModel'`
     - cost models:
         + `'GeoH2SubsurfaceCostModel'`
+- `geoh2_well_surface`: geologic hydrogen well surface processing
+    - performance models:
+        + `'AspenGeoH2SurfacePerformanceModel'`
+    - cost models:
+        + `'AspenGeoH2SurfaceCostModel'`
 - `h2_fuel_cell`: hydrogen fuel cell
     - performance models:
         + `'LinearH2FuelCellPerformanceModel'`
@@ -191,10 +154,10 @@ Below summarizes the available performance, cost, and financial models for each 
         + `'HydrogenEAFPlantCostComponent'`
 - `ammonia`: ammonia synthesis
     - performance models:
-        + `'simple_ammonia_performance'`
+        + `'SimpleAmmoniaPerformanceModel'`
         + `'AmmoniaSynLoopPerformanceModel'`
     - cost models:
-        + `'simple_ammonia_cost'`
+        + `'SimpleAmmoniaCostModel'`
         + `'AmmoniaSynLoopCostModel'`
 - `doc`: direct ocean capture
     - performance models:
@@ -209,12 +172,20 @@ Below summarizes the available performance, cost, and financial models for each 
     - financial models:
         + `'OAECostAndFinancialModel'`
 - `methanol`: methanol synthesis
-    - performance models:
-        + `'SMRMethanolPlantPerformanceModel'`
-    - cost models:
-        + `'SMRMethanolPlantCostModel'`
-    - financial models:
-        + `'methanol_plant_financial'`
+    - SMR methanol:
+        - performance models:
+            + `'SMRMethanolPlantPerformanceModel'`
+        - cost models:
+            + `'SMRMethanolPlantCostModel'`
+        - financial models:
+            + `'SMRMethanolPlantFinanceModel'`
+    - CO2-to-methanol:
+        - performance models:
+            + `'CO2HMethanolPlantPerformanceModel'`
+        - cost models:
+            + `'CO2HMethanolPlantCostModel'`
+        - financial models:
+            + `'CO2HMethanolPlantFinanceModel'`
 - `air_separator`: nitrogen separation from air
     - performance models:
         + `'SimpleASUPerformanceModel'`
@@ -228,8 +199,15 @@ Below summarizes the available performance, cost, and financial models for each 
 - `natural_gas`: natural gas combined cycle and combustion turbine
     - performance models:
         + `'NaturalGasPerformanceModel'`
-    - cost_models:
+    - cost models:
         + `'NaturalGasCostModel'`
+- `nuclear`: nuclear power plant
+    - performance models:
+        + `'QuinnNuclearPerformanceModel'`
+    - cost models:
+        + `'QuinnNuclearCostModel'`
+    - docs:
+        + [../technology_models/nuclear.md](../technology_models/nuclear.md)
 - `grid`: electricity grid connection
     - performance models:
         + `'GridPerformanceModel'`
@@ -244,9 +222,16 @@ Below summarizes the available performance, cost, and financial models for each 
     - performance models:
         + `'NaturalGasIronReductionPlantPerformanceComponent'`
         + `'HydrogenIronReductionPlantPerformanceComponent'`
+        + `'HumbertEwinPerformanceComponent'`
     - cost models:
         + `'NaturalGasIronReductionPlantCostComponent'`
         + `'HydrogenIronReductionPlantCostComponent'`
+- `iron_ewin`: iron electrowinning
+    - performance models:
+        + `'HumbertEwinPerformanceComponent'`
+    - cost models:
+        + `'HumbertStinnEwinCostComponent'`
+
 
 (transport-models)=
 ## Transport Models
@@ -255,19 +240,19 @@ Below summarizes the available performance, cost, and financial models for each 
         + `'cable'`: specific to `electricity` commodity
 - `pipe`:
     - performance models:
-        + `'pipe'`: currently compatible with the commodities "hydrogen", "co2", "methanol", "ammonia", "nitrogen", "natural_gas", "pig_iron", "reformer_catalyst", "water", "carbon", "iron_ore", and "lime"
+        + `'pipe'`: compatible with the commodities "hydrogen", "co2", "methanol", "ammonia", "nitrogen", "natural_gas", and "water"
 - `combiner`:
     - performance models:
         + `'GenericCombinerPerformanceModel'`: can be used for any commodity
 - `splitter`:
     - performance models:
         + `'GenericSplitterPerformanceModel'`: can be used for any commodity
-
+- `generic_transport`:
+    - performance models:
+        + `'GenericTransporterPerformanceModel'`: can be used for any commodity
 (storage-models)=
 ## Storage Models
 - `h2_storage`: hydrogen storage
-    - performance models:
-        + `'hydrogen_tank_performance'`
     - cost models:
         + `'LinedRockCavernStorageCostModel'`
         + `'SaltCavernStorageCostModel'`
@@ -275,7 +260,7 @@ Below summarizes the available performance, cost, and financial models for each 
         + `'PipeStorageCostModel'`
 - `generic_storage`: any resource storage
     - performance models:
-        + `'SimpleGenericStorage'`
+        + `'StoragePerformanceModel'`
         + `'StorageAutoSizingModel'`
     - cost models:
         + `'GenericStorageCostModel'`
@@ -284,6 +269,8 @@ Below summarizes the available performance, cost, and financial models for each 
         + `'PySAMBatteryPerformanceModel'`
     - cost models:
         + `'ATBBatteryCostModel'`
+- `generic_storage_pyo`: storage for any commodity type that is compatible with the Pyomo controllers
+    - performance models: `StoragePerformanceModel`
 
 (basic-operations)=
 ## Basic Operations
@@ -293,10 +280,12 @@ Below summarizes the available performance, cost, and financial models for each 
 
 (control-models)=
 ## Control Models
-- `'PassThroughOpenLoopController'`
 - Storage Controllers:
-    - `'DemandOpenLoopStorageController'`
-    - `'HeuristicLoadFollowingController'`
+    - `'SimpleStorageOpenLoopController'`: open-loop control; manages resource flow based on demand and input commodity
+    - `'DemandOpenLoopStorageController'`: open-loop control; manages resource flow based on demand and storage constraints
+    - `'HeuristicLoadFollowingController'`: open-loop control that works on a time window basis to set dispatch commands; uses Pyomo
 - Converter Controllers:
-    - `'DemandOpenLoopConverterController`
-    - `'FlexibleDemandOpenLoopConverterController'`
+    - `'DemandOpenLoopConverterController'`: open-loop control; manages resource flow based on demand constraints
+    - `'FlexibleDemandOpenLoopConverterController'`: open-loop control; manages resource flow based on demand and flexibility constraints
+- Optimized Dispatch:
+    - `'OptimizedDispatchController'`: optimization-based dispatch using Pyomo

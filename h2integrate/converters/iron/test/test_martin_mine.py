@@ -3,8 +3,6 @@ import pytest
 import openmdao.api as om
 from pytest import fixture
 
-from h2integrate import EXAMPLE_DIR
-from h2integrate.core.inputs.validation import load_driver_yaml
 from h2integrate.converters.iron.martin_mine_cost_model import MartinIronMineCostComponent
 from h2integrate.converters.iron.martin_mine_perf_model import MartinIronMinePerformanceComponent
 
@@ -24,32 +22,7 @@ def iron_ore_config_martin_om():
     return tech_config
 
 
-@fixture
-def plant_config():
-    plant_config = {
-        "plant": {
-            "plant_life": 30,
-            "simulation": {
-                "n_timesteps": 8760,
-                "dt": 3600,
-            },
-        },
-        "finance_parameters": {
-            "cost_adjustment_parameters": {
-                "cost_year_adjustment_inflation": 0.025,
-                "target_dollar_year": 2022,
-            }
-        },
-    }
-    return plant_config
-
-
-@fixture
-def driver_config():
-    driver_config = load_driver_yaml(EXAMPLE_DIR / "21_iron_mn_to_il" / "driver_config.yaml")
-    return driver_config
-
-
+@pytest.mark.regression
 def test_iron_mine_performance_outputs(
     plant_config, driver_config, iron_ore_config_martin_om, subtests
 ):
@@ -149,6 +122,7 @@ def test_iron_mine_performance_outputs(
         assert np.all(prob.get_val("comp.replacement_schedule", units="unitless") == 0)
 
 
+@pytest.mark.regression
 def test_baseline_iron_ore_costs(plant_config, driver_config, iron_ore_config_martin_om, subtests):
     martin_ore_capex = 1221599018.626594
     martin_ore_fixed_om = 0.0
@@ -186,9 +160,15 @@ def test_baseline_iron_ore_costs(plant_config, driver_config, iron_ore_config_ma
         annual_ore_produced = np.sum(prob.get_val("ore_perf.iron_ore_out", units="t/h"))
         assert pytest.approx(annual_ore_produced, rel=1e-6) == ore_annual_production_capacity_tpy
     with subtests.test("CapEx"):
-        assert pytest.approx(prob.get_val("ore_cost.CapEx")[0], rel=1e-6) == martin_ore_capex
+        assert (
+            pytest.approx(prob.get_val("ore_cost.CapEx", units="USD")[0], rel=1e-6)
+            == martin_ore_capex
+        )
     with subtests.test("OpEx"):
-        assert pytest.approx(prob.get_val("ore_cost.OpEx")[0], rel=1e-6) == martin_ore_fixed_om
+        assert (
+            pytest.approx(prob.get_val("ore_cost.OpEx", units="USD/year")[0], rel=1e-6)
+            == martin_ore_fixed_om
+        )
     with subtests.test("VarOpEx"):
-        varopex_per_t = prob.get_val("ore_cost.VarOpEx")[0] / annual_ore_produced
+        varopex_per_t = prob.get_val("ore_cost.VarOpEx", units="USD/year")[0] / annual_ore_produced
         assert pytest.approx(varopex_per_t, abs=0.5) == 97.76558025830259

@@ -42,6 +42,7 @@ def synloop_config():
     }
 
 
+@pytest.mark.unit
 def test_ammonia_synloop_outputs(synloop_config, subtests):
     plant_config = {
         "plant": {
@@ -156,6 +157,7 @@ def test_ammonia_synloop_outputs(synloop_config, subtests):
         )
 
 
+@pytest.mark.regression
 def test_ammonia_synloop_limiting_cases(synloop_config, subtests):
     plant_info = {
         "plant_life": 30,
@@ -192,37 +194,39 @@ def test_ammonia_synloop_limiting_cases(synloop_config, subtests):
     prob.set_val("synloop.nitrogen_in", n2, units="kg/h")
     prob.set_val("synloop.electricity_in", elec, units="MW")
     prob.run_model()
-    nh3 = prob.get_val("synloop.ammonia_out")
-    total = prob.get_val("synloop.total_ammonia_produced")
+    nh3 = prob.get_val("synloop.ammonia_out", units="kg/h")
+    total = prob.get_val("synloop.total_ammonia_produced", units="kg")
 
     # Check individual NH3 output values
     with subtests.test("N2 limiting"):
         assert pytest.approx(nh3[0], rel=1e-6) == 21520.21334466
-        assert pytest.approx(prob.get_val("synloop.limiting_input")[0]) == 0
+        assert pytest.approx(prob.get_val("synloop.limiting_input", units="unitless")[0]) == 0
 
     with subtests.test("H2 limiting"):
         assert pytest.approx(nh3[1], rel=1e-6) == 49840.21632252
-        assert pytest.approx(prob.get_val("synloop.limiting_input")[1]) == 1
+        assert pytest.approx(prob.get_val("synloop.limiting_input", units="unitless")[1]) == 1
 
     with subtests.test("Electricity limiting"):
         assert pytest.approx(nh3[2], rel=1e-6) == 18844.98190065
-        assert pytest.approx(prob.get_val("synloop.limiting_input")[2]) == 2
+        assert pytest.approx(prob.get_val("synloop.limiting_input", units="unitless")[2]) == 2
 
     with subtests.test("Capacity limiting"):
         assert pytest.approx(nh3[3], rel=1e-6) == 52777.6
-        assert pytest.approx(prob.get_val("synloop.limiting_input")[3]) == 3
+        assert pytest.approx(prob.get_val("synloop.limiting_input", units="unitless")[3]) == 3
 
     # Check total NH3 output
     with subtests.test("Total ammonia"):
         assert np.allclose(total, np.sum(expected_nh3), rtol=1e-6)
 
 
-def test_size_mode_outputs(subtests):
+@pytest.mark.regression
+def test_size_mode_outputs(subtests, temp_dir):
     # Change the current working directory to the example's directory
     os.chdir(EXAMPLE_DIR / "25_sizing_modes")
 
     # Load the 'base' configs needed to create the H2I model
     driver_config = load_driver_yaml(EXAMPLE_DIR / "25_sizing_modes" / "driver_config.yaml")
+    driver_config["general"]["folder_output"] = str(temp_dir)
     plant_config = load_plant_yaml(EXAMPLE_DIR / "25_sizing_modes" / "plant_config.yaml")
     tech_config = load_tech_yaml(EXAMPLE_DIR / "25_sizing_modes" / "tech_config.yaml")
     input_config = {
@@ -250,11 +254,14 @@ def test_size_mode_outputs(subtests):
 
     with subtests.test("Test `resize_by_max_feedstock` mode"):
         assert (
-            pytest.approx(model.prob.get_val("ammonia.max_hydrogen_capacity")[0], rel=1e-3)
+            pytest.approx(
+                model.prob.get_val("ammonia.max_hydrogen_capacity", units="kg/h")[0], rel=1e-3
+            )
             == 12543.68246215831
         )
 
 
+@pytest.mark.unit
 def test_ammonia_synloop_performance(synloop_config, subtests):
     plant_config = {
         "plant": {
@@ -294,7 +301,7 @@ def test_ammonia_synloop_performance(synloop_config, subtests):
             <= prob.get_val("comp.electricity_in", units="kW").max()
         )
     with subtests.test("Test limiting_output is electricity"):
-        assert np.all(prob.get_val("comp.limiting_input") == 2)
+        assert np.all(prob.get_val("comp.limiting_input", units="unitless") == 2)
     with subtests.test("Test hydrogen_consumed < hydrogen_in"):
         assert (
             prob.get_val("comp.hydrogen_consumed", units="kg/h").max()

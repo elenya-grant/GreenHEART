@@ -55,7 +55,12 @@ def geoh2_subsurface_well():
             "site_prospectivity": 0.7,
             "wellhead_h2_concentration": 95,
             "initial_wellhead_flow": 4000,
+            "gas_flow_density": 0.11741,
+            "ramp_up_time_months": 6,
+            "percent_increase_during_rampup": 5,
             "gas_reservoir_size": 1000000,
+            "use_arps_decline_curve": True,
+            "decline_fit_params": {"fit_name": "Eagle_Ford"},
         },
     }
     tech_config_dict = {"model_inputs": subsurface_perf_config}
@@ -91,6 +96,148 @@ def aspen_geoh2_config():
     return {"model_inputs": model_inputs}
 
 
+@fixture
+def geologic_data():
+    input_dir = ROOT_DIR / "converters" / "hydrogen" / "geologic" / "inputs"
+    perf_out_fname = "aspen_perf_coeffs_test.csv"
+    cost_out_fname = "aspen_cost_coeffs_test.csv"
+    yield input_dir, perf_out_fname, cost_out_fname
+    (input_dir / perf_out_fname).unlink(missing_ok=True)
+    (input_dir / cost_out_fname).unlink(missing_ok=True)
+
+
+@pytest.mark.regression
+def test_natural_geoh2_well_performance(subtests, plant_config):
+    subsurface_perf_config = {
+        "shared_parameters": {
+            "borehole_depth": 300,
+            "well_diameter": "small",
+            "well_geometry": "vertical",
+        },
+        "performance_parameters": {
+            "rock_type": "peridotite",
+            "grain_size": 0.01,
+            "use_prospectivity": False,
+            "site_prospectivity": 0.7,
+            "wellhead_h2_concentration": 95,
+            "initial_wellhead_flow": 40000,
+            "gas_flow_density": 0.11741,
+            "ramp_up_time_months": 6,
+            "percent_increase_during_rampup": 5,
+            "gas_reservoir_size": 10000000,
+            "use_arps_decline_curve": True,
+            "decline_fit_params": {"fit_name": "Eagle_Ford"},
+        },
+    }
+    tech_config_dict = {"model_inputs": subsurface_perf_config}
+    subsurface_comp = NaturalGeoH2PerformanceModel(
+        plant_config=plant_config,
+        tech_config=tech_config_dict,
+        driver_config={},
+    )
+
+    prob = om.Problem()
+    prob.model.add_subsystem("perf", subsurface_comp, promotes=["*"])
+
+    prob.setup()
+    prob.run_model()
+
+    with subtests.test("max wellhead gas"):
+        assert (
+            pytest.approx(prob.model.get_val("perf.max_wellhead_gas", units="kg/h"), rel=1e-6)
+            == 42000.0
+        )
+    # test wellhead_h2_concentration_mass wellhead_h2_concentration_mol well_head_gas_out_natural
+    with subtests.test("wellhead_h2_concentration_mass"):
+        assert (
+            pytest.approx(
+                prob.model.get_val("perf.wellhead_h2_concentration_mass", units="percent"), rel=1e-6
+            )
+            == 62.15760093
+        )
+
+    with subtests.test("wellhead_h2_concentration_mol"):
+        assert (
+            pytest.approx(
+                prob.model.get_val("perf.wellhead_h2_concentration_mol", units="percent"), rel=1e-6
+            )
+            == 95.0
+        )
+    with subtests.test("well_head_gas_out_natural"):
+        assert (
+            pytest.approx(
+                np.sum(prob.model.get_val("perf.wellhead_gas_out_natural", units="kg/h")), rel=1e-6
+            )
+            == 85426105.21216634
+        )
+    with subtests.test("wellhead_gas_out"):
+        assert (
+            pytest.approx(
+                np.sum(prob.model.get_val("perf.wellhead_gas_out", units="kg/h")), rel=1e-6
+            )
+            == 85426105.21217233
+        )
+    with subtests.test("Well hydrogen production"):
+        assert (
+            pytest.approx(np.mean(prob.model.get_val("perf.hydrogen_out", units="kg/h")), rel=1e-6)
+            == 6061.508855232839
+        )
+
+    with subtests.test("total h2 out"):
+        assert (
+            pytest.approx(prob.model.get_val("perf.total_hydrogen_produced", units="kg"), rel=1e-6)
+            == 53098817.57183966
+        )
+    with subtests.test("total_wellhead_gas_produced"):
+        assert (
+            pytest.approx(
+                prob.model.get_val("perf.total_wellhead_gas_produced", units="kg/year"), rel=1e-6
+            )
+            == 85426105.21217233
+        )
+
+    with subtests.test("cf"):
+        assert pytest.approx(
+            prob.model.get_val("perf.capacity_factor", units="unitless"), rel=1e-6
+        ) == [
+            0.8675885,
+            0.42536644,
+            0.25890337,
+            0.18514585,
+            0.14357352,
+            0.1169487,
+            0.09847076,
+            0.08491557,
+            0.07455868,
+            0.06639494,
+        ]
+
+    with subtests.test("annual_hydrogen_production"):
+        assert pytest.approx(
+            prob.model.get_val("perf.annual_hydrogen_produced", units="kg/yr"), rel=1e-6
+        ) == [
+            198409026.01277646,
+            97277155.59721786,
+            59208675.263037845,
+            42341049.07389179,
+            32833862.72029864,
+            26745026.520159103,
+            22519302.237744503,
+            19419361.600134037,
+            17050841.849094056,
+            15183874.84404233,
+        ]
+
+    with subtests.test("rated h2 production"):
+        assert (
+            pytest.approx(
+                prob.model.get_val("perf.rated_hydrogen_production", units="kg/h"), rel=1e-6
+            )
+            == 26106.19239257
+        )
+
+
+@pytest.mark.unit
 def test_aspen_geoh2_performance_outputs(
     subtests, plant_config, geoh2_subsurface_well, aspen_geoh2_config
 ):
@@ -190,6 +337,7 @@ def test_aspen_geoh2_performance_outputs(
         assert np.all(prob.get_val("comp.replacement_schedule", units="unitless") == 0)
 
 
+@pytest.mark.regression
 def test_aspen_geoh2_performance(subtests, plant_config, geoh2_subsurface_well, aspen_geoh2_config):
     prob = om.Problem()
     perf_comp = AspenGeoH2SurfacePerformanceModel(
@@ -213,16 +361,23 @@ def test_aspen_geoh2_performance(subtests, plant_config, geoh2_subsurface_well, 
     with subtests.test("Well hydrogen production"):
         assert (
             pytest.approx(np.mean(prob.model.get_val("well.hydrogen_out", units="kg/h")), rel=1e-6)
-            == 603.4286677531819
+            == 606.1508855232839
+        ), 1e-6
+
+    with subtests.test("total h2 out well"):
+        assert (
+            pytest.approx(prob.model.get_val("well.total_hydrogen_produced", units="kg"), rel=1e-6)
+            == 5309881.757183
         ), 1e-6
 
 
+@pytest.mark.regression
 def test_aspen_geoh2_performance_cost(
     subtests, plant_config, geoh2_subsurface_well, aspen_geoh2_config
 ):
-    expected_capex = 1795733.55
+    expected_capex = 1800711.83796
     expected_opex = 4567464
-    expected_varopex = 984842.53
+    expected_varopex = 989213.8787
 
     prob = om.Problem()
     perf_comp = AspenGeoH2SurfacePerformanceModel(
@@ -250,20 +405,27 @@ def test_aspen_geoh2_performance_cost(
     prob.run_model()
 
     with subtests.test("CapEx"):
-        assert pytest.approx(prob.model.get_val("geoh2.CapEx"), rel=1e-6) == expected_capex
+        assert (
+            pytest.approx(prob.model.get_val("geoh2.CapEx", units="USD"), rel=1e-6)
+            == expected_capex
+        )
     with subtests.test("OpEx"):
-        assert pytest.approx(prob.model.get_val("geoh2.OpEx"), rel=1e-6) == expected_opex
+        assert (
+            pytest.approx(prob.model.get_val("geoh2.OpEx", units="USD/year"), rel=1e-6)
+            == expected_opex
+        )
     with subtests.test("VarOpEx"):
-        assert pytest.approx(prob.model.get_val("geoh2.VarOpEx")[0], rel=1e-6) == expected_varopex
+        assert (
+            pytest.approx(prob.model.get_val("geoh2.VarOpEx", units="USD/year")[0], rel=1e-6)
+            == expected_varopex
+        )
 
 
+@pytest.mark.regression
 def test_aspen_geoh2_refit_coeffs(
-    subtests, plant_config, geoh2_subsurface_well, aspen_geoh2_config
+    subtests, plant_config, geoh2_subsurface_well, aspen_geoh2_config, geologic_data
 ):
-    input_dir = ROOT_DIR / "converters" / "hydrogen" / "geologic" / "inputs"
-    perf_out_fname = "aspen_perf_coeffs_test.csv"
-    cost_out_fname = "aspen_cost_coeffs_test.csv"
-
+    input_dir, perf_out_fname, cost_out_fname = geologic_data
     aspen_geoh2_config["model_inputs"]["shared_parameters"].update({"refit_coeffs": True})
     aspen_geoh2_config["model_inputs"]["performance_parameters"].update(
         {"perf_coeff_fn": perf_out_fname}
@@ -297,8 +459,8 @@ def test_aspen_geoh2_refit_coeffs(
 
     with subtests.test("Well hydrogen production"):
         assert (
-            pytest.approx(prob.model.get_val("well.hydrogen_out", units="kg/h"), rel=1e-6)
-            == 603.4286677531819
+            pytest.approx(np.mean(prob.model.get_val("well.hydrogen_out", units="kg/h")), rel=1e-6)
+            == 606.1508855232839
         ), 1e-6
 
     with subtests.test("Refit Performance Coeff File"):
@@ -308,7 +470,3 @@ def test_aspen_geoh2_refit_coeffs(
     with subtests.test("Refit Cost Coeff File"):
         cost_out_fpath = input_dir / cost_out_fname
         assert cost_out_fpath.exists()
-
-    # Remove refit coefficient files
-    cost_out_fpath.unlink()
-    perf_out_fpath.unlink()

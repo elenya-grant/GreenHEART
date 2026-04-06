@@ -6,7 +6,7 @@ import openmdao.api as om
 from pytest import fixture
 
 from h2integrate import EXAMPLE_DIR
-from h2integrate.core.utilities import load_yaml
+from h2integrate.core.file_utils import load_yaml
 from h2integrate.converters.wind.wind_plant_ard import ArdWindPlantModel
 
 
@@ -98,6 +98,7 @@ def plant_config():
     return d
 
 
+@pytest.mark.regression
 @pytest.mark.skipif(importlib.util.find_spec("ard") is None, reason="ard is not installed")
 def test_ard_wind_combined(plant_config, ard_config, subtests):
     os.chdir(EXAMPLE_DIR / "29_wind_ard" / "ard_inputs")

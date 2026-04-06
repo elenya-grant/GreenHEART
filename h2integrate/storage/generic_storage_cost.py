@@ -1,4 +1,5 @@
 from attrs import field, define
+from openmdao.utils import units
 
 from h2integrate.core.utilities import merge_shared_inputs
 from h2integrate.core.validators import contains, gte_zero, range_val
@@ -14,18 +15,9 @@ class GenericStorageCostConfig(CostModelBaseConfig):
         This could be expanded to allow for different types of commodity units in the future.
         Currently only supports electrical, mass, and some thermal units.
 
-    Attributes:
-        capacity_capex (float|int): storage energy capital cost in $/capacity_units
-        charge_capex (float|int): storage power capital cost in $/charge_units/h
-        opex_fraction (float): annual operating cost as a fraction of the total system cost.
-        cost_year (int): dollar year corresponding to input costs
-        max_capacity (float): Maximum storage capacity (in non-rate units,
-            e.g., "kW*h" if `commodity_rate_units` is "kW").
-        max_charge_rate (float): Maximum rate at which storage can be charged (in units
-            per time step, e.g., "kW/time step").
-        commodity_rate_units (str): Units of the storage resource used to define the charge rate.
-            max_capacity and max_charge_rate. Must have a base of Watts ('W') or grams ('g/h')
-            or heat ('MMBtu/h')
+    Fields include `capacity_capex`, `charge_capex`, `opex_fraction`, `max_capacity`,
+    `max_charge_rate`, and `commodity_rate_units`. The `cost_year` field is inherited
+    from `CostModelBaseConfig`.
     """
 
     capacity_capex: float | int = field(validator=gte_zero)
@@ -35,7 +27,13 @@ class GenericStorageCostConfig(CostModelBaseConfig):
     max_charge_rate: float = field()
     commodity_rate_units: str = field(
         validator=contains(["W", "kW", "MW", "GW", "TW", "g/h", "kg/h", "t/h", "MMBtu/h"])
-    )  # TODO: udpate to commodity_rate_units
+    )
+
+    commodity_amount_units: str = field(default=None)
+
+    def __attrs_post_init__(self):
+        if self.commodity_amount_units is None:
+            self.commodity_amount_units = f"({self.commodity_rate_units})*h"
 
 
 class GenericStorageCostModel(CostModelBaseClass):
@@ -63,7 +61,7 @@ class GenericStorageCostModel(CostModelBaseClass):
 
         charge_units = self.config.commodity_rate_units
 
-        capacity_units = f"({self.config.commodity_rate_units})*h"
+        capacity_units = self.config.commodity_amount_units
 
         self.add_input(
             "max_charge_rate",
@@ -72,7 +70,7 @@ class GenericStorageCostModel(CostModelBaseClass):
             desc="Storage charge/discharge rate",
         )
         self.add_input(
-            "max_capacity",
+            "storage_capacity",
             val=self.config.max_capacity,
             units=capacity_units,
             desc="Storage storage capacity",
@@ -100,7 +98,11 @@ class GenericStorageCostModel(CostModelBaseClass):
         storage_duration_hrs = 0.0
 
         if inputs["max_charge_rate"] > 0:
-            storage_duration_hrs = inputs["max_capacity"] / inputs["max_charge_rate"]
+            storage_duration_hrs = units.convert_units(
+                inputs["storage_capacity"] / inputs["max_charge_rate"],
+                f"({self.config.commodity_amount_units})/({self.config.commodity_rate_units})",
+                "h",
+            )
         if inputs["max_charge_rate"] < 0:
             msg = (
                 f"max_charge_rate cannot be less than zero and has value of "
