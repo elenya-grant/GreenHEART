@@ -102,11 +102,17 @@ from h2integrate.converters.hydrogen.steam_methane_reformer import (
     SteamMethaneReformerCostModel,
     SteamMethaneReformerPerformanceModel,
 )
+from h2integrate.demand.flexible_demand_openloop_controller import (
+    FlexibleDemandOpenLoopConverterController,
+)
 from h2integrate.converters.natural_gas.dummy_gas_components import (
     SimpleGasConsumerCost,
     SimpleGasProducerCost,
     SimpleGasConsumerPerformance,
     SimpleGasProducerPerformance,
+)
+from h2integrate.demand.demand_openloop_converter_controller import (
+    DemandOpenLoopConverterController,
 )
 from h2integrate.converters.hydrogen.geologic.mathur_modified import GeoH2SubsurfaceCostModel
 from h2integrate.resource.solar.nlr_developer_goes_api_models import (
@@ -169,12 +175,6 @@ from h2integrate.control.control_rules.converters.generic_converter_min_operatin
 )
 from h2integrate.control.control_strategies.storage.demand_openloop_storage_controller import (
     DemandOpenLoopStorageController,
-)
-from h2integrate.control.control_strategies.converters.flexible_demand_openloop_controller import (
-    FlexibleDemandOpenLoopConverterController,
-)
-from h2integrate.control.control_strategies.converters.demand_openloop_converter_controller import (
-    DemandOpenLoopConverterController,
 )
 
 
