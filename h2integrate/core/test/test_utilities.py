@@ -622,7 +622,7 @@ def test_check_inputs(subtests):
                     "The parameter(s) ['system_model_source'] found in performance_parameters "
                     "are not used for technology battery"
                 )
-            assert expected_error == str(excinfo.value)
+                assert expected_error == str(excinfo.value)
         else:
             check_inputs(prob, tech, tech_info)
 
@@ -642,7 +642,7 @@ def test_check_inputs(subtests):
                     "found in shared_parameters but should be in control_parameters for technology "
                     "battery"
                 )
-            assert expected_error == str(excinfo.value)
+                assert expected_error == str(excinfo.value)
         else:
             check_inputs(prob, tech, tech_info)
 
@@ -675,7 +675,7 @@ def test_check_inputs(subtests):
                     "The parameter(s) ['test_unused_input'] found in "
                     "shared_parameters are not used by any of the models for technology battery"
                 )
-            assert expected_error == str(excinfo.value)
+                assert expected_error == str(excinfo.value)
         else:
             check_inputs(prob, tech, tech_info)
     # 4: check when parameters are shared but specified individually
@@ -714,6 +714,6 @@ def test_check_inputs(subtests):
                     "performance_parameters should be under shared_parameter(s) for "
                     "technology combiner"
                 )
-            assert expected_error == str(excinfo.value)
+                assert expected_error == str(excinfo.value)
         else:
             check_inputs(prob, tech, tech_info)
