@@ -273,6 +273,11 @@ def check_inputs(prob, tech: str, tech_info: dict):
     if "performance_model" in tech_info:
         if (perf_sys := getattr(group, tech_info["performance_model"]["model"])) is not None:
             performance_params = perf_sys.config.as_dict()
+    if "cost_model" in tech_info and "performance_model" in tech_info:
+        # Handle case with combined cost and performance model
+        if tech_info["cost_model"]["model"] == tech_info["performance_model"]["model"]:
+            cost_sys = None
+            cost_params = {}
 
     # Check for overlapping keys between any two sets of configurations to reconstruct
     # the shared parameters, and create a restructured configuration

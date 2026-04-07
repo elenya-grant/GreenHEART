@@ -522,7 +522,7 @@ class H2IntegrateModel:
                         plant_config=self.plant_config,
                         tech_config=individual_tech_config,
                     )
-                    om_model_object = tech_group.add_subsystem(tech_name, comp, promotes=["*"])
+                    om_model_object = tech_group.add_subsystem(perf_model, comp, promotes=["*"])
                     self.performance_models.append(om_model_object)
                     self.cost_models.append(om_model_object)
                     self.finance_models.append(om_model_object)
