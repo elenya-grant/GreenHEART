@@ -388,6 +388,13 @@ def test_ammonia_synloop_example(subtests, temp_copy_of_example):
             )
             == 1.1018637096646757
         )
+    with subtests.test("Check LCON"):
+        assert (
+            pytest.approx(
+                model.prob.get_val("finance_subgroup_n2.LCON", units="USD/t")[0], rel=1e-6
+            )
+            == 5.03140888
+        )
 
 
 @pytest.mark.integration
