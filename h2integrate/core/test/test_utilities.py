@@ -659,7 +659,7 @@ def test_check_inputs(subtests):
                     " contained in the following sections for technology battery:"
                     "\n\tcontrol_parameters should contain"
                     " ['n_control_window', 'system_commodity_interface_limit']"
-                    "\n\\cost_parameters should contain ['opex_fraction]"
+                    "\n\tcost_parameters should contain ['opex_fraction]"
                 )
                 assert expected_error == str(excinfo.value)
         else:
