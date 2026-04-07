@@ -19,6 +19,7 @@ Each feedstock type requires two model components:
    - Calculates consumption costs based on actual usage
    - Takes `{commodity}_consumed` as input
    - Located after all consuming technologies in the chain
+   - Calculates the capacity factor of the consumed feedstock
 
 ### Technology Interconnections
 
@@ -56,8 +57,8 @@ ng_feedstock:
             commodity_amount_units: "MMBtu" # optional, if not specified defaults to `commodity_rate_units*h`
             cost_year: 2023
             price: 4.2 # cost in USD/commodity_amount_units
-            annual_cost: 0.
-            start_up_cost: 100000.
+            annual_cost: 0. #cost in USD/year
+            start_up_cost: 100000. #cost in USD
 ```
 
 ### Performance Model Parameters
