@@ -235,7 +235,7 @@ def check_inputs(prob, tech: str, tech_info: dict):
             technology model names and `model_inputs`.
 
     Raises:
-        AttributeError: _description_
+        AttributeError: Raised if any of the 3 conditions are not met.
     """
     # Only check models that have a control strategy or dispatch rule set
     if not {"control_strategy", "dispatch_rule_set"}.intersection(tech_info):
