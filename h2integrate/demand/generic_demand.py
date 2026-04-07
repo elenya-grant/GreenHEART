@@ -1,6 +1,6 @@
 import numpy as np
 
-from h2integrate.demand.openloop_controller_base import (
+from h2integrate.demand.demand_base import (
     ConverterOpenLoopControlBase,
     ConverterOpenLoopControlBaseConfig,
 )

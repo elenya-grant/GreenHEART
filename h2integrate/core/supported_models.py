@@ -6,8 +6,10 @@ from h2integrate.transporters.cable import CablePerformanceModel
 from h2integrate.converters.grid.grid import GridCostModel, GridPerformanceModel
 from h2integrate.finances.profast_lco import ProFastLCO
 from h2integrate.finances.profast_npv import ProFastNPV
+from h2integrate.demand.generic_demand import DemandOpenLoopConverterController
 from h2integrate.converters.steel.steel import SteelPerformanceModel, SteelCostAndFinancialModel
 from h2integrate.converters.wind.floris import FlorisWindPlantPerformanceModel
+from h2integrate.demand.flexible_demand import FlexibleDemandOpenLoopConverterController
 from h2integrate.converters.wind.wind_pysam import PYSAMWindPlantPerformanceModel
 from h2integrate.transporters.generic_summer import GenericSummerPerformanceModel
 from h2integrate.converters.hopp.hopp_wrapper import HOPPComponent
@@ -102,17 +104,11 @@ from h2integrate.converters.hydrogen.steam_methane_reformer import (
     SteamMethaneReformerCostModel,
     SteamMethaneReformerPerformanceModel,
 )
-from h2integrate.demand.flexible_demand_openloop_controller import (
-    FlexibleDemandOpenLoopConverterController,
-)
 from h2integrate.converters.natural_gas.dummy_gas_components import (
     SimpleGasConsumerCost,
     SimpleGasProducerCost,
     SimpleGasConsumerPerformance,
     SimpleGasProducerPerformance,
-)
-from h2integrate.demand.demand_openloop_converter_controller import (
-    DemandOpenLoopConverterController,
 )
 from h2integrate.converters.hydrogen.geologic.mathur_modified import GeoH2SubsurfaceCostModel
 from h2integrate.resource.solar.nlr_developer_goes_api_models import (

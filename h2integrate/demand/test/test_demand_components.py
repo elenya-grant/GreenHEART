@@ -3,12 +3,8 @@ import pytest
 import openmdao.api as om
 from pytest import fixture
 
-from h2integrate.demand.flexible_demand_openloop_controller import (
-    FlexibleDemandOpenLoopConverterController,
-)
-from h2integrate.demand.demand_openloop_converter_controller import (
-    DemandOpenLoopConverterController,
-)
+from h2integrate.demand.generic_demand import DemandOpenLoopConverterController
+from h2integrate.demand.flexible_demand import FlexibleDemandOpenLoopConverterController
 
 
 @fixture

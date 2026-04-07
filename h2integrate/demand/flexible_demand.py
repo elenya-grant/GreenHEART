@@ -2,7 +2,7 @@ import numpy as np
 from attrs import field, define
 
 from h2integrate.core.validators import gte_zero, range_val
-from h2integrate.demand.openloop_controller_base import (
+from h2integrate.demand.demand_base import (
     ConverterOpenLoopControlBase,
     ConverterOpenLoopControlBaseConfig,
 )
