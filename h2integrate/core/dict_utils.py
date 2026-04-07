@@ -241,15 +241,11 @@ def check_inputs(prob, tech: str, tech_info: dict):
     if not {"control_strategy", "dispatch_rule_set"}.intersection(tech_info):
         return
 
-    # Get the technology group from the plant model
-    group = getattr(prob.model.plant, tech)
-
     # Only check for shared inputs when the system contains at least one technology
     # in addition to a performance and control model
     check_keys = ("control_strategy", "dispatch_rule_set", "cost_model", "performance_model")
     minimal_keys = {"control_strategy", "performance_model"}
     overlap = set(tech_info).intersection(check_keys)
-    # if overlap == minimal_keys or len(overlap) < 3:
     if not overlap.difference(minimal_keys):
         return
 
@@ -258,6 +254,7 @@ def check_inputs(prob, tech: str, tech_info: dict):
     dispatch_sys = None
     cost_sys = None
     perf_sys = None
+    group = getattr(prob.model.plant, tech)
 
     # Rebuild the model inputs dictionary from the initialized technology parameters
     control_params = {}
@@ -294,70 +291,56 @@ def check_inputs(prob, tech: str, tech_info: dict):
         "shared_parameters": shared_params,
     }
 
-    # Check each parameter dictionary of the restructured model_inputs against the user-provided
-    # model_inputs by looping through the parameters in the restructed_parameters dictionary.
-    # `param_key` is 'performance_parameters', 'control_parameters', 'shared_parameters', etc
-    for param_key in restructured_params.keys():
+    # Flag any extra parameterizations provided by the user that should have either been
+    # shared but were not or were inappropriately shared
+    for param_key, vals in restructured_params.items():
         # check that the parameter key exists in both the user-provided model_inputs and
         # the restructured parameters
-        if param_key in tech_info["model_inputs"] and param_key in restructured_params:
-            # Get the difference between the user-input parameters and the restructured
-            # parameters
-            dict_differences = {
-                k: tech_info["model_inputs"][param_key][k]
-                for k in set(tech_info["model_inputs"][param_key])
-                - set(restructured_params[param_key])
-            }
-            # Only check for keys that are defined in the user-input parameters that aren't
-            # found in the restructured parameters to avoid throwing errors when users did
-            # not provide optional configuration inputs
-            if len(dict_differences) > 0:
-                if param_key == "shared_parameters":
-                    # check if the parameter is not shared, but used by one tech
-                    for other_key, other_params in restructured_params.items():
-                        if other_key == param_key:
-                            continue
-                        if any(k in other_params for k in dict_differences):
-                            unshared_params = [k for k in dict_differences if k in other_params]
-                            msg = (
-                                f"The parameter(s): {unshared_params} found in "
-                                f"shared_parameters but should be in {other_key} "
-                                f"for technology {tech}"
-                            )
-                            raise AttributeError(msg)
+        if (user_params := tech_info["model_inputs"].get(param_key)) is None:
+            continue
 
-                    if msg is None:
-                        # the parameter is not used by any tech
-                        msg = (
-                            f"The parameter(s): {list(dict_differences.keys())} found in "
-                            f"shared_parameters are not used by any of the models for "
-                            f"technology {tech}"
-                        )
-                        raise AttributeError(msg)
+        # Only throw errors when the user provided extraneous parameterizations
+        user_extras = set(user_params).difference(vals)
+        if not user_extras:
+            continue
 
-                else:
-                    # check if parameter is shared but only under one technology
-                    if any(
-                        k in restructured_params.get("shared_parameters", {})
-                        for k in dict_differences
-                    ):
-                        should_be_shared_keys = [
-                            k
-                            for k in dict_differences
-                            if k in restructured_params.get("shared_parameters", {})
-                        ]
-                        msg = (
-                            f"The parameter(s) {should_be_shared_keys} found in "
-                            f"{param_key} should be under shared_parameter(s) for "
-                            f"technology {tech}"
-                        )
-                        raise AttributeError(msg)
-
+        if param_key == "shared_parameters":
+            unnecessary_shared = [
+                (user_extras.intersection(other_params), other_key)
+                for other_key, other_params in restructured_params.items()
+            ]
+            unnecessary_shared = [el for el in unnecessary_shared if el[0]]  # remove the empty sets
+            if unnecessary_shared:
+                if len(unnecessary_shared) == 1:
+                    unshared_params, other_key = unnecessary_shared[0]
                     msg = (
-                        f"The parameter(s) {list(dict_differences.keys())} found in "
-                        f"{param_key} are not used for technology {tech}"
+                        f"The parameter(s): {unnecessary_shared} found in shared_parameters"
+                        f" but should be in {other_key} for technology {tech}"
                     )
-                    raise AttributeError(msg)
+                else:
+                    mapping = "\n\t".join(
+                        f"{level} should contain: {keys}" for keys, level in unnecessary_shared
+                    )
+                    msg = (
+                        f"The following parameter sets were found in shared_parameters but should"
+                        f" be contained in the following sections for technology {tech}:"
+                        f"\n\t{mapping}"
+                    )
+            else:
+                msg = (
+                    f"The parameter(s): {user_extras} found in shared_parameters"
+                    f" are not used by any of the models for technology {tech}"
+                )
+            raise AttributeError(msg)
 
-    if msg is None:
-        return
+        shared_overlap = user_extras.intersection(restructured_params.get("shared_parameters", {}))
+        if shared_overlap:
+            msg = (
+                f"The parameter(s) {shared_overlap} found in {param_key}"
+                f" should be under shared_parameters for technology {tech}"
+            )
+        msg = (
+            f"The parameter(s) {user_extras} found in {param_key} are not used for "
+            f"technology {tech}"
+        )
+        raise AttributeError(msg)
