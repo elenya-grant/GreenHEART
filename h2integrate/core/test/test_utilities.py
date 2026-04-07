@@ -646,7 +646,26 @@ def test_check_inputs(subtests):
         else:
             check_inputs(prob, tech, tech_info)
 
-    # 3: check when an unused parameter is under shared_parameters
+    # 3: check when multiple unshared parameters from different categories are under shared\
+    key = "opex_fraction"
+    val = tech_config["technologies"]["battery"]["model_inputs"]["cost_parameters"].pop(key)
+    tech_config["technologies"]["battery"]["model_inputs"]["shared_parameters"][key] = val
+    for tech, tech_info in tech_config["technologies"].items():
+        if tech == "battery":
+            with pytest.raises(AttributeError) as excinfo:
+                check_inputs(prob, tech, tech_info)
+                expected_error = (
+                    "The following parameter sets were found in shared_parameters but should be"
+                    " contained in the following sections for technology battery:"
+                    "\n\tcontrol_parameters should contain"
+                    " ['n_control_window', 'system_commodity_interface_limit']"
+                    "\n\\cost_parameters should contain ['opex_fraction]"
+                )
+                assert expected_error == str(excinfo.value)
+        else:
+            check_inputs(prob, tech, tech_info)
+
+    # 4: check when an unused parameter is under shared_parameters
     tech_config = load_tech_yaml(tech_config_fpath)
     control_parameters = {}
     tech_config["technologies"]["battery"]["model_inputs"]["performance_parameters"].pop(
@@ -678,7 +697,8 @@ def test_check_inputs(subtests):
                 assert expected_error == str(excinfo.value)
         else:
             check_inputs(prob, tech, tech_info)
-    # 4: check when parameters are shared but specified individually
+
+    # 5: check when parameters are shared but specified individually
     combiner_tech = {
         "performance_model": {"model": "GenericCombinerPerformanceModel"},
         "dispatch_rule_set": {"model": "PyomoDispatchGenericConverter"},
@@ -687,7 +707,7 @@ def test_check_inputs(subtests):
             "dispatch_rule_parameters": {"commodity": "electricity", "commodity_rate_units": "kW"},
         },
     }
-    # 3: check when an unused parameter is under shared_parameters
+
     tech_config = load_tech_yaml(tech_config_fpath)
     control_parameters = {}
     tech_config["technologies"]["battery"]["model_inputs"]["performance_parameters"].pop(
