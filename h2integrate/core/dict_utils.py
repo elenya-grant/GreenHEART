@@ -249,7 +249,8 @@ def check_inputs(prob, tech: str, tech_info: dict):
     check_keys = ("control_strategy", "dispatch_rule_set", "cost_model", "performance_model")
     minimal_keys = {"control_strategy", "performance_model"}
     overlap = set(tech_info).intersection(check_keys)
-    if overlap == minimal_keys or len(overlap) < 3:
+    # if overlap == minimal_keys or len(overlap) < 3:
+    if not overlap.difference(minimal_keys):
         return
 
     msg = None
@@ -259,7 +260,10 @@ def check_inputs(prob, tech: str, tech_info: dict):
     perf_sys = None
 
     # Rebuild the model inputs dictionary from the initialized technology parameters
-    restructured_params = {}
+    control_params = {}
+    dispatch_params = {}
+    cost_params = {}
+    performance_params = {}
     if "control_strategy" in tech_info:
         if (control_sys := getattr(group, tech_info["control_strategy"]["model"])) is not None:
             control_params = control_sys.config.as_dict()
@@ -274,7 +278,7 @@ def check_inputs(prob, tech: str, tech_info: dict):
             performance_params = perf_sys.config.as_dict()
 
     # Check for overlapping keys between any two sets of configurations to reconstruct
-    # the shared parameters, and create a new version of the user-provided configuration
+    # the shared parameters, and create a restructured configuration
     all_parameters = (control_params, dispatch_params, cost_params, performance_params)
     _share_check = Counter([x for el in all_parameters for x in set(el)])
     shared = {k for k, v in _share_check.items() if v > 1}
