@@ -1,12 +1,9 @@
 import numpy as np
 
-from h2integrate.demand.demand_base import (
-    ConverterOpenLoopControlBase,
-    ConverterOpenLoopControlBaseConfig,
-)
+from h2integrate.demand.demand_base import DemandComponentBase, DemandComponentBaseConfig
 
 
-class DemandOpenLoopConverterController(ConverterOpenLoopControlBase):
+class GenericDemandComponent(DemandComponentBase):
     """Open-loop controller for converting input supply into met demand.
 
     This controller computes unmet demand, unused (curtailed) production, and
@@ -32,7 +29,7 @@ class DemandOpenLoopConverterController(ConverterOpenLoopControlBase):
             KeyError: If the expected configuration keys are missing from
                 ``tech_config``.
         """
-        self.config = ConverterOpenLoopControlBaseConfig.from_dict(
+        self.config = DemandComponentBaseConfig.from_dict(
             self.options["tech_config"]["model_inputs"]["control_parameters"],
             additional_cls_name=self.__class__.__name__,
         )

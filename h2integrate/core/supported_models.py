@@ -6,10 +6,10 @@ from h2integrate.transporters.cable import CablePerformanceModel
 from h2integrate.converters.grid.grid import GridCostModel, GridPerformanceModel
 from h2integrate.finances.profast_lco import ProFastLCO
 from h2integrate.finances.profast_npv import ProFastNPV
-from h2integrate.demand.generic_demand import DemandOpenLoopConverterController
+from h2integrate.demand.generic_demand import GenericDemandComponent
 from h2integrate.converters.steel.steel import SteelPerformanceModel, SteelCostAndFinancialModel
 from h2integrate.converters.wind.floris import FlorisWindPlantPerformanceModel
-from h2integrate.demand.flexible_demand import FlexibleDemandOpenLoopConverterController
+from h2integrate.demand.flexible_demand import FlexibleDemandComponent
 from h2integrate.converters.wind.wind_pysam import PYSAMWindPlantPerformanceModel
 from h2integrate.transporters.generic_summer import GenericSummerPerformanceModel
 from h2integrate.converters.hopp.hopp_wrapper import HOPPComponent
@@ -280,8 +280,8 @@ supported_models = {
     "DemandOpenLoopStorageController": DemandOpenLoopStorageController,
     "HeuristicLoadFollowingController": HeuristicLoadFollowingController,
     "OptimizedDispatchController": OptimizedDispatchController,
-    "DemandOpenLoopConverterController": DemandOpenLoopConverterController,
-    "FlexibleDemandOpenLoopConverterController": FlexibleDemandOpenLoopConverterController,
+    "GenericDemandComponent": GenericDemandComponent,
+    "FlexibleDemandComponent": FlexibleDemandComponent,
     # Dispatch
     "PyomoDispatchGenericConverter": PyomoDispatchGenericConverter,
     "PyomoRuleStorageBaseclass": PyomoRuleStorageBaseclass,

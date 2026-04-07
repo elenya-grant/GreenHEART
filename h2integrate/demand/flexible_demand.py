@@ -2,14 +2,11 @@ import numpy as np
 from attrs import field, define
 
 from h2integrate.core.validators import gte_zero, range_val
-from h2integrate.demand.demand_base import (
-    ConverterOpenLoopControlBase,
-    ConverterOpenLoopControlBaseConfig,
-)
+from h2integrate.demand.demand_base import DemandComponentBase, DemandComponentBaseConfig
 
 
 @define(kw_only=True)
-class FlexibleDemandOpenLoopConverterControllerConfig(ConverterOpenLoopControlBaseConfig):
+class FlexibleDemandComponentConfig(DemandComponentBaseConfig):
     """Configuration for defining a flexible demand open-loop controller.
 
     Extends :class:`DemandOpenLoopControlBaseConfig` with additional parameters
@@ -42,7 +39,7 @@ class FlexibleDemandOpenLoopConverterControllerConfig(ConverterOpenLoopControlBa
     min_utilization: float = field(validator=range_val(0, 1.0))
 
 
-class FlexibleDemandOpenLoopConverterController(ConverterOpenLoopControlBase):
+class FlexibleDemandComponent(DemandComponentBase):
     """Open-loop controller for flexible demand with ramping and utilization constraints.
 
     This controller extends the base demand controller by allowing the effective
@@ -58,7 +55,7 @@ class FlexibleDemandOpenLoopConverterController(ConverterOpenLoopControlBase):
         utilization, all expressed as fractions of maximum demand. Adds the
         flexible demand output profile, which will be populated in ``compute``.
         """
-        self.config = FlexibleDemandOpenLoopConverterControllerConfig.from_dict(
+        self.config = FlexibleDemandComponentConfig.from_dict(
             self.options["tech_config"]["model_inputs"]["control_parameters"],
             additional_cls_name=self.__class__.__name__,
         )

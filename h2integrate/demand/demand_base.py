@@ -5,7 +5,7 @@ from h2integrate.core.model_baseclasses import PerformanceModelBaseClass
 
 
 @define(kw_only=True)
-class ConverterOpenLoopControlBaseConfig(BaseConfig):
+class DemandComponentBaseConfig(BaseConfig):
     """Configuration for defining an open-loop demand profile.
 
     This configuration object specifies the commodity being controlled and the
@@ -25,7 +25,7 @@ class ConverterOpenLoopControlBaseConfig(BaseConfig):
     demand_profile: int | float | list = field()
 
 
-class ConverterOpenLoopControlBase(PerformanceModelBaseClass):
+class DemandComponentBase(PerformanceModelBaseClass):
     """Base OpenMDAO component for open-loop demand tracking.
 
     This component defines the interfaces required for open-loop demand

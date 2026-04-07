@@ -92,7 +92,7 @@ technologies:
         cost_year: 2023
   electrical_load_demand:
     control_strategy:
-      model: FlexibleDemandOpenLoopConverterController
+      model: FlexibleDemandComponent
     model_inputs:
       control_parameters:
         commodity: electricity

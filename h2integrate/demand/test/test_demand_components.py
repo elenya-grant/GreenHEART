@@ -3,8 +3,8 @@ import pytest
 import openmdao.api as om
 from pytest import fixture
 
-from h2integrate.demand.generic_demand import DemandOpenLoopConverterController
-from h2integrate.demand.flexible_demand import FlexibleDemandOpenLoopConverterController
+from h2integrate.demand.generic_demand import GenericDemandComponent
+from h2integrate.demand.flexible_demand import FlexibleDemandComponent
 
 
 @fixture
@@ -33,7 +33,7 @@ def test_demand_converter_controller(subtests):
 
     tech_config["technologies"]["load"] = {
         "control_strategy": {
-            "model": "DemandOpenLoopConverterController",
+            "model": "GenericDemandComponent",
         },
         "model_inputs": {
             "control_parameters": {
@@ -57,7 +57,7 @@ def test_demand_converter_controller(subtests):
 
     prob.model.add_subsystem(
         "demand_open_loop_storage_controller",
-        DemandOpenLoopConverterController(
+        GenericDemandComponent(
             plant_config=plant_config, tech_config=tech_config["technologies"]["load"]
         ),
         promotes=["*"],
@@ -95,7 +95,7 @@ def test_flexible_demand_converter_controller(subtests, variable_h2_production_p
     min_demand_kg = 2.5
     tech_config["technologies"]["load"] = {
         "control_strategy": {
-            "model": "FlexibleDemandOpenLoopConverterController",
+            "model": "FlexibleDemandComponent",
         },
         "model_inputs": {
             "control_parameters": {
@@ -129,7 +129,7 @@ def test_flexible_demand_converter_controller(subtests, variable_h2_production_p
 
     prob.model.add_subsystem(
         "flexible_demand_open_loop_converter_controller",
-        FlexibleDemandOpenLoopConverterController(
+        FlexibleDemandComponent(
             plant_config=plant_config, tech_config=tech_config["technologies"]["load"]
         ),
         promotes=["*"],
@@ -199,7 +199,7 @@ def test_flexible_demand_converter_controller_min_utilization(
     min_demand_kg = 2.5
     tech_config["technologies"]["load"] = {
         "control_strategy": {
-            "model": "FlexibleDemandOpenLoopConverterController",
+            "model": "FlexibleDemandComponent",
         },
         "model_inputs": {
             "control_parameters": {
@@ -233,7 +233,7 @@ def test_flexible_demand_converter_controller_min_utilization(
 
     prob.model.add_subsystem(
         "DemandOpenLoopStorageController",
-        FlexibleDemandOpenLoopConverterController(
+        FlexibleDemandComponent(
             plant_config=plant_config, tech_config=tech_config["technologies"]["load"]
         ),
         promotes=["*"],
