@@ -203,6 +203,20 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
                 units=self.config.commodity_rate_units,
             )
 
+        self.add_output(
+            "controller_estimated_SOC",
+            val=0,
+            shape=self.n_timesteps,
+            units=self.config.commodity_rate_units,
+        )
+
+        self.add_output(
+            "controller_dispatch_commands",
+            val=0,
+            shape=self.n_timesteps,
+            units=self.config.commodity_rate_units,
+        )
+
         super().setup()
 
         self.n_control_window = self.config.n_control_window
@@ -296,6 +310,7 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
             # initialize outputs
             storage_commodity_out = np.zeros(self.n_timesteps)
             soc = np.zeros(self.n_timesteps)
+            controller_storage_commands = np.zeros(self.n_timesteps)
             if self.config.allow_commodity_buying:
                 commodity_bought = np.zeros(self.n_timesteps)
 
@@ -351,15 +366,18 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
                     # simulation
                     storage_commodity_out[j] = storage_commodity_out_control_window[j - t]
                     soc[j] = soc_control_window[j - t]
+                    controller_storage_commands[j] = self.storage_dispatch_commands[j - t]
                     if self.config.allow_commodity_buying:
                         commodity_bought[j] = self.hybrid_dispatch_rule.storage_commodity_bought[
                             j - t
                         ]
 
             if self.config.allow_commodity_buying:
-                outputs[f"{self.config.commodity}_bought_for_storage"] = np.maximum(
-                    commodity_bought, 0
-                )
+                outputs[f"{self.config.commodity}_bought_for_storage"] = commodity_bought
+            # Note that this SOC is from the performance model and not the
+            #   controller's internal SOC variable
+            outputs["controller_estimated_SOC"] = soc
+            outputs["controller_dispatch_commands"] = controller_storage_commands
             return storage_commodity_out, soc
 
         return pyomo_dispatch_solver

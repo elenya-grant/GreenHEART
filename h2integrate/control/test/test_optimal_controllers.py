@@ -233,16 +233,16 @@ def test_min_operating_cost_load_following_battery_dispatch(
 
     # Test that discharge is always positive
     with subtests.test("Discharge is always positive"):
-        assert np.all(prob.get_val("battery.battery_electricity_discharge") >= 0)
+        assert np.all(prob.get_val("battery.storage_electricity_discharge") >= 0)
     with subtests.test("Charge is always negative"):
-        assert np.all(prob.get_val("battery.battery_electricity_charge") <= 0)
+        assert np.all(prob.get_val("battery.storage_electricity_charge") <= 0)
     # Set rtol lower b/c the values are in kW
     with subtests.test("Charge + Discharge == battery_electricity_out"):
-        charge_plus_discharge = prob.get_val("battery.battery_electricity_charge") + prob.get_val(
-            "battery.battery_electricity_discharge"
+        charge_plus_discharge = prob.get_val("battery.storage_electricity_charge") + prob.get_val(
+            "battery.storage_electricity_discharge"
         )
         np.testing.assert_allclose(
-            charge_plus_discharge, prob.get_val("battery_electricity_out"), rtol=1e-2
+            charge_plus_discharge, prob.get_val("storage_electricity_out"), rtol=1e-2
         )
     with subtests.test("Initial SOC is correct"):
         assert pytest.approx(prob.model.get_val("battery.SOC")[0], rel=1e-2) == 50
@@ -260,25 +260,25 @@ def test_min_operating_cost_load_following_battery_dispatch(
 
     with subtests.test("SOC increases when charging"):
         assert np.all(
-            prob.get_val("battery.battery_electricity_charge", units="kW")[indx_soc_increase] <= 0
+            prob.get_val("battery.storage_electricity_charge", units="kW")[indx_soc_increase] <= 0
         )
         assert np.all(
-            prob.get_val("battery.battery_electricity_charge", units="kW")[indx_soc_decrease] == 0
+            prob.get_val("battery.storage_electricity_charge", units="kW")[indx_soc_decrease] == 0
         )
         assert np.all(
-            prob.get_val("battery.battery_electricity_charge", units="kW")[indx_soc_same] == 0
+            prob.get_val("battery.storage_electricity_charge", units="kW")[indx_soc_same] == 0
         )
 
     with subtests.test("SOC decreases when discharging"):
         assert np.all(
-            prob.get_val("battery.battery_electricity_discharge", units="kW")[indx_soc_decrease] > 0
+            prob.get_val("battery.storage_electricity_discharge", units="kW")[indx_soc_decrease] > 0
         )
         assert np.all(
-            prob.get_val("battery.battery_electricity_discharge", units="kW")[indx_soc_increase]
+            prob.get_val("battery.storage_electricity_discharge", units="kW")[indx_soc_increase]
             == 0
         )
         assert np.all(
-            prob.get_val("battery.battery_electricity_discharge", units="kW")[indx_soc_same] == 0
+            prob.get_val("battery.storage_electricity_discharge", units="kW")[indx_soc_same] == 0
         )
 
     with subtests.test("Max SOC <= Max storage percent"):
@@ -289,28 +289,28 @@ def test_min_operating_cost_load_following_battery_dispatch(
 
     with subtests.test("Charge never exceeds charge rate"):
         assert (
-            prob.get_val("battery.battery_electricity_charge", units="kW").min() >= -1 * charge_rate
+            prob.get_val("battery.storage_electricity_charge", units="kW").min() >= -1 * charge_rate
         )
 
     with subtests.test("Discharge never exceeds discharge rate"):
         assert (
-            prob.get_val("battery.battery_electricity_discharge", units="kW").max()
+            prob.get_val("battery.storage_electricity_discharge", units="kW").max()
             <= discharge_rate
         )
 
     with subtests.test("Discharge never exceeds demand"):
         assert np.all(
-            prob.get_val("battery.battery_electricity_discharge", units="kW").max() <= demand_in
+            prob.get_val("battery.storage_electricity_discharge", units="kW").max() <= demand_in
         )
 
     with subtests.test("Sometimes discharges"):
         assert any(
-            k > 1e-3 for k in prob.get_val("battery.battery_electricity_discharge", units="kW")
+            k > 1e-3 for k in prob.get_val("battery.storage_electricity_discharge", units="kW")
         )
 
     with subtests.test("Sometimes charges"):
         assert any(
-            k < -1e-3 for k in prob.get_val("battery.battery_electricity_charge", units="kW")
+            k < -1e-3 for k in prob.get_val("battery.storage_electricity_charge", units="kW")
         )
 
     with subtests.test("Cumulative charge/discharge does not exceed storage capacity"):
@@ -320,7 +320,7 @@ def test_min_operating_cost_load_following_battery_dispatch(
     with subtests.test("Expected discharge from hour 10-30"):
         expected_discharge = np.concat([np.zeros(8), np.ones(8) * 5000, np.zeros(4)])
         np.testing.assert_allclose(
-            prob.get_val("battery.battery_electricity_discharge", units="kW")[0:20],
+            prob.get_val("battery.storage_electricity_discharge", units="kW")[0:20],
             expected_discharge,
             rtol=1e-2,
         )
@@ -328,7 +328,7 @@ def test_min_operating_cost_load_following_battery_dispatch(
     with subtests.test("Expected charge hour 0-24"):
         expected_charge = -1 * np.concat([np.zeros(16), np.ones(8) * 4000])
         np.testing.assert_allclose(
-            prob.get_val("battery.battery_electricity_charge", units="kW")[0:24],
+            prob.get_val("battery.storage_electricity_charge", units="kW")[0:24],
             expected_charge,
             rtol=1e-2,
         )
@@ -877,3 +877,214 @@ def test_optimal_control_with_commodity_buying_generic_storage(
             rtol=1e-6,
             atol=1e-6,
         )
+
+
+def _setup_commodity_buying_problem(
+    plant_config, tech_config, commodity_buy_price_timeseries, commodity_import_limit=7
+):
+    """Helper to set up an OptimizedDispatchController problem with commodity buying enabled.
+
+    Args:
+        plant_config: Plant configuration dictionary.
+        tech_config: Technology configuration dictionary (will be modified in-place).
+        commodity_buy_price_timeseries: Numpy array of buy prices per timestep.
+        commodity_import_limit: Maximum commodity import rate (default: 7 kg/h).
+
+    Returns:
+        tuple: (prob, commodity_in, commodity_demand) - the configured OpenMDAO problem
+               and the input arrays used.
+    """
+    commodity_demand = np.full(48, 5.0)
+    commodity_in = np.tile(np.concat([np.zeros(3), np.cumsum(np.ones(15)), np.full(6, 4.0)]), 2)
+
+    tech_config["technologies"]["h2_storage"]["model_inputs"]["control_parameters"] = {
+        "tech_name": "h2_storage",
+        "cost_per_charge": 0.03,
+        "cost_per_discharge": 0.05,
+        "demand_met_value": 0.1,
+        "cost_per_production": 0.0,
+        "time_weighting_factor": 0.995,
+        "system_commodity_interface_limit": 10.0,
+        "n_control_window": 24,
+        "allow_commodity_buying": True,
+        "commodity_buy_price": 1,
+        "commodity_import_limit": commodity_import_limit,
+    }
+
+    prob = om.Problem()
+
+    prob.model.add_subsystem(
+        "h2_storage_optimized_load_following_controller",
+        OptimizedDispatchController(
+            plant_config=plant_config,
+            tech_config=tech_config["technologies"]["h2_storage"],
+        ),
+        promotes=["*"],
+    )
+
+    prob.model.add_subsystem(
+        "h2_storage",
+        StoragePerformanceModel(
+            plant_config=plant_config,
+            tech_config=tech_config["technologies"]["h2_storage"],
+        ),
+        promotes=["*"],
+    )
+
+    prob.setup()
+    prob.set_val("h2_storage.hydrogen_in", commodity_in)
+    prob.set_val("h2_storage.hydrogen_demand", commodity_demand)
+    prob.set_val("hydrogen_buy_price", commodity_buy_price_timeseries)
+
+    prob.run_model()
+
+    return prob, commodity_in, commodity_demand
+
+
+def _run_standard_commodity_buying_assertions(prob, commodity_demand, subtests):
+    """Run standard physical constraint checks for commodity buying tests.
+
+    Args:
+        prob: The solved OpenMDAO problem.
+        commodity_demand: The demand profile array.
+        subtests: pytest subtests fixture.
+    """
+    charge_rate = prob.get_val("h2_storage.max_charge_rate", units="kg/h")[0]
+    discharge_rate = prob.get_val("h2_storage.max_charge_rate", units="kg/h")[0]
+    capacity = prob.get_val("h2_storage.storage_capacity", units="kg")[0]
+
+    with subtests.test("Discharge is always positive"):
+        assert np.all(prob.get_val("h2_storage.storage_hydrogen_discharge", units="kg/h") >= 0)
+    with subtests.test("Charge is always negative"):
+        assert np.all(prob.get_val("h2_storage.storage_hydrogen_charge", units="kg/h") <= 0)
+    with subtests.test("Charge + Discharge == storage_hydrogen_out"):
+        charge_plus_discharge = prob.get_val(
+            "h2_storage.storage_hydrogen_charge", units="kg/h"
+        ) + prob.get_val("h2_storage.storage_hydrogen_discharge", units="kg/h")
+        np.testing.assert_allclose(
+            charge_plus_discharge, prob.get_val("storage_hydrogen_out", units="kg/h"), rtol=1e-6
+        )
+    with subtests.test("Max SOC <= Max storage percent"):
+        assert prob.get_val("h2_storage.SOC", units="unitless").max() <= 1.0
+    with subtests.test("Min SOC >= Min storage percent"):
+        assert prob.get_val("h2_storage.SOC", units="unitless").min() >= 0.1
+    with subtests.test("Charge never exceeds charge rate"):
+        assert (
+            prob.get_val("h2_storage.storage_hydrogen_charge", units="kg/h").min()
+            >= -1 * charge_rate
+        )
+    with subtests.test("Discharge never exceeds discharge rate"):
+        assert (
+            prob.get_val("h2_storage.storage_hydrogen_discharge", units="kg/h").max()
+            <= discharge_rate
+        )
+    with subtests.test("Commodity bought is non-negative"):
+        assert np.all(prob.get_val("hydrogen_bought_for_storage", units="kg/h") >= -1e-6)
+    with subtests.test("Cumulative charge/discharge does not exceed storage capacity"):
+        assert np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).max() <= capacity
+        assert np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).min() >= -1 * capacity
+
+
+@pytest.mark.regression
+def test_optimal_control_commodity_buying_all_positive_prices(
+    plant_config_h2_storage, tech_config_generic, subtests
+):
+    """Test commodity buying with all positive prices.
+
+    When all prices are positive, buying commodity adds to the operating cost.
+    The optimizer should only buy when the cost of buying is less than the
+    penalty for not meeting demand (demand_met_value=0.1 $/kg).
+    With a high buy price (5.0 $/kg >> demand_met_value), buying is expensive
+    and the optimizer should prefer to not buy.
+    """
+    commodity_buy_price = np.full(48, 5.0)
+    commodity_import_limit = 7
+
+    prob, commodity_in, commodity_demand = _setup_commodity_buying_problem(
+        plant_config_h2_storage,
+        tech_config_generic,
+        commodity_buy_price,
+        commodity_import_limit,
+    )
+
+    _run_standard_commodity_buying_assertions(prob, commodity_demand, subtests)
+
+    commodity_bought = prob.get_val("hydrogen_bought_for_storage", units="kg/h")
+
+    # With high positive prices (5.0 >> demand_met_value of 0.1), buying is too expensive
+    # relative to the penalty for unmet demand, so the optimizer should not buy any commodity.
+    with subtests.test("No commodity bought when price exceeds demand met value"):
+        np.testing.assert_allclose(commodity_bought, 0.0, atol=1e-6)
+
+
+@pytest.mark.regression
+def test_optimal_control_commodity_buying_all_negative_prices(
+    plant_config_h2_storage, tech_config_generic, subtests
+):
+    """Test commodity buying with all negative prices.
+
+    When all prices are negative, buying commodity *reduces* the operating cost
+    (the optimizer gets paid to buy). The optimizer should buy as much as
+    possible up to the import limit whenever it can.
+    """
+    commodity_buy_price = np.full(48, -5.0)
+    commodity_import_limit = 7
+
+    prob, commodity_in, commodity_demand = _setup_commodity_buying_problem(
+        plant_config_h2_storage,
+        tech_config_generic,
+        commodity_buy_price,
+        commodity_import_limit,
+    )
+
+    _run_standard_commodity_buying_assertions(prob, commodity_demand, subtests)
+
+    commodity_bought = prob.get_val("hydrogen_bought_for_storage", units="kg/h")
+
+    # With negative prices, buying reduces cost. The optimizer should buy aggressively.
+    with subtests.test("Commodity is bought when prices are negative"):
+        assert np.sum(commodity_bought) > 0
+
+    # The purchase_limit constraint prevents buying when is_generating=1, but
+    # whenever the system is not generating, it should buy the maximum.
+    with subtests.test("Bought commodity never exceeds import limit"):
+        assert np.all(commodity_bought <= commodity_import_limit + 1e-6)
+
+    # With strong negative prices, the optimizer should buy at the import limit
+    # whenever it is allowed (i.e. when not generating). Check that it buys at
+    # the maximum for at least some timesteps.
+    with subtests.test("Buys at import limit for some timesteps"):
+        assert np.any(np.isclose(commodity_bought, commodity_import_limit, atol=1e-4))
+
+
+@pytest.mark.regression
+def test_optimal_control_commodity_buying_zero_prices(
+    plant_config_h2_storage, tech_config_generic, subtests
+):
+    """Test commodity buying with zero prices.
+
+    When the buy price is zero, buying commodity has no direct cost. The
+    optimizer should buy freely to help charge storage and meet demand since
+    there is no cost penalty for doing so.
+    """
+    commodity_buy_price = np.full(48, 0.0)
+    commodity_import_limit = 7
+
+    prob, commodity_in, commodity_demand = _setup_commodity_buying_problem(
+        plant_config_h2_storage,
+        tech_config_generic,
+        commodity_buy_price,
+        commodity_import_limit,
+    )
+
+    _run_standard_commodity_buying_assertions(prob, commodity_demand, subtests)
+
+    commodity_bought = prob.get_val("hydrogen_bought_for_storage", units="kg/h")
+
+    # With zero prices, buying is free. The optimizer should buy commodity to help
+    # meet demand, especially during periods when commodity_in is insufficient.
+    with subtests.test("Commodity is bought when prices are zero"):
+        assert np.sum(commodity_bought) > 0
+
+    with subtests.test("Bought commodity never exceeds import limit"):
+        assert np.all(commodity_bought <= commodity_import_limit + 1e-6)
