@@ -1,3 +1,4 @@
+import numpy as np
 from attrs import field, define
 
 from h2integrate.core.utilities import BaseConfig
@@ -99,3 +100,52 @@ class DemandComponentBase(PerformanceModelBaseClass):
             NotImplementedError: Always, unless implemented in a subclass.
         """
         raise NotImplementedError("This method should be implemented in a subclass.")
+
+    def calculate_outputs(self, commodity_in, commodity_demand, outputs):
+        """Compute unmet demand, unused commodity, and converter output.
+
+        This method compares the demand profile to the supplied commodity for
+        each timestep and assigns unmet demand, curtailed production, and
+        actual delivered output.
+
+        Args:
+            commodity_in (np.array): supplied commodity profile
+            commodity_demand (np.array): entire commodity demand profile
+            outputs (dict-like): Mapping of output variable names where results
+                will be written, including:
+
+                    * ``unmet_{commodity}_demand_out``: Unmet demand.
+                    * ``unused_{commodity}_out``: Curtailed production.
+                    * ``{commodity}_out``: Actual output delivered.
+
+        Notes:
+            All variables operate on a per-timestep basis and typically have
+            array shape ``(n_timesteps,)``.
+        """
+
+        remaining_demand = commodity_demand - commodity_in
+
+        # Calculate missed load and curtailed production
+        outputs[f"unmet_{self.commodity}_demand_out"] = np.where(
+            remaining_demand > 0, remaining_demand, 0
+        )
+        outputs[f"unused_{self.commodity}_out"] = np.where(
+            remaining_demand < 0, -1 * remaining_demand, 0
+        )
+
+        # Calculate actual output based on demand met and curtailment
+        outputs[f"{self.commodity}_out"] = commodity_in - outputs[f"unused_{self.commodity}_out"]
+
+        outputs[f"rated_{self.commodity}_production"] = commodity_demand.mean()
+
+        outputs[f"total_{self.commodity}_produced"] = np.sum(outputs[f"{self.commodity}_out"]) * (
+            self.dt / 3600
+        )
+
+        outputs[f"annual_{self.commodity}_produced"] = (
+            outputs[f"total_{self.commodity}_produced"] / self.fraction_of_year_simulated
+        )
+
+        outputs["capacity_factor"] = outputs[f"{self.commodity}_out"].sum() / commodity_demand.sum()
+
+        return outputs
