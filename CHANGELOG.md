@@ -34,6 +34,7 @@
 - Modified the calc tilt angle function for pysam solar to support latitudes in the southern hemisphere [PR 646](https://github.com/NatLabRockies/H2Integrate/pull/646)
 - Added oxygen production metrics and as outputs to `ECOElectrolyzerPerformanceModel` [PR 642](https://github.com/NatLabRockies/H2Integrate/pull/642)
 - Bugfix to allow for one resource to be connected to multiple technologies [PR 655](https://github.com/NatLabRockies/H2Integrate/pull/655)
+- Removed the last of the logic that was based on technology names rather than model classes [PR 654](https://github.com/NatLabRockies/H2Integrate/pull/654)
 
 ## 0.7.1 [March 13, 2026]
 
