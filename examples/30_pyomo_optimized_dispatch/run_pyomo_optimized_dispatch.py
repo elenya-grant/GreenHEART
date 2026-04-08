@@ -64,6 +64,7 @@ model = H2IntegrateModel(config)
 # TODO: Update with demand module once it is developed
 model.setup()
 model.prob.set_val("battery.electricity_demand", demand_profile, units="MW")
+model.prob.set_val("real_battery.electricity_demand", demand_profile, units="MW")
 # model.prob.set_val("battery.demand_met_value", commodity_met_value_profile, units="USD/kW")
 model.prob.set_val("battery.electricity_buy_price", commodity_buy_price_profile, units="USD/kW")
 # model.prob.set_val("electricity_feedstock.price", commodity_buy_price_profile, units="USD/(kW*h)")
@@ -76,6 +77,10 @@ model.prob.set_val(
 model.run()
 
 model.post_process()
+
+# ESG Checking logic
+model.prob.get_val("battery.electricity_demand", demand_profile, units="MW")
+
 
 # Plot the results
 fig, ax = plt.subplots(3, 1, sharex=True, figsize=(8, 6))

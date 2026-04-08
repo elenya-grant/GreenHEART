@@ -17,10 +17,15 @@ plant:
 # this will naturally grow as we mature the interconnected tech
 technology_interconnections:
   - [wind, battery, electricity, cable]
-  # Below is attempt with grid
+  # Battery controller outputs the demand of electricity to buy from grid to charge battery
   - [battery, grid_buy, [electricity_bought_for_storage, electricity_demand]]
-  - [battery, combiner, electricity, cable]
+  # Take how much electricity is actually bought from the grid and input it to a combiner
   - [grid_buy, combiner, electricity, cable]
+  - [wind, combiner, electricity, cable]
+  # Run the battery with electricity from the grid
+  - [wind, real_battery, electricity, cable]
+  # Connect the commodity_set_point from the dummy battery controller and give it to the battery
+  - [battery, real_battery, [controller_dispatch_commands, electricity_set_point]]
   # Below is attempt with feedstock
   # - [electricity_feedstock_source, battery, [electricity_out, electricity_available_to_buy]]
   # - [battery, electricity_feedstock, [electricity_bought_for_storage, electricity_consumed]]

@@ -181,7 +181,7 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
             for _source_tech, intended_dispatch_tech in self.options["plant_config"][
                 "tech_to_dispatch_connections"
             ]:
-                if any(intended_dispatch_tech in name for name in self.tech_group_name):
+                if any(intended_dispatch_tech == name for name in self.tech_group_name):
                     self.add_discrete_input("pyomo_dispatch_solver", val=lambda: None)
                     # set the using feedback control variable to True
                     using_feedback_control = True
