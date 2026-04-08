@@ -76,10 +76,24 @@ model.prob.set_val(
 # Run the model
 model.run()
 
-model.post_process()
+# model.post_process()
 
-# ESG Checking logic
-model.prob.get_val("battery.electricity_demand", demand_profile, units="MW")
+# Elenya: checking logic
+controller_soc = model.prob.get_val("battery.controller_estimated_SOC", units="percent")
+dummy_SOC = model.prob.get_val("battery.SOC", units="percent")
+actual_SOC = model.prob.get_val("real_battery.SOC", units="percent")
+
+# below should be zero because we can buy all the power from the grid
+soc_error_real_battery = (np.abs(controller_soc - actual_SOC)).sum()
+
+# below should be nonzero but isn't?
+soc_error_dummy_battery = (np.abs(controller_soc - dummy_SOC)).sum()
+
+# Electricity from grid to battery
+electricity_to_charge_battery = model.prob.get_val(
+    "battery.electricity_bought_for_storage", units="kW"
+)
+only_buy_from_grid = electricity_to_charge_battery.min() >= 0.0
 
 
 # Plot the results

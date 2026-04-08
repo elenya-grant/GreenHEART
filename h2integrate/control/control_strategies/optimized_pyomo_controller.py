@@ -207,7 +207,7 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
             "controller_estimated_SOC",
             val=0,
             shape=self.n_timesteps,
-            units=self.config.commodity_rate_units,
+            units="percent",
         )
 
         self.add_output(
