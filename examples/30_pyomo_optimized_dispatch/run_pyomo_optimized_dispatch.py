@@ -89,10 +89,28 @@ soc_error_real_battery = (np.abs(controller_soc - actual_SOC)).sum()
 # below should be nonzero but isn't?
 soc_error_dummy_battery = (np.abs(controller_soc - dummy_SOC)).sum()
 
+# check that dummy battery is not charging with power that isn't there
+electricity_in = model.prob.get_val("battery.electricity_in", units="kW")
+
 # Electricity from grid to battery
 electricity_to_charge_battery = model.prob.get_val(
     "battery.electricity_bought_for_storage", units="kW"
 )
+
+battery_charge_profile = model.prob.get_val("battery.storage_electricity_charge", units="kW")
+
+combined_electricity_out = electricity_in + model.prob.get_val("battery.storage_electricity_out")
+
+unused_electricity = np.where(
+    combined_electricity_out > model.prob.get_val("battery.electricity_demand", units="kW"),
+    combined_electricity_out - model.prob.get_val("battery.electricity_demand", units="kW"),
+    0,
+)
+
+electricity_in.sum() + model.prob.get_val("battery.unused_electricity_out", units="kW").sum()
+
+model.prob.get_val("battery.electricity_out", units="kW").sum() - ()
+
 only_buy_from_grid = electricity_to_charge_battery.min() >= 0.0
 
 
