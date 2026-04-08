@@ -1331,7 +1331,7 @@ class H2IntegrateModel:
         self.prob.setup()
 
         for tech, tech_info in self.technology_config["technologies"].items():
-            check_inputs(self.prob, tech, tech_info)
+            check_inputs(self.prob, tech, tech_info, self.tech_config_path)
 
     def run(self):
         # do model setup based on the driver config

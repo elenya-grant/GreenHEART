@@ -220,19 +220,22 @@ def rename_dict_keys(input_dict, init_keyname, new_keyname):
     return input_dict
 
 
-def check_inputs(prob, tech: str, tech_info: dict):
+def check_inputs(prob, tech: str, tech_info: dict, tech_config_path: str):
     """Check the user-input technology configuration inputs against the
     instantiated technology configuration classes to ensure that:
 
     1. All user-input parameters are used in at least 1 configuration class
     2. User-input `shared_parameters` are shared across at least 2 configuration classes
-    3. User-input parameters that are not-shared are only used in 1 configuration class
+    3. User-input parameters that are not shared are only used in 1 configuration class
 
     Args:
         prob (om.Problem): OpenMDAO problem defined in H2IntegrateModel
         tech (str): name of technology that the tech_info is for.
         tech_info (dict): technology input dictionary, including the
             technology model names and `model_inputs`.
+        tech_config_path (str or Path, optional): path to the technology
+            configuration file. Used in error messages to help the user
+            locate the problematic section.
 
     Raises:
         AttributeError: Raised if any of the 3 conditions are not met.
@@ -296,6 +299,8 @@ def check_inputs(prob, tech: str, tech_info: dict):
         "shared_parameters": shared_params,
     }
 
+    tech_location = f"the '{tech}' section of {tech_config_path}"
+
     # Flag any extra parameterizations provided by the user that should have either been
     # shared but were not or were inappropriately shared
     for param_key, vals in restructured_params.items():
@@ -320,7 +325,7 @@ def check_inputs(prob, tech: str, tech_info: dict):
                     unshared_params, other_key = unnecessary_shared[0]
                     msg = (
                         f"The parameter(s): {unnecessary_shared} found in shared_parameters"
-                        f" but should be in {other_key} for technology {tech}"
+                        f" but should be in {other_key} for {tech_location}"
                     )
                 else:
                     mapping = "\n\t".join(
@@ -328,13 +333,13 @@ def check_inputs(prob, tech: str, tech_info: dict):
                     )
                     msg = (
                         f"The following parameter sets were found in shared_parameters but should"
-                        f" be contained in the following sections for technology {tech}:"
+                        f" be in the following sections for {tech_location}:"
                         f"\n\t{mapping}"
                     )
             else:
                 msg = (
                     f"The parameter(s): {user_extras} found in shared_parameters"
-                    f" are not used by any of the models for technology {tech}"
+                    f" are not used by any of the models for {tech_location}"
                 )
             raise AttributeError(msg)
 
@@ -342,10 +347,10 @@ def check_inputs(prob, tech: str, tech_info: dict):
         if shared_overlap:
             msg = (
                 f"The parameter(s) {shared_overlap} found in {param_key}"
-                f" should be under shared_parameters for technology {tech}"
+                f" should be under shared_parameters for {tech_location}"
             )
         msg = (
             f"The parameter(s) {user_extras} found in {param_key} are not used for "
-            f"technology {tech}"
+            f"{tech_location}"
         )
         raise AttributeError(msg)
