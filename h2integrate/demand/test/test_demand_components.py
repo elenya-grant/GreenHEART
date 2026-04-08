@@ -32,11 +32,11 @@ def test_demand_converter_controller(subtests):
     tech_config = {"technologies": {}}
 
     tech_config["technologies"]["load"] = {
-        "control_strategy": {
+        "performance_model": {
             "model": "GenericDemandComponent",
         },
         "model_inputs": {
-            "control_parameters": {
+            "performance_parameters": {
                 "commodity": "hydrogen",
                 "commodity_rate_units": "kg",
                 "demand_profile": [5.0] * 10,  # Example: 10 time steps with 5 kg/time step demand
@@ -94,11 +94,11 @@ def test_flexible_demand_converter_controller(subtests, variable_h2_production_p
     ramp_down_rate_kg = 2.0
     min_demand_kg = 2.5
     tech_config["technologies"]["load"] = {
-        "control_strategy": {
+        "performance_model": {
             "model": "FlexibleDemandComponent",
         },
         "model_inputs": {
-            "control_parameters": {
+            "performance_parameters": {
                 "commodity": "hydrogen",
                 "commodity_rate_units": "kg",
                 "rated_demand": end_use_rated_demand,
@@ -198,11 +198,11 @@ def test_flexible_demand_converter_controller_min_utilization(
     ramp_down_rate_kg = 2.0
     min_demand_kg = 2.5
     tech_config["technologies"]["load"] = {
-        "control_strategy": {
+        "performance_model": {
             "model": "FlexibleDemandComponent",
         },
         "model_inputs": {
-            "control_parameters": {
+            "performance_parameters": {
                 "commodity": "hydrogen",
                 "commodity_rate_units": "kg",
                 "rated_demand": end_use_rated_demand,

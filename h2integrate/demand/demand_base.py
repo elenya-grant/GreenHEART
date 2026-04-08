@@ -18,11 +18,18 @@ class DemandComponentBaseConfig(BaseConfig):
         demand_profile (int | float | list): Demand values for each timestep, in
             the same units as `commodity_rate_units`. May be a scalar for constant
             demand or a list/array for time-varying demand.
+        commodity_amount_units (str | None, optional): Units of the commodity as an amount
+            (i.e., kW*h or kg). If not provided, defaults to commodity_rate_units*h.
     """
 
     commodity: str = field(converter=str.strip)
     commodity_rate_units: str = field(converter=str.strip)
     demand_profile: int | float | list = field()
+    commodity_amount_units: str = field(default=None)
+
+    def __attrs_post_init__(self):
+        if self.commodity_amount_units is None:
+            self.commodity_amount_units = f"({self.commodity_rate_units})*h"
 
 
 class DemandComponentBase(PerformanceModelBaseClass):
@@ -48,9 +55,7 @@ class DemandComponentBase(PerformanceModelBaseClass):
         """
         self.commodity = self.config.commodity
         self.commodity_rate_units = self.config.commodity_rate_units
-        self.commodity_amount_units = getattr(
-            self.config, "commodity_amount_units", f"({self.config.commodity_rate_units})*h"
-        )
+        self.commodity_amount_units = self.config.commodity_amount_units
 
         super().setup()
 

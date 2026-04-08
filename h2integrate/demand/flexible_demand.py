@@ -1,6 +1,7 @@
 import numpy as np
 from attrs import field, define
 
+from h2integrate.core.utilities import merge_shared_inputs
 from h2integrate.core.validators import gte_zero, range_val
 from h2integrate.demand.demand_base import DemandComponentBase, DemandComponentBaseConfig
 
@@ -56,7 +57,8 @@ class FlexibleDemandComponent(DemandComponentBase):
         flexible demand output profile, which will be populated in ``compute``.
         """
         self.config = FlexibleDemandComponentConfig.from_dict(
-            self.options["tech_config"]["model_inputs"]["control_parameters"],
+            merge_shared_inputs(self.options["tech_config"]["model_inputs"], "performance"),
+            strict=True,
             additional_cls_name=self.__class__.__name__,
         )
         super().setup()

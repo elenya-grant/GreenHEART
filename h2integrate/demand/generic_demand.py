@@ -1,5 +1,6 @@
 import numpy as np
 
+from h2integrate.core.utilities import merge_shared_inputs
 from h2integrate.demand.demand_base import DemandComponentBase, DemandComponentBaseConfig
 
 
@@ -30,7 +31,8 @@ class GenericDemandComponent(DemandComponentBase):
                 ``tech_config``.
         """
         self.config = DemandComponentBaseConfig.from_dict(
-            self.options["tech_config"]["model_inputs"]["control_parameters"],
+            merge_shared_inputs(self.options["tech_config"]["model_inputs"], "performance"),
+            strict=True,
             additional_cls_name=self.__class__.__name__,
         )
         super().setup()
