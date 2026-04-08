@@ -344,7 +344,10 @@ def test_no_resource_connection_error_resource_to_multiple_techs(temp_dir):
         "technology_config": tech_config,
         "driver_config": driver_config,
     }
-    H2IntegrateModel(input_config)
+    h2i_model = H2IntegrateModel(input_config)
+    h2i_model.setup()
+    # Need to call final_setup to trigger the potential error related to the resource connections
+    h2i_model.prob.final_setup()
     assert True
 
 
