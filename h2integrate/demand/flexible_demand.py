@@ -8,7 +8,7 @@ from h2integrate.demand.demand_base import DemandComponentBase, DemandComponentB
 
 @define(kw_only=True)
 class FlexibleDemandComponentConfig(DemandComponentBaseConfig):
-    """Configuration for defining a flexible demand open-loop controller.
+    """Configuration for defining a flexible demand component.
 
     Extends :class:`DemandOpenLoopControlBaseConfig` with additional parameters
     required for dynamically adjusting demand based on turndown, ramping, and
@@ -41,9 +41,9 @@ class FlexibleDemandComponentConfig(DemandComponentBaseConfig):
 
 
 class FlexibleDemandComponent(DemandComponentBase):
-    """Open-loop controller for flexible demand with ramping and utilization constraints.
+    """Demand component for flexible demand with ramping and utilization constraints.
 
-    This controller extends the base demand controller by allowing the effective
+    This component extends the base demand component by allowing the effective
     demand to vary dynamically based on turndown constraints, ramp-rate limits,
     and minimum-utilization requirements. A flexible demand profile is generated
     and used to compute unmet demand, unused commodity, and delivered output.
@@ -246,7 +246,7 @@ class FlexibleDemandComponent(DemandComponentBase):
         """Compute unmet demand, unused commodity, and output under flexible demand.
 
         If ``min_utilization == 1.0``, the behavior matches the regular open-loop
-        controller with no flexible demand adjustments.
+        component with no flexible demand adjustments.
 
         Otherwise:
             * Construct a flexible demand profile.

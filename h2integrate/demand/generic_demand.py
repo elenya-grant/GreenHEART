@@ -3,9 +3,9 @@ from h2integrate.demand.demand_base import DemandComponentBase, DemandComponentB
 
 
 class GenericDemandComponent(DemandComponentBase):
-    """Open-loop controller for converting input supply into met demand.
+    """Component for for converting input supply into met demand.
 
-    This controller computes unmet demand, unused (curtailed) production, and
+    This component computes unmet demand, unused (curtailed) production, and
     the resulting commodity output profile based on the incoming supply and an
     externally specified demand profile. It uses simple arithmetic rules:
 
@@ -14,20 +14,11 @@ class GenericDemandComponent(DemandComponentBase):
     * Output equals supplied commodity minus curtailed commodity.
 
     This component relies on configuration provided through the
-    ``tech_config`` dictionary, which must define the controller's
-    ``control_parameters``.
+    ``tech_config`` dictionary, which must define the demand's
+    ``performance_parameters``.
     """
 
     def setup(self):
-        """Set up the load controller configuration.
-
-        Loads the controller configuration from ``tech_config`` and then calls
-        the base class ``setup`` to create inputs/outputs.
-
-        Raises:
-            KeyError: If the expected configuration keys are missing from
-                ``tech_config``.
-        """
         self.config = DemandComponentBaseConfig.from_dict(
             merge_shared_inputs(self.options["tech_config"]["model_inputs"], "performance"),
             strict=True,
@@ -53,7 +44,7 @@ class GenericDemandComponent(DemandComponentBase):
 
                     * ``unmet_{commodity}_demand_out``: Unmet demand.
                     * ``unused_{commodity}_out``: Curtailed production.
-                    * ``{commodity}_set_point``: Actual output delivered.
+                    * ``{commodity}_out``: Actual output delivered.
 
         Notes:
             All variables operate on a per-timestep basis and typically have

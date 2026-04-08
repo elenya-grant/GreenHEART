@@ -7,9 +7,9 @@ from h2integrate.core.model_baseclasses import PerformanceModelBaseClass
 
 @define(kw_only=True)
 class DemandComponentBaseConfig(BaseConfig):
-    """Configuration for defining an open-loop demand profile.
+    """Configuration for defining a demand profile.
 
-    This configuration object specifies the commodity being controlled and the
+    This configuration object specifies the commodity being demanded and the
     demand profile that should be met by downstream components.
 
     Attributes:
@@ -36,19 +36,19 @@ class DemandComponentBaseConfig(BaseConfig):
 class DemandComponentBase(PerformanceModelBaseClass):
     """Base OpenMDAO component for open-loop demand tracking.
 
-    This component defines the interfaces required for open-loop demand
-    controllers, including inputs for demand, supplied commodity, and outputs
+    This component defines the interfaces required for demand
+    components, including inputs for demand, supplied commodity, and outputs
     tracking unmet demand, unused production, and total unmet demand.
     Subclasses must implement the :meth:`compute` method to define the
-    controller behavior.
+    demand component behavior.
     """
 
     def setup(self):
-        """Define inputs and outputs for demand control.
+        """Define inputs and outputs for demand component.
 
         Creates time-series inputs and outputs for commodity demand, supply,
         unmet demand, unused commodity, and total unmet demand. Shapes and units
-        are determined by the plant configuration and controller configuration.
+        are determined by the plant configuration and load component configuration.
 
         Raises:
             KeyError: If required configuration keys are missing from
@@ -94,7 +94,7 @@ class DemandComponentBase(PerformanceModelBaseClass):
 
     def compute():
         """This method must be implemented by subclasses to define the
-        controller.
+        demand component.
 
         Raises:
             NotImplementedError: Always, unless implemented in a subclass.
