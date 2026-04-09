@@ -23,7 +23,7 @@ technology_interconnections:
   - [grid_buy, combiner, electricity, cable]
   - [wind, combiner, electricity, cable]
   # Run the battery with electricity from the grid
-  - [wind, real_battery, electricity, cable]
+  - [combiner, real_battery, electricity, cable]
   # Connect the commodity_set_point from the dummy battery controller and give it to the battery
   - [battery, real_battery, [controller_dispatch_commands, electricity_set_point]]
   # Below is attempt with feedstock

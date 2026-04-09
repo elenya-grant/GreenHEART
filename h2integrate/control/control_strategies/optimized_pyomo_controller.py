@@ -373,7 +373,9 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
                         ]
 
             if self.config.allow_commodity_buying:
-                outputs[f"{self.config.commodity}_bought_for_storage"] = commodity_bought
+                outputs[f"{self.config.commodity}_bought_for_storage"] = np.clip(
+                    commodity_bought, a_min=0, a_max=None
+                )
             # Note that this SOC is from the performance model and not the
             #   controller's internal SOC variable
             outputs["controller_estimated_SOC"] = soc

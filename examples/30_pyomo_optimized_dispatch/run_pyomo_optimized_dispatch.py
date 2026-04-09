@@ -78,16 +78,46 @@ model.run()
 
 # model.post_process()
 
+grid_to_battery = model.prob.get_val("battery.electricity_bought_for_storage", units="kW")
+wind_to_battery = model.prob.get_val("wind.electricity_out", units="kW")
+controller_cmds = model.prob.get_val("battery.controller_dispatch_commands", units="kW")
+dbattery_charge_profile = model.prob.get_val("battery.storage_electricity_charge", units="kW")
+indx_charge_more_than_possible = np.argwhere(
+    np.abs(dbattery_charge_profile) > wind_to_battery
+).flatten()
+excess_charge = (
+    np.abs(dbattery_charge_profile)[indx_charge_more_than_possible]
+    - wind_to_battery[indx_charge_more_than_possible]
+)
+# Excess charge is just due to small differences when multiplying by charge efficiencies
+# then re-dividing by charge efficiency
+wind_to_battery[indx_charge_more_than_possible] - (
+    wind_to_battery[indx_charge_more_than_possible] * 0.95 / 0.95
+)
+
+realbattery_charge_profile = model.prob.get_val(
+    "real_battery.storage_electricity_charge", units="kW"
+)
+electricity_to_realbattery = model.prob.get_val("real_battery.electricity_in", units="kW")
+indx_charge_more_than_possible_real = np.argwhere(
+    np.abs(realbattery_charge_profile) > electricity_to_realbattery
+).flatten()
+real_excess_charge = (
+    np.abs(realbattery_charge_profile)[indx_charge_more_than_possible_real]
+    - electricity_to_realbattery[indx_charge_more_than_possible_real]
+)
+
+
 # Elenya: checking logic
-controller_soc = model.prob.get_val("battery.controller_estimated_SOC", units="percent")
-dummy_SOC = model.prob.get_val("battery.SOC", units="percent")
-actual_SOC = model.prob.get_val("real_battery.SOC", units="percent")
+controller_cmds = model.prob.get_val("battery.controller_dispatch_commands", units="kW")
+dummy_cmds = model.prob.get_val("battery.storage_electricity_out", units="kW")
+actual_cmds = model.prob.get_val("real_battery.storage_electricity_out", units="kW")
 
 # below should be zero because we can buy all the power from the grid
-soc_error_real_battery = (np.abs(controller_soc - actual_SOC)).sum()
+soc_error_real_battery = (np.abs(controller_cmds - actual_cmds)).sum()
 
 # below should be nonzero but isn't?
-soc_error_dummy_battery = (np.abs(controller_soc - dummy_SOC)).sum()
+soc_error_dummy_battery = (np.abs(controller_cmds - dummy_cmds)).sum()
 
 # check that dummy battery is not charging with power that isn't there
 electricity_in = model.prob.get_val("battery.electricity_in", units="kW")
@@ -96,22 +126,31 @@ electricity_in = model.prob.get_val("battery.electricity_in", units="kW")
 electricity_to_charge_battery = model.prob.get_val(
     "battery.electricity_bought_for_storage", units="kW"
 )
-
 battery_charge_profile = model.prob.get_val("battery.storage_electricity_charge", units="kW")
 
-combined_electricity_out = electricity_in + model.prob.get_val("battery.storage_electricity_out")
+# Okay - dummy battery is charging with power that isn't available (928 times)
+indx_charge_more_than_possible = np.argwhere(
+    np.abs(battery_charge_profile) > electricity_in
+).flatten()
+indx_charging = np.argwhere(battery_charge_profile < 0).flatten()
+excess_charge = np.abs(battery_charge_profile)[indx_charging] - electricity_in[indx_charging]
 
-unused_electricity = np.where(
-    combined_electricity_out > model.prob.get_val("battery.electricity_demand", units="kW"),
-    combined_electricity_out - model.prob.get_val("battery.electricity_demand", units="kW"),
-    0,
-)
+# excess_charge should be close to the battery bought for storage
 
-electricity_in.sum() + model.prob.get_val("battery.unused_electricity_out", units="kW").sum()
 
-model.prob.get_val("battery.electricity_out", units="kW").sum() - ()
+# combined_electricity_out = electricity_in + model.prob.get_val("battery.storage_electricity_out")
 
-only_buy_from_grid = electricity_to_charge_battery.min() >= 0.0
+# unused_electricity = np.where(
+#     combined_electricity_out > model.prob.get_val("battery.electricity_demand", units="kW"),
+#     combined_electricity_out - model.prob.get_val("battery.electricity_demand", units="kW"),
+#     0,
+# )
+
+# electricity_in.sum() + model.prob.get_val("battery.unused_electricity_out", units="kW").sum()
+
+# model.prob.get_val("battery.electricity_out", units="kW").sum()
+
+# only_buy_from_grid = electricity_to_charge_battery.min() >= 0.0
 
 
 # Plot the results
@@ -162,13 +201,13 @@ ax[1].plot(
 )
 ax[1].plot(
     range(start_hour, end_hour),
-    model.prob.get_val("battery.battery_electricity_out", units="MW")[start_hour:end_hour],
+    model.prob.get_val("battery.storage_electricity_out", units="MW")[start_hour:end_hour],
     linestyle="-.",
     label="Battery Electricity Out (MW)",
 )
 
 print(min(model.prob.get_val("battery.electricity_out", units="MW")))
-print(min(model.prob.get_val("battery.battery_electricity_out", units="MW")))
+print(min(model.prob.get_val("battery.storage_electricity_out", units="MW")))
 ax[1].plot(
     range(start_hour, end_hour),
     demand_profile[start_hour:end_hour],
