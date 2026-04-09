@@ -74,8 +74,22 @@ def test_feedstock_standard_outputs(plant_config, ng_feedstock_input_config, sub
     with subtests.test("Check feedstock capacity factor"):
         ng_cf = prob.get_val("ng_feedstock.capacity_factor", units="unitless").mean()
         assert pytest.approx(ng_cf, rel=1e-6) == 0.5
-    # TODO: add subtests for rated_natural_gas_production, total_natural_gas_consumed,
-    # and annual_natural_gas_consumed
+    with subtests.test("Check feedstock rated production"):
+        rated_production_source = prob.get_val(
+            "ng_feedstock_source.natural_gas_capacity", units="MMBtu/h"
+        )
+        rated_production = prob.get_val(
+            "ng_feedstock.rated_natural_gas_production", units="MMBtu/h"
+        )
+        assert pytest.approx(rated_production, rel=1e-6) == rated_production_source
+    with subtests.test("Check feedstock total consumption"):
+        total_consumption = prob.get_val("ng_feedstock.total_natural_gas_consumed", units="MMBtu")
+        assert pytest.approx(total_consumption, rel=1e-6) == consumption.sum()
+    with subtests.test("Check feedstock annual consumption"):
+        annual_consumption = prob.get_val(
+            "ng_feedstock.annual_natural_gas_consumed", units="MMBtu/yr"
+        )
+        assert pytest.approx(annual_consumption, rel=1e-6) == consumption.sum()
 
 
 def create_basic_feedstock_config(
