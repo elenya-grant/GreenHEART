@@ -91,12 +91,12 @@ def test_generic_storage_with_simple_control_dmd_lessthan_charge_rate(plant_conf
     with subtests.test("Charge is always negative"):
         assert np.all(prob.get_val("storage.storage_hydrogen_charge", units="kg/h") <= 0)
 
-    with subtests.test("Charge + Discharge == storage_hydrogen_out"):
+    with subtests.test("Charge + Discharge == hydrogen_out"):
         charge_plus_discharge = prob.get_val(
             "storage.storage_hydrogen_charge", units="kg/h"
         ) + prob.get_val("storage.storage_hydrogen_discharge", units="kg/h")
         np.testing.assert_allclose(
-            charge_plus_discharge, prob.get_val("storage_hydrogen_out", units="kg/h"), rtol=1e-6
+            charge_plus_discharge, prob.get_val("hydrogen_out", units="kg/h"), rtol=1e-6
         )
     with subtests.test("Initial SOC is correct"):
         assert (
@@ -165,8 +165,8 @@ def test_generic_storage_with_simple_control_dmd_lessthan_charge_rate(plant_conf
         )
 
     with subtests.test("Cumulative charge/discharge does not exceed storage capacity"):
-        assert np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).max() <= capacity
-        assert np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).min() >= -1 * capacity
+        assert np.cumsum(prob.get_val("hydrogen_out", units="kg/h")).max() <= capacity
+        assert np.cumsum(prob.get_val("hydrogen_out", units="kg/h")).min() >= -1 * capacity
 
     with subtests.test("Expected discharge"):
         expected_discharge = np.concat([np.zeros(18), np.ones(6)])
@@ -274,17 +274,17 @@ def test_generic_storage_with_simple_control_charge_rate_lessthan_demand(plant_c
     with subtests.test("Charge is always negative"):
         assert np.all(prob.get_val("storage.storage_hydrogen_charge", units="kg/h") <= 0)
 
-    with subtests.test("Charge + Discharge == storage_hydrogen_out"):
+    with subtests.test("Charge + Discharge == hydrogen_out"):
         charge_plus_discharge = prob.get_val(
             "storage.storage_hydrogen_charge", units="kg/h"
         ) + prob.get_val("storage.storage_hydrogen_discharge", units="kg/h")
         np.testing.assert_allclose(
-            charge_plus_discharge, prob.get_val("storage_hydrogen_out", units="kg/h"), rtol=1e-6
+            charge_plus_discharge, prob.get_val("hydrogen_out", units="kg/h"), rtol=1e-6
         )
     with subtests.test("Initial SOC is correct"):
         init_soc_expected = (
             performance_model_config["init_soc_fraction"]
-            - prob.get_val("storage_hydrogen_out", units="kg/h")[0] / capacity
+            - prob.get_val("hydrogen_out", units="kg/h")[0] / capacity
         )
         assert (
             pytest.approx(prob.model.get_val("storage.SOC", units="unitless")[0], rel=1e-6)
@@ -352,8 +352,8 @@ def test_generic_storage_with_simple_control_charge_rate_lessthan_demand(plant_c
         )
 
     with subtests.test("Cumulative charge/discharge does not exceed storage capacity"):
-        assert np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).max() <= capacity
-        assert np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).min() >= -1 * capacity
+        assert np.cumsum(prob.get_val("hydrogen_out", units="kg/h")).max() <= capacity
+        assert np.cumsum(prob.get_val("hydrogen_out", units="kg/h")).min() >= -1 * capacity
 
     with subtests.test("Expected discharge"):
         expected_discharge = np.concat(
@@ -627,17 +627,17 @@ def test_generic_storage_with_simple_control_with_losses(plant_config, subtests)
     with subtests.test("Charge is always negative"):
         assert np.all(prob.get_val("storage.storage_hydrogen_charge", units="kg/h") <= 0)
 
-    with subtests.test("Charge + Discharge == storage_hydrogen_out"):
+    with subtests.test("Charge + Discharge == hydrogen_out"):
         charge_plus_discharge = prob.get_val(
             "storage.storage_hydrogen_charge", units="kg/h"
         ) + prob.get_val("storage.storage_hydrogen_discharge", units="kg/h")
         np.testing.assert_allclose(
-            charge_plus_discharge, prob.get_val("storage_hydrogen_out", units="kg/h"), rtol=1e-6
+            charge_plus_discharge, prob.get_val("hydrogen_out", units="kg/h"), rtol=1e-6
         )
     with subtests.test("Initial SOC is correct"):
         init_soc_expected = (
             performance_model_config["init_soc_fraction"]
-            - (prob.get_val("storage_hydrogen_out", units="kg/h")[0] * charge_eff) / capacity
+            - (prob.get_val("hydrogen_out", units="kg/h")[0] * charge_eff) / capacity
         )
 
         assert (
@@ -707,11 +707,10 @@ def test_generic_storage_with_simple_control_with_losses(plant_config, subtests)
 
     with subtests.test("Cumulative charge/discharge does not exceed storage capacity"):
         assert (
-            np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).max()
-            <= capacity * discharge_eff
+            np.cumsum(prob.get_val("hydrogen_out", units="kg/h")).max() <= capacity * discharge_eff
         )
         assert (
-            np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).min()
+            np.cumsum(prob.get_val("hydrogen_out", units="kg/h")).min()
             >= -1 * capacity / charge_eff
         )
 
@@ -851,12 +850,12 @@ def test_generic_storage_with_simple_control_with_losses_round_trip(plant_config
     with subtests.test("Charge is always negative"):
         assert np.all(prob.get_val("storage.storage_hydrogen_charge", units="kg/h") <= 0)
 
-    with subtests.test("Charge + Discharge == storage_hydrogen_out"):
+    with subtests.test("Charge + Discharge == hydrogen_out"):
         charge_plus_discharge = prob.get_val(
             "storage.storage_hydrogen_charge", units="kg/h"
         ) + prob.get_val("storage.storage_hydrogen_discharge", units="kg/h")
         np.testing.assert_allclose(
-            charge_plus_discharge, prob.get_val("storage_hydrogen_out", units="kg/h"), rtol=1e-6
+            charge_plus_discharge, prob.get_val("hydrogen_out", units="kg/h"), rtol=1e-6
         )
     with subtests.test("Initial SOC is correct"):
         assert (
@@ -927,11 +926,10 @@ def test_generic_storage_with_simple_control_with_losses_round_trip(plant_config
 
     with subtests.test("Cumulative charge/discharge does not exceed storage capacity"):
         assert (
-            np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).max()
-            <= capacity * discharge_eff
+            np.cumsum(prob.get_val("hydrogen_out", units="kg/h")).max() <= capacity * discharge_eff
         )
         assert (
-            np.cumsum(prob.get_val("storage_hydrogen_out", units="kg/h")).min()
+            np.cumsum(prob.get_val("hydrogen_out", units="kg/h")).min()
             >= -1 * capacity / charge_eff
         )
 
