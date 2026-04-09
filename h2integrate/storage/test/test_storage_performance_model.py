@@ -184,6 +184,11 @@ def test_generic_storage_with_simple_control_dmd_lessthan_charge_rate(plant_conf
             rtol=1e-6,
         )
 
+    with subtests.test("Charge never exceeds available commodity"):
+        charge_profile = prob.get_val("storage.storage_hydrogen_charge", units="kg/h")
+        indx_charging = np.argwhere(charge_profile).flatten()
+        assert np.all(np.abs(charge_profile)[indx_charging] <= commodity_in[indx_charging])
+
 
 @pytest.mark.regression
 @pytest.mark.parametrize("n_timesteps", [24])
@@ -376,6 +381,11 @@ def test_generic_storage_with_simple_control_charge_rate_lessthan_demand(plant_c
             rtol=1e-6,
         )
 
+    with subtests.test("Charge never exceeds available commodity"):
+        charge_profile = prob.get_val("storage.storage_hydrogen_charge", units="kg/h")
+        indx_charging = np.argwhere(charge_profile).flatten()
+        assert np.all(np.abs(charge_profile)[indx_charging] <= commodity_in[indx_charging])
+
 
 @pytest.mark.regression
 @pytest.mark.parametrize("n_timesteps", [24])
@@ -536,6 +546,11 @@ def test_generic_storage_with_simple_control_zero_size(plant_config, subtests):
             prob.get_val("storage.SOC", units="unitless")
             == performance_model_config["init_soc_fraction"]
         )
+
+    with subtests.test("Charge never exceeds available commodity"):
+        charge_profile = prob.get_val("storage.storage_hydrogen_charge", units="kg/h")
+        indx_charging = np.argwhere(charge_profile).flatten()
+        assert np.all(np.abs(charge_profile)[indx_charging] <= commodity_in[indx_charging])
 
 
 @pytest.mark.regression
@@ -764,6 +779,11 @@ def test_generic_storage_with_simple_control_with_losses(plant_config, subtests)
             rtol=1e-6,
         )
 
+    with subtests.test("Charge never exceeds available commodity"):
+        charge_profile = prob.get_val("storage.storage_hydrogen_charge", units="kg/h")
+        indx_charging = np.argwhere(charge_profile).flatten()
+        assert np.all(np.abs(charge_profile)[indx_charging] <= commodity_in[indx_charging])
+
 
 @pytest.mark.regression
 @pytest.mark.parametrize("n_timesteps", [24])
@@ -957,6 +977,11 @@ def test_generic_storage_with_simple_control_with_losses_round_trip(plant_config
             expected_charge,
             rtol=1e-6,
         )
+
+    with subtests.test("Charge never exceeds available commodity"):
+        charge_profile = prob.get_val("storage.storage_hydrogen_charge", units="kg/h")
+        indx_charging = np.argwhere(charge_profile).flatten()
+        assert np.all(np.abs(charge_profile)[indx_charging] <= commodity_in[indx_charging])
 
 
 @pytest.mark.regression
