@@ -95,6 +95,13 @@ technologies:
         energy_capex: 310  # $/kWh from 2024 ATB year 2025
         power_capex: 311  # $/kW from 2024 ATB year 2025
         opex_fraction: 0.024999840573439444
+  elec_combiner:
+    performance_model:
+      model: GenericCombinerPerformanceModel
+    model_inputs:
+      performance_parameters:
+        commodity: electricity
+        commodity_rate_units: kW
   electrolyzer:
     performance_model:
       model: ECOElectrolyzerPerformanceModel
