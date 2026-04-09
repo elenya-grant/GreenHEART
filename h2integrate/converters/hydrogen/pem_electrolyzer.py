@@ -62,7 +62,7 @@ class ECOElectrolyzerPerformanceModel(ElectrolyzerPerformanceBaseClass):
     def setup(self):
         self.config = ECOElectrolyzerPerformanceModelConfig.from_dict(
             merge_shared_inputs(self.options["tech_config"]["model_inputs"], "performance"),
-            strict=True,
+            strict=False,
             additional_cls_name=self.__class__.__name__,
         )
         super().setup()
