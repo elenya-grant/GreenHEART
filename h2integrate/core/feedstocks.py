@@ -120,18 +120,23 @@ class FeedstockCostModel(CostModelBaseClass):
         hours_per_year = 8760
         hours_simulated = (self.dt / 3600) * self.n_timesteps
         self.fraction_of_year_simulated = hours_simulated / hours_per_year
+        # since feedstocks are consumed, some outputs are appended
+        # with 'consumed' rather than 'produced'
 
         self.add_output(
             f"total_{self.config.commodity}_consumed",
             val=0.0,
             units=self.config.commodity_amount_units,
         )
+
         self.add_output(
             f"annual_{self.config.commodity}_consumed",
             val=0.0,
             shape=self.plant_life,
             units=f"({self.config.commodity_amount_units})/year",
         )
+
+        # Capacity factor is feedstock_consumed/max_feedstock_available
         self.add_output(
             "capacity_factor",
             val=0.0,
@@ -140,6 +145,7 @@ class FeedstockCostModel(CostModelBaseClass):
             desc="Capacity factor",
         )
 
+        # The should be equal to the commodity_capacity input of the FeedstockPerformanceModel
         self.add_output(
             f"rated_{self.config.commodity}_production",
             val=0,

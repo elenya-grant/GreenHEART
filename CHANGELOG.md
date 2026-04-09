@@ -35,6 +35,8 @@
 - Added oxygen production metrics and as outputs to `ECOElectrolyzerPerformanceModel` [PR 642](https://github.com/NatLabRockies/H2Integrate/pull/642)
 - Bugfix to allow for one resource to be connected to multiple technologies [PR 655](https://github.com/NatLabRockies/H2Integrate/pull/655)
 - Removed the last of the logic that was based on technology names rather than model classes [PR 654](https://github.com/NatLabRockies/H2Integrate/pull/654)
+- Added standardized outputs to feedstock model [PR 523](https://github.com/NatLabRockies/H2Integrate/pull/523)
+
 
 ## 0.7.1 [March 13, 2026]
 

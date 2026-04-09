@@ -27,7 +27,7 @@ def plant_config():
 
 
 @fixture
-def ng_tech_input_config():
+def ng_feedstock_input_config():
     tech_config = {
         "model_inputs": {
             "shared_parameters": {
@@ -50,12 +50,12 @@ def ng_tech_input_config():
 
 
 @pytest.mark.unit
-def test_feedstock_standard_outputs(plant_config, ng_tech_input_config, subtests):
+def test_feedstock_standard_outputs(plant_config, ng_feedstock_input_config, subtests):
     perf_model = FeedstockPerformanceModel(
-        plant_config=plant_config, tech_config=ng_tech_input_config, driver_config={}
+        plant_config=plant_config, tech_config=ng_feedstock_input_config, driver_config={}
     )
     cost_model = FeedstockCostModel(
-        plant_config=plant_config, tech_config=ng_tech_input_config, driver_config={}
+        plant_config=plant_config, tech_config=ng_feedstock_input_config, driver_config={}
     )
     prob = om.Problem()
     prob.model.add_subsystem("ng_feedstock_source", perf_model)

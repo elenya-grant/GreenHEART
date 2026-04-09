@@ -82,3 +82,11 @@ ng_feedstock:
 ```{tip}
 The `price` parameter is flexible - you can specify constant pricing with a single value or time-varying pricing with an array of values matching the number of simulation timesteps.
 ```
+
+### Consumed Feedstock Outputs
+The feedstock model outputs cost and performance information about the consumed feedstock. The most notable outputs are:
+- `VarOpEx`: cost the feedstock consumed (in `USD/yr`)
+- `total_{commodity}_consumed`: total feedstock consumed over simulation (in `commodity_amount_units`)
+- `annual_{commodity}_consumed`: annual feedstock consumed (in `commodity_amount_units/yr`)
+- `rated_{commodity}_production`: this is equal to the the `rated_capacity` of the feedstock model (in `commodity_rate_units`)
+- `capacity_factor`: ratio of the feedstock consumed to the maximum feedstock available
