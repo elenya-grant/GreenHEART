@@ -35,6 +35,15 @@
 - Added oxygen production metrics and as outputs to `ECOElectrolyzerPerformanceModel` [PR 642](https://github.com/NatLabRockies/H2Integrate/pull/642)
 - Bugfix to allow for one resource to be connected to multiple technologies [PR 655](https://github.com/NatLabRockies/H2Integrate/pull/655)
 - Removed the last of the logic that was based on technology names rather than model classes [PR 654](https://github.com/NatLabRockies/H2Integrate/pull/654)
+- Bumps the `coin-or-cbc` dependency to at least 2.10.12 to enable easy Windows compatibility. [PR 590](https://github.com/NatLabRockies/H2Integrate/pull/590)
+- Uses the optional installation parameter `extras` to combine all analysis extras, and remove them
+  from the `develop` options. [PR 590](https://github.com/NatLabRockies/H2Integrate/pull/590)
+- Tests reliant on the `gis` optional dependencies are no longer run when the extra dependencies are not installed
+  similar to the ard tests. [PR 590](https://github.com/NatLabRockies/H2Integrate/pull/590)
+- Updates the testing infrastructure to use function-scoped fixtures unless there is a specific need for sharing
+  data between functions in a module. [PR 590](https://github.com/NatLabRockies/H2Integrate/pull/590)
+- Adds `H2IntegrateModel.state` as an `IntEnum` to handle setup and run status checks.
+  [PR 590](https://github.com/NatLabRockies/H2Integrate/pull/590)
 
 ## 0.7.2 [April 9, 2026]
 
@@ -67,6 +76,7 @@
 - Fixed a bug in the discrete variable instantiation within the iron processing stack that caused a failure with OpenMDAO v3.43 [PR 595](https://github.com/NatLabRockies/H2Integrate/pull/595)
 - Fixed a bug in model setup where transporters were added to the system at the end of the system instead after their source [PR 591](https://github.com/NatLabRockies/H2Integrate/pull/591)
 - Fixed a bug in example 1 (steel) where a cable was included between the combiner to steel, but steel uses an internal grid connection [PR 591](https://github.com/NatLabRockies/H2Integrate/pull/591)
+- Introduced a keyword arg to `post_process` to allow users to choose if results are printed to the console. [PR 597](https://github.com/NatLabRockies/H2Integrate/pull/597)
 - Fixed a bug in charge and discharge efficiency handling in `StoragePerformanceModel` [PR 600](https://github.com/NatLabRockies/H2Integrate/pull/600)
 
 ## 0.7 [March 3, 2026]

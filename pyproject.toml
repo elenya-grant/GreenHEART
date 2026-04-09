@@ -100,7 +100,6 @@ develop = [
     "pytest-cov",
     "ruff",
     "sphinxcontrib-napoleon",
-    "h2integrate[gis,ard]",
     "yamlfix"
 ]
 examples = [
@@ -112,7 +111,8 @@ gis = [
   "contextily"
 ]
 ard = ["ard-nrel"]
-all = ["h2integrate[develop,examples]"]
+extras = ["h2integrate[gis,ard]"]
+all = ["h2integrate[develop,extras,examples]"]
 
 [tool.setuptools]
 include-package-data = true

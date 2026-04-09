@@ -75,7 +75,8 @@ environment for development work.
 - Use one of the extra flags as needed:
   - `gis`: adds the iron mapping tools.
   - `ard`: adds the Ard-based wind models.
-  - `develop`: adds developer and documentation tools, plus optional analysis modifiers `gis` and `ard`.
+  - `extras`: installs all extra analysis tool dependencies, e.g., `ard` or `gis`.
+  - `develop`: adds developer and documentation tools.
   - `examples`: allows you to use the Jupyter Notebooks and all examples (includes `ard` and `gis`).
   - `all` simplifies adding all the dependencies.
 
@@ -110,18 +111,8 @@ pip install -e ".[all]"
 4. Install H2Integrate and its dependencies:
 
     ```bash
-    conda install -y -c conda-forge glpk
+    conda install -y -c conda-forge glpk coin-or-cbc>=2.10.12
     ```
-
-    ````{note}
-    Unix users should install Cbc via:
-
-    ```bash
-    conda install -y -c conda-forge coin-or-cbc=2.10.8
-    ```
-
-    Windows users should install Cbc manually according to https://github.com/coin-or/Cbc.
-    ````
 
     - If you want to just use H2Integrate:
 
