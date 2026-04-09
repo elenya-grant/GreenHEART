@@ -1084,7 +1084,9 @@ def test_generic_storage_charge_more_than_available(plant_config, subtests):
         )
 
     with subtests.test("Expected charge"):
-        expected_charge = np.concat([np.zeros(8), np.arange(-1, -9, -1), np.zeros(8)])
+        expected_charge = np.concat(
+            [np.zeros(8), np.arange(-6, -10, -1), np.array([-6]), np.zeros(11)]
+        )
         np.testing.assert_allclose(
             prob.get_val("storage.storage_hydrogen_charge", units="kg/h"),
             expected_charge,
