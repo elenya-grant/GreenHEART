@@ -1,6 +1,6 @@
 # Feedstock Models
 
-Feedstock models in H2Integrate represent any resource input that is consumed by technologies in your plant, such as natural gas, water, electricity from the grid, or any other material input.
+Feedstock models in H2Integrate represent any resource input that is consumed by technologies in your plant that comes from outside your designed system and not generated internally, such as natural gas, water, electricity from the grid, or any other material input.
 The feedstock modeling approach provides a flexible way to track resource consumption and calculate associated costs for any type of input material or energy source.
 Please see the example `16_natural_gas` in the `examples` directory for a complete setup using natural gas as a feedstock.
 
@@ -85,7 +85,7 @@ The `price` parameter is flexible - you can specify constant pricing with a sing
 
 ### Consumed Feedstock Outputs
 The feedstock model outputs cost and performance information about the consumed feedstock. The most notable outputs are:
-- `VarOpEx`: cost the feedstock consumed (in `USD/yr`)
+- `VarOpEx`: cost of the feedstock consumed (in `USD/yr`)
 - `total_{commodity}_consumed`: total feedstock consumed over simulation (in `commodity_amount_units`)
 - `annual_{commodity}_consumed`: annual feedstock consumed (in `commodity_amount_units/yr`)
 - `rated_{commodity}_production`: this is equal to the the `rated_capacity` of the feedstock model (in `commodity_rate_units`)
