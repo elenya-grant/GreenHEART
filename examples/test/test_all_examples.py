@@ -1239,7 +1239,7 @@ def test_pyomo_heuristic_dispatch_example(subtests, temp_copy_of_example):
         assert wind_electricity.sum() == pytest.approx(battery_electricity_in.sum(), rel=1e-6)
 
     with subtests.test("Check demand satisfaction"):
-        electricity_out = model.prob.get_val("battery.electricity_out", units="MW")
+        electricity_out = model.prob.get_val("electrical_load_demand.electricity_out", units="MW")
         # Battery output should try to meet the 50 MW constant demand
         # Average output should be close to demand when there's sufficient generation
         assert electricity_out.mean() >= 45  # MW
@@ -1273,14 +1273,14 @@ def test_pyomo_heuristic_dispatch_example(subtests, temp_copy_of_example):
     # Subtest for electricity unused_commodity
     with subtests.test("Check electricity unused commodity"):
         electricity_unused_commodity = np.linalg.norm(
-            model.prob.get_val("battery.unused_electricity_out", units="MW")
+            model.prob.get_val("electrical_load_demand.unused_electricity_out", units="MW")
         )
         assert electricity_unused_commodity == pytest.approx(36590.067573337095, rel=1e-6)
 
     # Subtest for unmet demand
     with subtests.test("Check electricity unmet demand"):
         electricity_unmet_demand = np.linalg.norm(
-            model.prob.get_val("battery.unmet_electricity_demand_out", units="MW")
+            model.prob.get_val("electrical_load_demand.unmet_electricity_demand_out", units="MW")
         )
         assert electricity_unmet_demand == pytest.approx(711.1997294551337, rel=1e-6)
 
@@ -1344,7 +1344,7 @@ def test_simple_dispatch_example(subtests, temp_copy_of_example):
         assert pytest.approx(wind_electricity.sum(), rel=1e-6) == battery_electricity_in.sum()
 
     with subtests.test("Check demand satisfaction"):
-        electricity_out = model.prob.get_val("battery.electricity_out", units="MW")
+        electricity_out = model.prob.get_val("electrical_load_demand.electricity_out", units="MW")
         # Battery output should try to meet the 5 MW constant demand
         # Average output should be close to demand when there's sufficient generation
         assert electricity_out.mean() > 4.20  # MW
@@ -1385,14 +1385,14 @@ def test_simple_dispatch_example(subtests, temp_copy_of_example):
     # Subtest for electricity unused_commodity
     with subtests.test("Check electricity unused commodity"):
         electricity_unused_commodity = np.linalg.norm(
-            model.prob.get_val("battery.unused_electricity_out", units="kW")
+            model.prob.get_val("electrical_load_demand.unused_electricity_out", units="kW")
         )
         assert pytest.approx(electricity_unused_commodity, rel=1e-6) == 412531.73840450746
 
     # Subtest for unmet demand
     with subtests.test("Check electricity unmet demand"):
         electricity_unmet_demand = np.linalg.norm(
-            model.prob.get_val("battery.unmet_electricity_demand_out", units="kW")
+            model.prob.get_val("electrical_load_demand.unmet_electricity_demand_out", units="kW")
         )
         assert pytest.approx(electricity_unmet_demand, rel=1e-6) == 165604.70758669
 
@@ -1425,8 +1425,10 @@ def test_simple_dispatch_example(subtests, temp_copy_of_example):
             * 8760
         )
         battery_electricity_performance = (
-            model.prob.get_val("battery.rated_electricity_production", units="MW*h/year")[0]
-            * model.prob.get_val("battery.capacity_factor", units="unitless").mean()
+            model.prob.get_val(
+                "electrical_load_demand.rated_electricity_production", units="MW*h/year"
+            )[0]
+            * model.prob.get_val("electrical_load_demand.capacity_factor", units="unitless").mean()
             * 8760
         )
         assert (
@@ -1490,7 +1492,9 @@ def test_windard_pv_battery_dispatch_example(subtests, temp_copy_of_example):
         )
 
     with subtests.test("Check demand satisfaction"):
-        dispatched_electricity = model.prob.get_val("battery.electricity_out", units="MW")
+        dispatched_electricity = model.prob.get_val(
+            "electrical_load_demand.electricity_out", units="MW"
+        )
         # Demand should be met for the last part of the year
         assert np.allclose(
             dispatched_electricity[8700:],
@@ -1528,16 +1532,15 @@ def test_windard_pv_battery_dispatch_example(subtests, temp_copy_of_example):
     # Subtest for electricity curtailed
     with subtests.test("Check electricity curtailed"):
         electricity_curtailed = model.prob.get_val(
-            "battery.unused_electricity_out", units="MW"
+            "electrical_load_demand.unused_electricity_out", units="MW"
         ).sum()
 
-        # import pdb; pdb.set_trace()
         assert electricity_curtailed == pytest.approx(20344.97639127703, rel=1e-6)
 
     # Subtest for missed load
     with subtests.test("Check electricity missed load"):
         electricity_missed_load = np.linalg.norm(
-            model.prob.get_val("battery.unmet_electricity_demand_out", units="MW")
+            model.prob.get_val("electrical_load_demand.unmet_electricity_demand_out", units="MW")
         )
         assert electricity_missed_load == pytest.approx(1403.5372787817894)
 
