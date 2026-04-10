@@ -74,19 +74,19 @@ ax2.plot(
 )
 ax2.plot(
     xvals,
-    model.prob.get_val("h2_storage.unused_hydrogen_out", units="t/h")[start_hour:end_hour],
+    model.prob.get_val("h2_load_demand.unused_hydrogen_out", units="t/h")[start_hour:end_hour],
     linestyle=":",
     label="H$_2$ Unused (kg)",
 )
 ax2.plot(
     xvals,
-    model.prob.get_val("h2_storage.unmet_hydrogen_demand_out", units="t/h")[start_hour:end_hour],
+    model.prob.get_val("h2_load_demand.unmet_hydrogen_demand_out", units="t/h")[start_hour:end_hour],
     linestyle=":",
     label="H$_2$ Unmet Demand (kg)",
 )
 ax2.plot(
     xvals,
-    model.prob.get_val("h2_storage.hydrogen_out", units="t/h")[start_hour:end_hour],
+    model.prob.get_val("h2_load_demand.hydrogen_out", units="t/h")[start_hour:end_hour],
     linestyle="-",
     label="H$_2$ Delivered (kg)",
 )
