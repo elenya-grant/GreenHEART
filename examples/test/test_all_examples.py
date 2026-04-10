@@ -925,8 +925,12 @@ def test_natural_gas_example(subtests, temp_copy_of_example):
 
     model.post_process()
     solar_aep = sum(model.prob.get_val("solar.electricity_out", units="kW"))
-    solar_bat_out_total = sum(model.prob.get_val("battery.electricity_out", units="kW"))
-    solar_curtailed_total = sum(model.prob.get_val("battery.unused_electricity_out", units="kW"))
+    solar_bat_out_total = sum(
+        model.prob.get_val("electrical_load_demand.electricity_out", units="kW")
+    )
+    solar_curtailed_total = sum(
+        model.prob.get_val("electrical_load_demand.unused_electricity_out", units="kW")
+    )
 
     renewable_subgroup_total_electricity = (
         model.prob.get_val("finance_subgroup_renewables.rated_electricity_production", units="kW")[
@@ -956,7 +960,9 @@ def test_natural_gas_example(subtests, temp_copy_of_example):
 
     # NOTE: battery output power is not included in any of the financials
 
-    pre_ng_missed_load = model.prob.get_val("battery.unmet_electricity_demand_out", units="kW")
+    pre_ng_missed_load = model.prob.get_val(
+        "electrical_load_demand.unmet_electricity_demand_out", units="kW"
+    )
     ng_electricity_demand = model.prob.get_val("natural_gas_plant.electricity_demand", units="kW")
     ng_electricity_production = model.prob.get_val("natural_gas_plant.electricity_out", units="kW")
     bat_init_charge = 200000.0 * 0.1  # max capacity in kW and initial charge rate percentage
@@ -1915,10 +1921,12 @@ def test_24_solar_battery_grid_example(subtests, temp_copy_of_example):
 
     electricity_bought = sum(model.prob.get_val("grid_buy.electricity_out", units="kW"))
     battery_missed_load = sum(
-        model.prob.get_val("battery.unmet_electricity_demand_out", units="kW")
+        model.prob.get_val("electrical_load_demand.unmet_electricity_demand_out", units="kW")
     )
 
-    battery_curtailed = sum(model.prob.get_val("battery.unused_electricity_out", units="kW"))
+    battery_curtailed = sum(
+        model.prob.get_val("electrical_load_demand.unused_electricity_out", units="kW")
+    )
     electricity_sold = sum(model.prob.get_val("grid_sell.electricity_in", units="kW"))
 
     solar_aep = sum(model.prob.get_val("solar.electricity_out", units="kW"))
@@ -2423,6 +2431,7 @@ def test_pyomo_optimized_dispatch_example(subtests, temp_copy_of_example):
     # TODO: Update with demand module once it is developed
     model.setup()
     model.prob.set_val("battery.electricity_demand", demand_profile, units="MW")
+    model.prob.set_val("electrical_load_demand.electricity_demand", demand_profile, units="MW")
 
     # Run the model
     model.run()
@@ -2443,11 +2452,15 @@ def test_pyomo_optimized_dispatch_example(subtests, temp_copy_of_example):
 
     # Battery checks
     with subtests.test("Check battery total electricity produced"):
-        battery_total = model.prob.get_val("battery.total_electricity_produced", units="kW*h")[0]
+        battery_total = model.prob.get_val(
+            "electrical_load_demand.total_electricity_produced", units="kW*h"
+        )[0]
         assert battery_total == pytest.approx(645_787_407.02, rel=1e-3)
 
     with subtests.test("Check battery capacity factor"):
-        battery_cf = model.prob.get_val("battery.capacity_factor", units="unitless")[0]
+        battery_cf = model.prob.get_val("electrical_load_demand.capacity_factor", units="unitless")[
+            0
+        ]
         assert battery_cf == pytest.approx(0.7372, rel=1e-3)
 
     with subtests.test("Check battery CapEx"):
