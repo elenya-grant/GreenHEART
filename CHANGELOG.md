@@ -35,6 +35,9 @@
 - Added oxygen production metrics and as outputs to `ECOElectrolyzerPerformanceModel` [PR 642](https://github.com/NatLabRockies/H2Integrate/pull/642)
 - Bugfix to allow for one resource to be connected to multiple technologies [PR 655](https://github.com/NatLabRockies/H2Integrate/pull/655)
 - Removed the last of the logic that was based on technology names rather than model classes [PR 654](https://github.com/NatLabRockies/H2Integrate/pull/654)
+- Reclassified open-loop converter control strategies as demand components and updated output naming convention to align with output naming convention in storage performance models [PR 631](https://github.com/NatLabRockies/H2Integrate/pull/631).
+  - The `FlexibleDemandOpenLoopConverterController` has been renamed to `FlexibleDemandComponent`
+  - The `DemandOpenLoopConverterController` has been renamed to `GenericDemandComponent`
 
 ## 0.7.1 [March 13, 2026]
 
