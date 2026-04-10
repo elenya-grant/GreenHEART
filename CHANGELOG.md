@@ -47,6 +47,7 @@
 - Reclassified open-loop converter control strategies as demand components and updated output naming convention to align with output naming convention in storage performance models [PR 631](https://github.com/NatLabRockies/H2Integrate/pull/631).
   - The `FlexibleDemandOpenLoopConverterController` has been renamed to `FlexibleDemandComponent`
   - The `DemandOpenLoopConverterController` has been renamed to `GenericDemandComponent`
+- Modified CI setup so Windows is temporarily disabled and also so unit, regression, and integration tests are run in separate jobs to speed up testing and provide more information on test failures. [PR 668](https://github.com/NatLabRockies/H2Integrate/pull/668)
 
 ## 0.7.2 [April 9, 2026]
 
