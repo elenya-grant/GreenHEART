@@ -30,8 +30,10 @@ technology_interconnections:
   # combine the h2 from the electrolyzer and the h2_storage
   - [electrolyzer, h2_combiner, hydrogen, pipe]
   - [h2_storage, h2_combiner, hydrogen, pipe]
-  # connect the hydrogen supply to the ammonia model
-  - [h2_combiner, ammonia, hydrogen, pipe]
+  # subtract the hydrogen supplied from the hydrogen demand
+  - [h2_combiner, h2_load_demand, hydrogen, pipe]
+  # connect the hydrogen supplied as the demand to the ammonia model
+  - [h2_load_demand, ammonia, hydrogen, pipe]
   - [n2_feedstock, ammonia, nitrogen, pipe]
   - [electricity_feedstock, ammonia, electricity, cable]
   # etc
