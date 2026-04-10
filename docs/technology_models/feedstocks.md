@@ -1,6 +1,6 @@
 # Feedstock Models
 
-Feedstock models in H2Integrate represent any resource input that is consumed by technologies in your plant that comes from outside your designed system and not generated internally, such as natural gas, water, electricity from the grid, or any other material input.
+Feedstock models in H2Integrate represent any resource input that is consumed by technologies in your plant that comes from outside your designed system boundary (and not generated internally), such as natural gas, water, electricity from the grid, or any other material input.
 The feedstock modeling approach provides a flexible way to track resource consumption and calculate associated costs for any type of input material or energy source.
 Please see the example `16_natural_gas` in the `examples` directory for a complete setup using natural gas as a feedstock.
 
