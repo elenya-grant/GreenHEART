@@ -95,6 +95,13 @@ technologies:
         energy_capex: 310  # $/kWh from 2024 ATB year 2025
         power_capex: 311  # $/kW from 2024 ATB year 2025
         opex_fraction: 0.025
+  elec_combiner:
+    performance_model:
+      model: GenericCombinerPerformanceModel
+    model_inputs:
+      performance_parameters:
+        commodity: electricity
+        commodity_rate_units: kW
   electrolyzer:
     performance_model:
       model: ECOElectrolyzerPerformanceModel
@@ -139,6 +146,13 @@ technologies:
         # we set the sizing mode to 'auto' rather than defining the capacities
         # in the input file
         sizing_mode: auto  # set as "auto" so storage capacity doesnt have to be defined
+  h2_combiner:
+    performance_model:
+      model: GenericCombinerPerformanceModel
+    model_inputs:
+      performance_parameters:
+        commodity: hydrogen
+        commodity_rate_units: kg/h
   n2_feedstock:
     performance_model:
       model: FeedstockPerformanceModel

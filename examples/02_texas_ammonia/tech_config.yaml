@@ -146,6 +146,13 @@ technologies:
         # we set the sizing mode to 'auto' rather than defining the capacities
         # in the input file
         sizing_mode: auto  # set as "auto" so storage capacity doesnt have to be defined
+  h2_combiner:
+    performance_model:
+      model: GenericCombinerPerformanceModel
+    model_inputs:
+      performance_parameters:
+        commodity: hydrogen
+        commodity_rate_units: kg/h
   ammonia:
     performance_model:
       model: SimpleAmmoniaPerformanceModel
