@@ -10,7 +10,7 @@ from h2integrate.demand.demand_base import DemandComponentBase, DemandComponentB
 class FlexibleDemandComponentConfig(DemandComponentBaseConfig):
     """Configuration for defining a flexible demand component.
 
-    Extends :class:`DemandOpenLoopControlBaseConfig` with additional parameters
+    Extends :class:`DemandComponentBaseConfig` with additional parameters
     required for dynamically adjusting demand based on turndown, ramping, and
     minimum utilization constraints. These parameters are expressed as fractions
     of ``maximum_demand`` and must lie within ``(0, 1)``.
@@ -50,7 +50,7 @@ class FlexibleDemandComponent(DemandComponentBase):
     """
 
     def setup(self):
-        """Set up component inputs and outputs for flexible demand control.
+        """Set up component inputs and outputs for flexible demand.
 
         Adds inputs for turndown ratio, ramp up/down rates, and minimum
         utilization, all expressed as fractions of maximum demand. Adds the
@@ -260,21 +260,12 @@ class FlexibleDemandComponent(DemandComponentBase):
 
         """
 
-        # remaining_demand = inputs[f"{self.commodity}_demand"] - inputs[f"{self.commodity}_in"]
-
         if self.config.min_utilization == 1.0:
-            # Calculate missed load and curtailed production
-            # outputs[f"unmet_{self.commodity}_demand_out"] = np.where(
-            #     remaining_demand > 0, remaining_demand, 0
-            # )
-            # outputs[f"unused_{self.commodity}_out"] = np.where(
-            #     remaining_demand < 0, -1 * remaining_demand, 0
-            # )
-
             outputs[f"{self.commodity}_flexible_demand_profile"] = inputs[
                 f"{self.commodity}_demand"
             ]
 
+            # Calculate missed load and curtailed production
             outputs = self.calculate_outputs(
                 inputs[f"{self.commodity}_in"], inputs[f"{self.commodity}_demand"], outputs
             )
@@ -298,31 +289,3 @@ class FlexibleDemandComponent(DemandComponentBase):
             outputs = self.calculate_outputs(
                 inputs[f"{self.commodity}_in"], flexible_demand_profile, outputs
             )
-
-        #     flexible_remaining_demand = flexible_demand_profile - inputs[f"{self.commodity}_in"]
-
-        #     outputs[f"unmet_{self.commodity}_demand_out"] = np.where(
-        #         flexible_remaining_demand > 0, flexible_remaining_demand, 0
-        #     )
-        #     outputs[f"unused_{self.commodity}_out"] = np.where(
-        #         flexible_remaining_demand < 0, -1 * flexible_remaining_demand, 0
-        #     )
-
-        # # Calculate actual output based on demand met and curtailment
-        # outputs[f"{self.commodity}_out"] = (
-        #     inputs[f"{self.commodity}_in"] - outputs[f"unused_{self.commodity}_out"]
-        # )
-        # outputs[f"rated_{self.commodity}_production"] = inputs[
-        #     f"rated_{self.commodity}_demand"
-        # ].mean()
-
-        # outputs[f"total_{self.commodity}_produced"] = np.sum(outputs[f"{self.commodity}_out"]) * (
-        #     self.dt / 3600
-        # )
-        # outputs[f"annual_{self.commodity}_produced"] = (
-        #     outputs[f"total_{self.commodity}_produced"] / self.fraction_of_year_simulated
-        # )
-
-        # outputs["capacity_factor"] = (
-        #     outputs[f"{self.commodity}_out"].sum() / inputs[f"{self.commodity}_demand"].sum()
-        # )
