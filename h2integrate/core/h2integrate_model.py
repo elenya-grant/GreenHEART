@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 from h2integrate.core.sites import SiteLocationComponent
 from h2integrate.core.utilities import create_xdsm_from_config
+from h2integrate.core.dict_utils import check_inputs
 from h2integrate.core.file_utils import get_path, find_file, load_yaml
 from h2integrate.finances.finances import AdjustedCapexOpexComp
 from h2integrate.core.supported_models import (
@@ -532,7 +533,7 @@ class H2IntegrateModel:
                         plant_config=self.plant_config,
                         tech_config=individual_tech_config,
                     )
-                    om_model_object = tech_group.add_subsystem(tech_name, comp, promotes=["*"])
+                    om_model_object = tech_group.add_subsystem(perf_model, comp, promotes=["*"])
                     self.performance_models.append(om_model_object)
                     self.cost_models.append(om_model_object)
                     self.finance_models.append(om_model_object)
@@ -1057,6 +1058,11 @@ class H2IntegrateModel:
                         f"{dest_tech}.{transport_item}_consumed",
                         f"{source_tech}.{transport_item}_consumed",
                     )
+                    # Connect the feedstock performance model output to the cost model input
+                    self.plant.connect(
+                        f"{source_tech}_source.{transport_item}_out",
+                        f"{source_tech}.{transport_item}_out",
+                    )
 
                 if perf_model_name == "FeedstockPerformanceModel":
                     source_tech = f"{source_tech}_source"
@@ -1340,12 +1346,16 @@ class H2IntegrateModel:
         self.prob.setup()
         self.state = State.SETUP
 
+        for tech, tech_info in self.technology_config["technologies"].items():
+            check_inputs(self.prob, tech, tech_info, self.tech_config_path)
+
     def run(self):
         # do model setup based on the driver config
         # might add a recorder, driver, set solver tolerances, etc
-        if self.state < State.RUN:
+        if self.state < State.SETUP:
             self.prob.setup()
 
+        if self.state < State.RUN:
             # OpenMDAO will skip this step if it encounters an issue leading to silent failures
             # TODO: remove this step when OpenMDAO implements cursor closure
             if self.recorder_path is not None:

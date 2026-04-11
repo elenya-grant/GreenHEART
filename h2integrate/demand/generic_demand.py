@@ -54,31 +54,3 @@ class GenericDemandComponent(DemandComponentBase):
         outputs = self.calculate_outputs(
             inputs[f"{self.commodity}_in"], inputs[f"{self.commodity}_demand"], outputs
         )
-        # remaining_demand = inputs[f"{self.commodity}_demand"] - inputs[f"{self.commodity}_in"]
-
-        # # Calculate missed load and curtailed production
-        # outputs[f"unmet_{self.commodity}_demand_out"] = np.where(
-        #     remaining_demand > 0, remaining_demand, 0
-        # )
-        # outputs[f"unused_{self.commodity}_out"] = np.where(
-        #     remaining_demand < 0, -1 * remaining_demand, 0
-        # )
-
-        # # Calculate actual output based on demand met and curtailment
-        # outputs[f"{self.commodity}_out"] = (
-        #     inputs[f"{self.commodity}_in"] - outputs[f"unused_{self.commodity}_out"]
-        # )
-
-        # outputs[f"rated_{self.commodity}_production"] = inputs[f"{self.commodity}_demand"].mean()
-
-        # outputs[f"total_{self.commodity}_produced"] = np.sum(outputs[f"{self.commodity}_out"]) * (
-        #     self.dt / 3600
-        # )
-
-        # outputs[f"annual_{self.commodity}_produced"] = (
-        #     outputs[f"total_{self.commodity}_produced"] / self.fraction_of_year_simulated
-        # )
-
-        # outputs["capacity_factor"] = (
-        #     outputs[f"{self.commodity}_out"].sum() / inputs[f"{self.commodity}_demand"].sum()
-        # )
