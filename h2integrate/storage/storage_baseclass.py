@@ -140,6 +140,14 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
             desc=f"{commodity} input to storage only",
         )
 
+        self.add_input(
+            f"{commodity}_demand",
+            val=self.config.demand_profile,
+            shape=n_timesteps,
+            units=commodity_rate_units,
+            desc=f"{commodity} demand profile",
+        )
+
         # create a variable to determine whether we are using feedback control
         # for this technology
         using_feedback_control = False
@@ -152,24 +160,8 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
                 "tech_to_dispatch_connections"
             ]:
                 if any(intended_dispatch_tech in name for name in self.tech_group_name):
-                    # check that a demand profile was input
-                    if self.config.demand_profile is None:
-                        msg = (
-                            "When using a feedback controller with storage, a demand profile is "
-                            "required as an input for the storage performance model"
-                        )
-                        raise ValueError(msg)
-
                     self.add_discrete_input("pyomo_dispatch_solver", val=lambda: None)
                     # the controller gets demand from the storage model
-                    self.add_input(
-                        f"{commodity}_demand",
-                        val=self.config.demand_profile,
-                        shape=n_timesteps,
-                        units=commodity_rate_units,
-                        desc=f"{commodity} demand profile",
-                    )
-
                     # set the using feedback control variable to True
                     using_feedback_control = True
                     break
