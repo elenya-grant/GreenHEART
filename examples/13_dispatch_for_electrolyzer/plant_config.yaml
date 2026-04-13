@@ -23,7 +23,7 @@ technology_interconnections:
   - [gen_combiner, elec_combiner, electricity, cable]
   # subtract the electricity generated from the electricity demand
   - [elec_combiner, elec_load_demand, electricity, cable]
-  # connect the electricied supplied to the demand to the electrolyzer
+  # connect the electricity supplied to the demand to the electrolyzer
   - [elec_load_demand, electrolyzer, electricity, cable]
 resource_to_tech_connections:
   # connect the wind resource to the wind technology
