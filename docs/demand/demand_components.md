@@ -1,29 +1,27 @@
 # Demand components
 
-- [`GenericDemandComponent`](#demand-open-loop-converter-controller)
-- [`FlexibleDemandComponent`](#flexible-demand-open-loop-converter-controller)
+- [`GenericDemandComponent`](#generic-demand-component)
+- [`FlexibleDemandComponent`](#flexible-demand-component)
 
-## Open-Loop Converter Controllers
+Demand components define rule-based logic for meeting commodity demand profiles without using dynamic system feedback. These components operate independently at each timestep.
 
-Open-loop converter controllers define rule-based logic for meeting commodity demand profiles without using dynamic system feedback. These controllers operate independently at each timestep.
+This page documents two core demand types:
+1. Generic Demand Component — meets a fixed demand profile.
+2. Flexible Demand Component — adjusts demand up or down within flexible bounds.
 
-This page documents two core controller types:
-1. Demand Open-Loop Converter Controller — meets a fixed demand profile.
-2. Flexible Demand Open-Loop Converter Controller — adjusts demand up or down within flexible bounds.
-
-(demand-open-loop-converter-controller)=
-### Demand Open-Loop Converter Controller
+(generic-demand-component)=
+### Generic Demand Component
 The `GenericDemandComponent` allocates commodity input to meet a defined demand profile. It does not contain energy storage logic, only **instantaneous** matching of supply and demand.
 
-The controller computes each value per timestep:
+The demand component computes each value per timestep:
 - Unmet demand (non-zero when supply < demand, otherwise 0.)
 - Unused commodity (non-zero when supply > demand, otherwise 0.)
 - Delivered output (commodity supplied to demand sink)
 
-This provides a simple baseline for understanding supply–demand balance before adding complex controls.
+This provides a simple baseline for understanding supply–demand balance.
 
 #### Configuration
-The controller is defined within the `tech_config` and requires these inputs.
+The demand is defined within the `tech_config` and requires these inputs.
 
 | Field             | Type           | Description                           |
 | ----------------- | -------------- | ------------------------------------- |
@@ -32,32 +30,30 @@ The controller is defined within the `tech_config` and requires these inputs.
 | `demand_profile`  | scalar or list | Timeseries demand or constant demand. |
 
 ```yaml
-control_strategy:
+performance_model:
     model: GenericDemandComponent
 model_inputs:
-  control_parameters:
+  performance_parameters:
     commodity_name: hydrogen
     commodity_units: kg/h
     demand_profile: [10, 10, 12, 15, 14]
 ```
-For an example of how to use the `GenericDemandComponent` open-loop control framework, see the following:
+For an example of how to use the `GenericDemandComponent` framework, see the following:
 - `examples/23_solar_wind_ng_demand`
 
-(flexible-demand-open-loop-converter-controller)=
-### Flexible Demand Open-Loop Converter Controller
-The `FlexibleDemandComponent` extends the fixed-demand controller by allowing the actual demand to flex up or down within defined bounds. This is useful for demand-side management scenarios where:
+(flexible-demand-component)=
+### Flexible Demand Component
+The `FlexibleDemandComponent` extends the generic demand component by allowing the actual demand to flex up or down within defined bounds. This is useful for demand-side management scenarios where:
 - Processes can defer demand (e.g., flexible industrial loads)
 - The system requires demand elasticity without dynamic optimization
 
-The controller computes:
+The component computes:
 - Flexible demand (clamped within allowable ranges)
 - Unmet flexible demand
 - Unused commodity
 - Delivered output
 
-Everything remains open-loop no storage, no intertemporal coupling.
-
-For an example of how to use the `FlexibleDemandComponent` open-loop control framework, see the following:
+For an example of how to use the `FlexibleDemandComponent` demand component, see the following:
 - `examples/23_solar_wind_ng_demand`
 
 The flexible demand component takes an input commodity production profile, the maximum demand profile, and various constraints (listed below), and creates a "flexible demand profile" that follows the original input commodity production profile while satisfying varying constraint.
@@ -69,7 +65,7 @@ The axes are unlabeled to allow for generalization to any commodity and unit typ
 
 
 #### Configuration
-The flexible demand controller is defined within the `tech_config` with the following parameters:
+The flexible demand component is defined within the `tech_config` with the following parameters:
 
 | Field               | Type           | Description                                  |
 | ------------------- | -------------- | -------------------------------------------- |
@@ -83,7 +79,7 @@ The flexible demand controller is defined within the `tech_config` with the foll
 
 ```yaml
 model_inputs:
-  control_parameters:
+  performance_parameters:
     commodity_name: hydrogen
     commodity_units: kg/h
     demand_profile: [10, 12, 10, 8]

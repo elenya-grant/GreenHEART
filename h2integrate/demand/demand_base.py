@@ -13,7 +13,7 @@ class DemandComponentBaseConfig(BaseConfig):
     demand profile that should be met by downstream components.
 
     Attributes:
-        commodity (str): Name of the commodity being controlled
+        commodity (str): Name of the commodity being demanded
             (e.g., "hydrogen"). Converted to lowercase and stripped of whitespace.
         commodity_rate_units (str): Units of the commodity (e.g., "kg/h").
         demand_profile (int | float | list): Demand values for each timestep, in
