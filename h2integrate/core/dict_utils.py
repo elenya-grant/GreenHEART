@@ -241,15 +241,20 @@ def check_inputs(prob, tech: str, tech_info: dict, tech_config_path: str):
         AttributeError: Raised if any of the 3 conditions are not met.
     """
     # Only check models that have a control strategy or dispatch rule set
-    if not {"control_strategy", "dispatch_rule_set"}.intersection(tech_info):
-        return
+    # if not {"control_strategy", "dispatch_rule_set"}.intersection(tech_info):
+    #     return
 
-    # Only check for shared inputs when the system contains at least one technology
-    # in addition to a performance and control model
-    check_keys = ("control_strategy", "dispatch_rule_set", "cost_model", "performance_model")
-    minimal_keys = {"control_strategy", "performance_model"}
-    overlap = set(tech_info).intersection(check_keys)
-    if not overlap.difference(minimal_keys):
+    # # Only check for shared inputs when the system contains at least one technology
+    # # in addition to a performance and control model
+    # check_keys = ("control_strategy", "dispatch_rule_set", "cost_model", "performance_model")
+    # minimal_keys = {"control_strategy", "performance_model"}
+    # overlap = set(tech_info).intersection(check_keys)
+    # if not overlap.difference(minimal_keys):
+    #     return
+    # dont run for feedstock components
+    if tech_info.get("cost_model", {}).get("model", "") == "FeedstockCostModel":
+        return
+    if tech_info.get("performance_model", {}).get("model", "") == "FeedstockPerformanceModel":
         return
 
     msg = None
@@ -257,6 +262,7 @@ def check_inputs(prob, tech: str, tech_info: dict, tech_config_path: str):
     dispatch_sys = None
     cost_sys = None
     perf_sys = None
+    fin_sys = None
     group = getattr(prob.model.plant, tech)
 
     # Rebuild the model inputs dictionary from the initialized technology parameters
@@ -264,6 +270,8 @@ def check_inputs(prob, tech: str, tech_info: dict, tech_config_path: str):
     dispatch_params = {}
     cost_params = {}
     performance_params = {}
+    finance_params = {}
+
     if "control_strategy" in tech_info:
         if (control_sys := getattr(group, tech_info["control_strategy"]["model"])) is not None:
             control_params = control_sys.config.as_dict()
@@ -276,27 +284,47 @@ def check_inputs(prob, tech: str, tech_info: dict, tech_config_path: str):
     if "performance_model" in tech_info:
         if (perf_sys := getattr(group, tech_info["performance_model"]["model"])) is not None:
             performance_params = perf_sys.config.as_dict()
+    if "finance_model" in tech_info:
+        if (fin_sys := getattr(group, tech_info["finance_model"]["model"])) is not None:
+            finance_params = fin_sys.config.as_dict()
     if "cost_model" in tech_info and "performance_model" in tech_info:
         # Handle case with combined cost and performance model
         if tech_info["cost_model"]["model"] == tech_info["performance_model"]["model"]:
             cost_sys = None
             cost_params = {}
+    if "cost_model" in tech_info and "finance_model" in tech_info:
+        # Handle case with combined cost and finance model
+        if tech_info["cost_model"]["model"] == tech_info["finance_model"]["model"]:
+            if "cost_parameters" in tech_info["model_inputs"]:
+                fin_sys = None
+                finance_params = {}
+            else:
+                cost_sys = None
+                cost_params = None
 
     # Check for overlapping keys between any two sets of configurations to reconstruct
     # the shared parameters, and create a restructured configuration
-    all_parameters = (control_params, dispatch_params, cost_params, performance_params)
+    all_parameters = (
+        control_params,
+        dispatch_params,
+        cost_params,
+        performance_params,
+        finance_params,
+    )
     _share_check = Counter([x for el in all_parameters for x in set(el)])
     shared = {k for k, v in _share_check.items() if v > 1}
     shared_params = {k: control_params.pop(k) for k in shared.intersection(control_params)}
     shared_params |= {k: dispatch_params.pop(k) for k in shared.intersection(dispatch_params)}
     shared_params |= {k: cost_params.pop(k) for k in shared.intersection(cost_params)}
     shared_params |= {k: performance_params.pop(k) for k in shared.intersection(performance_params)}
+    shared_params |= {k: finance_params.pop(k) for k in shared.intersection(finance_params)}
     restructured_params = {
         "control_parameters": control_params,
         "dispatch_parameters": dispatch_params,
         "cost_parameters": cost_params,
         "performance_parameters": performance_params,
         "shared_parameters": shared_params,
+        "finance_parameters": finance_params,
     }
 
     tech_location = f"the '{tech}' section of {tech_config_path}"
