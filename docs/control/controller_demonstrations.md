@@ -24,15 +24,24 @@ from h2integrate.core.h2integrate_model import H2IntegrateModel
 The following example is an expanded form of `examples/14_wind_hydrogen_dispatch`.
 
 Here, we're highlighting the dispatch controller setup from
-`examples/14_wind_hydrogen_dispatch/inputs/tech_config.yaml`. Please note some sections are removed
-simply to highlight the controller sections
+`examples/14_wind_hydrogen_dispatch/inputs/tech_config.yaml`. Please note some sections are removed simply to highlight the controller sections
 
 ```{literalinclude} ../../examples/14_wind_hydrogen_dispatch/inputs/tech_config.yaml
 :language: yaml
-:lineno-start: 54
+:lineno-start: 52
 :linenos: true
-:lines: 54,59-61,67-74
+:lines: 52,53-54,57-58,59-71
 ```
+
+We also include a demand technology to calculate how much demand is met, how much commodity is unused to meet the demand, and how much demand is remaining:
+
+```{literalinclude} ../../examples/14_wind_hydrogen_dispatch/inputs/tech_config.yaml
+:language: yaml
+:lineno-start: 79
+:linenos: true
+:lines: 79-86
+```
+
 
 Using the primary configuration, we can create, run, and postprocess an H2Integrate model.
 
