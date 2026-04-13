@@ -1752,6 +1752,69 @@ def test_sweeping_solar_sites_doe(subtests, temp_copy_of_example):
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize(
+    "example_folder,resource_example_folder",
+    [("23_solar_wind_ng_demand", "11_hybrid_energy_plant/")],
+)
+def test_ng_demand_example(subtests, temp_copy_of_example):
+    example_folder = temp_copy_of_example
+
+    generic_demand_fpath = example_folder / "solar_wind_ng_demand.yaml"
+    # Create a H2I model
+    h2i_generic = H2IntegrateModel(generic_demand_fpath)
+    h2i_generic.run()
+
+    lcoe_renewables_generic = h2i_generic.prob.get_val(
+        "finance_subgroup_renewables.LCOE_profast_lco", units="USD/(MW*h)"
+    )
+    npv_renewables_generic = h2i_generic.prob.get_val(
+        "finance_subgroup_renewables.NPV_electricity__profast_npv", units="MUSD"
+    )
+    lcoe_ng_generic = h2i_generic.prob.get_val(
+        "finance_subgroup_natural_gas.LCOE", units="USD/(MW*h)"
+    )
+    lcoe_electricity_generic = h2i_generic.prob.get_val(
+        "finance_subgroup_electricity.LCOE", units="USD/(MW*h)"
+    )
+
+    with subtests.test("Renewables LCOE with generic demand"):
+        assert pytest.approx(65.25367747, rel=1e-6) == lcoe_renewables_generic[0]
+    with subtests.test("Renewables NPV with generic demand"):
+        assert pytest.approx(-36.0408322, rel=1e-6) == npv_renewables_generic[0]
+    with subtests.test("Natural gas LCOE with generic demand"):
+        assert pytest.approx(60.30971126, rel=1e-6) == lcoe_ng_generic[0]
+    with subtests.test("Electricity LCOE with generic demand"):
+        assert pytest.approx(62.95948605, rel=1e-6) == lcoe_electricity_generic[0]
+
+    # Run with the flexible load demand
+    flexible_demand_fpath = example_folder / "solar_wind_ng_flexible_demand.yaml"
+    h2i_flexible = H2IntegrateModel(flexible_demand_fpath)
+    h2i_flexible.run()
+
+    lcoe_renewables_flexible = h2i_flexible.prob.get_val(
+        "finance_subgroup_renewables.LCOE_profast_lco", units="USD/(MW*h)"
+    )
+    npv_renewables_flexible = h2i_flexible.prob.get_val(
+        "finance_subgroup_renewables.NPV_electricity__profast_npv", units="MUSD"
+    )
+    lcoe_ng_flexible = h2i_flexible.prob.get_val(
+        "finance_subgroup_natural_gas.LCOE", units="USD/(MW*h)"
+    )
+    lcoe_electricity_flexible = h2i_flexible.prob.get_val(
+        "finance_subgroup_electricity.LCOE", units="USD/(MW*h)"
+    )
+
+    with subtests.test("Renewables LCOE with flexible demand"):
+        assert pytest.approx(65.25367747, rel=1e-6) == lcoe_renewables_flexible[0]
+    with subtests.test("Renewables NPV with flexible demand"):
+        assert pytest.approx(-36.0408322, rel=1e-6) == npv_renewables_flexible[0]
+    with subtests.test("Natural gas LCOE with flexible demand"):
+        assert pytest.approx(115.92792486, rel=1e-6) == lcoe_ng_flexible[0]
+    with subtests.test("Electricity LCOE with flexible demand"):
+        assert pytest.approx(76.39162926, rel=1e-6) == lcoe_electricity_flexible[0]
+
+
+@pytest.mark.integration
 @pytest.mark.parametrize("example_folder,resource_example_folder", [("26_floris", None)])
 def test_floris_example(subtests, temp_copy_of_example):
     example_folder = temp_copy_of_example
