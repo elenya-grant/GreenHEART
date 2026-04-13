@@ -747,6 +747,83 @@ def test_hybrid_energy_plant_example(subtests, temp_copy_of_example):
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
+    "example_folder,resource_example_folder", [("13_dispatch_for_electrolyzer", None)]
+)
+def test_electrolyzer_demand(subtests, temp_copy_of_example):
+    from h2integrate.core.inputs.validation import load_tech_yaml, load_plant_yaml, load_driver_yaml
+
+    example_folder = temp_copy_of_example
+
+    tech_config = load_tech_yaml(example_folder / "tech_config.yaml")
+    plant_config = load_plant_yaml(example_folder / "plant_config.yaml")
+    driver_config = load_driver_yaml(example_folder / "driver_config.yaml")
+
+    # modify all the output folders to be full filepaths
+    driver_config["general"]["folder_output"] = str(Path(example_folder / "outputs").absolute())
+    tech_config["technologies"]["distributed_wind_plant"]["model_inputs"]["performance_parameters"][
+        "cache_dir"
+    ] = example_folder / "cache"
+
+    input_config = {
+        "plant_config": plant_config,
+        "technology_config": tech_config,
+        "driver_config": driver_config,
+    }
+
+    h2i = H2IntegrateModel(input_config)
+
+    h2i.setup()
+
+    electrolyzer_capacity_MW = 60
+
+    # Set the battery demand as 10% of the electrolyzer capacity
+    h2i.prob.set_val("battery.electricity_demand", 0.1 * electrolyzer_capacity_MW, units="MW")
+    h2i.prob.set_val("elec_load_demand.electricity_demand", electrolyzer_capacity_MW, units="MW")
+
+    h2i.run()
+
+    lcoe_gen = h2i.prob.get_val("finance_subgroup_generated_electricity.LCOE", units="USD/(MW*h)")[
+        0
+    ]
+    lcoe_sys = h2i.prob.get_val("finance_subgroup_electrical_system.LCOE", units="USD/(MW*h)")[0]
+    lcoe_load = h2i.prob.get_val("finance_subgroup_electrical_load.LCOE", units="USD/(MW*h)")[0]
+    lcoh = h2i.prob.get_val("finance_subgroup_hydrogen.LCOH", units="USD/kg")[0]
+
+    with subtests.test("LCOE of electricity generated"):
+        assert pytest.approx(138.905228, rel=1e-6) == lcoe_gen
+
+    with subtests.test("LCOE of electrical load (battery for min power)"):
+        assert pytest.approx(153.193548, rel=1e-6) == lcoe_load
+
+    with subtests.test("LCOE of electrical system (battery for min power)"):
+        assert pytest.approx(150.331074, rel=1e-6) == lcoe_sys
+
+    with subtests.test("LCOH (battery for min power)"):
+        assert pytest.approx(10.203112, rel=1e-6) == lcoh
+
+    # Re-run where we set the battery demand equal to the electrolyzer capacity
+
+    h2i.prob.set_val("battery.electricity_demand", electrolyzer_capacity_MW, units="MW")
+    h2i.prob.set_val("elec_load_demand.electricity_demand", electrolyzer_capacity_MW, units="MW")
+
+    h2i.run()
+
+    lcoe_sys = h2i.prob.get_val("finance_subgroup_electrical_system.LCOE", units="USD/(MW*h)")[0]
+    lcoe_load = h2i.prob.get_val("finance_subgroup_electrical_load.LCOE", units="USD/(MW*h)")[0]
+    lcoh = h2i.prob.get_val("finance_subgroup_hydrogen.LCOH", units="USD/kg")[0]
+
+    with subtests.test("LCOE of electrical load (battery for full power)"):
+        assert pytest.approx(151.007427, rel=1e-6) == lcoe_load
+
+    with subtests.test("LCOE of electrical system (battery for full power)"):
+        assert pytest.approx(150.316885, rel=1e-6) == lcoe_sys
+
+    with subtests.test("LCOH (battery for full power)"):
+        assert pytest.approx(10.807540, rel=1e-6) == lcoh
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
     "example_folder,resource_example_folder", [("14_wind_hydrogen_dispatch", None)]
 )
 def test_hydrogen_dispatch_example(subtests, temp_copy_of_example):
