@@ -59,15 +59,8 @@ Now, we can visualize the demand profiles over time.
 ```{code-cell} ipython3
 fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(8, 6), layout="tight")
 
-start_hour = 0
-end_hour = 200
-total_time_steps = model.prob.get_val("h2_storage.SOC").size
-demand_profile = [
-    model.technology_config["technologies"]["h2_storage"]["model_inputs"]["shared_parameters"][
-        "demand_profile"
-    ]
-    * 1e-3
-] * total_time_steps
+start_hour = 800
+end_hour = 1000
 xvals = list(range(start_hour, end_hour))
 
 ax1.plot(
@@ -101,7 +94,7 @@ ax2.plot(
 )
 ax2.plot(
     xvals,
-    demand_profile[start_hour:end_hour],
+    model.prob.get_val("h2_load_demand.hydrogen_demand", units="t/h")[start_hour:end_hour],
     linestyle="--",
     label="H$_2$ Demand (kg)",
 )
@@ -109,15 +102,15 @@ ax2.plot(
 ax1.set_ylabel("SOC (%)")
 ax1.grid()
 ax1.set_axisbelow(True)
-ax1.set_xlim(0, 200)
-ax1.set_ylim(0, 50)
+ax1.set_xlim(start_hour, end_hour)
+ax1.set_ylim(60, 100)
 
 ax2.set_ylabel("H$_2$ Hourly (t)")
 ax2.set_xlabel("Timestep (hr)")
 ax2.grid()
 ax2.set_axisbelow(True)
-ax2.set_ylim(0, 20)
-ax2.set_yticks(range(0, 21, 2))
+ax2.set_ylim(0, 18)
+ax2.set_yticks(range(0, 19, 2))
 
 plt.legend(ncol=3)
 fig.show()
