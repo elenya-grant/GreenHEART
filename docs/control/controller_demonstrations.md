@@ -17,6 +17,8 @@ kernelspec:
 from pathlib import Path
 from matplotlib import pyplot as plt
 from h2integrate.core.h2integrate_model import H2IntegrateModel
+from h2integrate import EXAMPLE_DIR
+
 ```
 
 ## Hydrogen Dispatch
@@ -47,7 +49,7 @@ Using the primary configuration, we can create, run, and postprocess an H2Integr
 
 ```{code-cell} ipython3
 # Create an H2Integrate model
-model = H2IntegrateModel(Path("../../examples/14_wind_hydrogen_dispatch/inputs/h2i_wind_to_h2_storage.yaml"))
+model = H2IntegrateModel(EXAMPLE_DIR/"14_wind_hydrogen_dispatch"/"inputs"/"h2i_wind_to_h2_storage.yaml")
 
 # Run the model
 model.run()
