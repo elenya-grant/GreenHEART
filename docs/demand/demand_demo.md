@@ -70,12 +70,32 @@ We don't want to send more electricity to the electrolyzer than the electrolyzer
 We initialize and setup the H2I model
 
 ```{code-cell} ipython3
+from pathlib import Path
 from matplotlib import pyplot as plt
 from h2integrate.core.h2integrate_model import H2IntegrateModel
 from h2integrate import EXAMPLE_DIR
+from h2integrate.core.inputs.validation import load_tech_yaml, load_plant_yaml, load_driver_yaml
+
+ex_dir = EXAMPLE_DIR / "13_dispatch_for_electrolyzer"
+tech_config = load_tech_yaml(ex_dir / "tech_config.yaml")
+plant_config = load_plant_yaml(ex_dir / "plant_config.yaml")
+driver_config = load_driver_yaml(ex_dir / "driver_config.yaml")
+
+# modify all the output folders to be full filepaths
+driver_config["general"]["folder_output"] = str(Path(ex_dir / "outputs").absolute())
+tech_config["technologies"]["distributed_wind_plant"]["model_inputs"]["performance_parameters"][
+    "cache_dir"
+] = ex_dir / "cache"
+
+input_config = {
+    "plant_config": plant_config,
+    "technology_config": tech_config,
+    "driver_config": driver_config,
+}
+
 
 # Create an H2Integrate model
-h2i = H2IntegrateModel(EXAMPLE_DIR/"13_dispatch_for_electrolyzer"/"inputs"/"h2i_wind_to_h2_storage.yaml")
+h2i = H2IntegrateModel(input_config)
 
 # Setup the model
 h2i.setup()
