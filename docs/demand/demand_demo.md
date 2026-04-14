@@ -37,9 +37,9 @@ The electrolyzer system is comprised of 6 stacks, each rated at 10 MW, resulting
 
 ```{literalinclude} ../../examples/13_dispatch_for_electrolyzer/tech_config.yaml
 :language: yaml
-:lineno-start: 121
+:lineno-start: 120
 :linenos: true
-:lines: 121-123,126-127,130,131,135
+:lines: 120-123,125-126,129-130,134
 ```
 
 We want to dispatch the battery to *keep the electrolyzer on*. We set the demand profile for the battery as the minimum power required to keep the electrolyzer on, 6 MW.
@@ -53,16 +53,16 @@ Note: the demand profile for the battery is only used by the battery controller 
 :language: yaml
 :lineno-start: 79
 :linenos: true
-:lines: 79-90, 100
+:lines: 79-90, 99
 ```
 
 We don't want to send more electricity to the electrolyzer than the electrolyzer can use. We use the demand component to saturate the electricity generation to the electrolyzer's rated capacity (equal to 60 MW).
 
 ```{literalinclude} ../../examples/13_dispatch_for_electrolyzer/tech_config.yaml
 :language: yaml
-:lineno-start: 113
+:lineno-start: 112
 :linenos: true
-:lines: 113-120
+:lines: 112-119
 ```
 
 
@@ -101,16 +101,16 @@ h2i = H2IntegrateModel(input_config)
 h2i.setup()
 ```
 
-If we wanted to change the demand profiles for the battery (`battery`) or the demand component (`elec_load_demand`) to be different than the demand profiles specified in the technology config, we can do that using `set_val`:
+If we wanted to change the demand profiles for the battery (`battery`) or the demand component (`elec_load_demand`) to be different than the demand profiles specified in the technology config, we could do that using `set_val`:
 
 ```{code-cell} ipython3
 electrolyzer_capacity_MW = 60
 
 # Set the battery demand equal to the minimum electricity needed to keep the electrolyzer on
-h2i.prob.set_val("battery.electricity_demand", 0.1 * electrolyzer_capacity_MW, units="MW")
+# h2i.prob.set_val("battery.electricity_demand", 0.1 * electrolyzer_capacity_MW, units="MW")
 
 # Set the demand of the demand component equal to the rated electrical capacity of the electrolyzer
-h2i.prob.set_val("elec_load_demand.electricity_demand", electrolyzer_capacity_MW, units="MW")
+# h2i.prob.set_val("elec_load_demand.electricity_demand", electrolyzer_capacity_MW, units="MW")
 ```
 
 We then run the model:

@@ -86,21 +86,20 @@ technologies:
     model_inputs:
       shared_parameters:
         commodity: electricity
-        commodity_rate_units: kW
-        commodity_amount_units: kW*h
-        max_charge_rate: 12000  # equal to 2x electrolyzer turndown ratio
-        max_capacity: 48000  # 4-hour battery
-      # performance_parameters:
+        commodity_rate_units: MW
+        commodity_amount_units: MW*h
+        max_charge_rate: 12.0  # equal to 2x electrolyzer turndown ratio, 12 MW
+        max_capacity: 48.0  # 4-hour battery, 48 MW
         init_soc_fraction: 0.0
         charge_equals_discharge: true
         charge_efficiency: 1.0
         discharge_efficiency: 1.0
         min_soc_fraction: 0.0
         max_soc_fraction: 1.0
-        demand_profile: 6000  # equal to electrolyzer turndown ratio
+        demand_profile: 6.0  # equal to electrolyzer turndown ratio (6 MW)
       cost_parameters:
-        capacity_capex: 173  # USD/kW*h
-        charge_capex: 750  # USD/kW (multiplied by charge rate)
+        capacity_capex: 173000  # USD/MW*h, 173 USD/kW*h
+        charge_capex: 750000  # USD/MW (multiplied by charge rate), 750 USD/kW
         opex_fraction: 0.025  # 2.5 % of total CapEx
         cost_year: 2022
   elec_combiner:  # combiner for battery + generation
