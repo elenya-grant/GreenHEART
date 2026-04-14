@@ -207,6 +207,30 @@ ax.set_ylabel("Electricity (MW)")
 ax.set_xlabel("Time (hours)")
 ```
 
+Plot the battery SOC and charge/discharge profile
+
+```{code-cell} ipython3
+fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=[7.2, 4.8])
+
+battery_SOC = h2i.prob.get_val("battery.SOC", units="percent")
+
+ax1.plot(x, battery_demand[start_hour:end_hour], color="tab:green", alpha=0.5, lw=1.5, ls='-.', zorder=2, label="battery.electricity_demand")
+ax1.plot(x, battery_charge_discharge[start_hour:end_hour], color="tab:blue", alpha=1.0, lw=1.5, ls='-', zorder=3, label="battery.electricity_out")
+ax1.spines[['right', 'top']].set_visible(False)
+ax1.set_xlim([start_hour, end_hour])
+ax.legend(bbox_to_anchor=(1.0, 0.5), loc="center left", borderaxespad=0, framealpha=0.0)
+ax1.set_ylabel("Electricity (MW)")
+
+
+# Plot the SOC
+ax2.plot(x, battery_SOC[start_hour:end_hour], color="tab:blue", lw=1.5)
+
+ax2.set_ylabel("SOC (%)")
+ax2.set_ylim([0, 100])
+ax2.spines[['right', 'top']].set_visible(False)
+ax2.set_xlabel("Time (hours)")
+```
+
 
 ### Changing the battery demand
 
