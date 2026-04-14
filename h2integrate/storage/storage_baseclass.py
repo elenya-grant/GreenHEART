@@ -143,6 +143,14 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
             desc=f"{commodity} input to storage only",
         )
 
+        self.add_output(
+            "standard_capacity_factor",
+            val=0.0,
+            shape=self.plant_life,
+            units="unitless",
+            desc=f"Capacity factor of {commodity} discharged from storage",
+        )
+
         # create a variable to determine whether we are using feedback control
         # for this technology
         using_feedback_control = False
@@ -297,6 +305,12 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
             outputs["capacity_factor"] = outputs[f"total_{self.commodity}_produced"] / (
                 outputs[f"rated_{self.commodity}_production"] * self.n_timesteps
             )
+
+        total_commodity_discharged = outputs[f"storage_{self.commodity}_discharge"].sum()
+        # standard_capacity_factor is the ratio of commodity discharged to the discharge rate
+        outputs["standard_capacity_factor"] = total_commodity_discharged / (
+            outputs[f"rated_{self.commodity}_production"] * self.n_timesteps
+        )
         return outputs
 
     def simulate(
