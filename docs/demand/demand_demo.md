@@ -12,10 +12,10 @@ kernelspec:
 ---
 
 # Demand Demonstration
-Different usage of demand components is shown in the following examples:
-- `13_dispatch_for_electrolyzer`: sets the battery demand differently than the demand profile of the demand component
-- `23_solar_wind_ng_demand`: compares usage of the `GenericDemandComponent` and `FlexibleDemandComponent`
-- `24_solar_battery_grid`: sells excess electricity to grid
+Different usage of demand components are shown in the following examples:
+- `13_dispatch_for_electrolyzer`: showcases how to set an overall demand for the system and a separate demand for the battery system.
+- `23_solar_wind_ng_demand`: compares usage of the `GenericDemandComponent` and `FlexibleDemandComponent`.
+- `24_solar_battery_grid`: highlights how to sell the electricity in excess of the demand to the grid.
 
 This demonstration will focus on the `13_dispatch_for_electrolyzer` example
 

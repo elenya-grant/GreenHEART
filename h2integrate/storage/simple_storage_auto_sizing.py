@@ -79,12 +79,10 @@ class StorageSizingModelConfig(StoragePerformanceBaseConfig):
         if self.commodity_amount_units is None:
             self.commodity_amount_units = f"({self.commodity_rate_units})*h"
 
-        # Check that the demand profile is zero if set_demand_as_avg_commodity_in is True
-        if isinstance(self.demand_profile, list | np.ndarray):
-            user_input_dmd = True if sum(self.demand_profile) > 0 else False
-        else:
-            user_input_dmd = True if self.demand_profile > 0 else False
+        # Check if the user provided a non-zero demand profile
+        user_input_dmd = True if np.sum(self.demand_profile) > 0 else False
 
+        # Check that the demand profile is zero if set_demand_as_avg_commodity_in is True
         if self.set_demand_as_avg_commodity_in and user_input_dmd:
             # If using the average commodity in as the demand,
             # warn users if they input the demand profile

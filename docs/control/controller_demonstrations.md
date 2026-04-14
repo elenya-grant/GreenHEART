@@ -53,7 +53,6 @@ model = H2IntegrateModel(EXAMPLE_DIR/"14_wind_hydrogen_dispatch"/"inputs"/"h2i_w
 
 # Run the model
 model.run()
-model.post_process()
 ```
 
 Now, we can visualize the demand profiles over time.
