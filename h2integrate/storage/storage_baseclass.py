@@ -301,16 +301,16 @@ class StoragePerformanceBase(PerformanceModelBaseClass):
 
         if outputs[f"rated_{self.commodity}_production"] <= 0:
             outputs["capacity_factor"] = 0.0
+            outputs["standard_capacity_factor"] = 0.0
         else:
             outputs["capacity_factor"] = outputs[f"total_{self.commodity}_produced"] / (
                 outputs[f"rated_{self.commodity}_production"] * self.n_timesteps
             )
-
-        total_commodity_discharged = outputs[f"storage_{self.commodity}_discharge"].sum()
-        # standard_capacity_factor is the ratio of commodity discharged to the discharge rate
-        outputs["standard_capacity_factor"] = total_commodity_discharged / (
-            outputs[f"rated_{self.commodity}_production"] * self.n_timesteps
-        )
+            # standard_capacity_factor is the ratio of commodity discharged to the discharge rate
+            total_commodity_discharged = outputs[f"storage_{self.commodity}_discharge"].sum()
+            outputs["standard_capacity_factor"] = total_commodity_discharged / (
+                outputs[f"rated_{self.commodity}_production"] * self.n_timesteps
+            )
         return outputs
 
     def simulate(

@@ -1,21 +1,17 @@
 (simple-generic-storage-performance)=
-# Simple Generic Storage Model
+# `StoragePerformanceModel` Model
 
-The Simple Generic Storage model provides a flexible framework for modeling various types of energy storage systems in H2Integrate. While particularly useful for battery storage, this model can be used to simulate the storage of different resources including hydrogen, CO2, or any other commodity.
+The `StoragePerformanceModel` model provides a flexible framework for modeling various types of energy storage systems in H2Integrate. While particularly useful for battery storage, this model can be used to simulate the storage of different commodities including hydrogen, CO2, or any other commodity.
 
 ## Overview
 
-The Simple Generic Storage model consists of two main components:
-
-1. **StoragePerformanceModel**: A minimal component that defines the input interface for the storage system
-
-This architecture allows the storage system to work with any resource type by simply configuring the resource name and units, making it quite versatile.
+The `StoragePerformanceModel` is a component that defines a simple storage performance model for any defined commodity. This model allows the storage system to work with any commodity type by simply configuring the commodity name and units, making it quite versatile.
 
 ## Example Applications
 
 ### Battery Storage (Example 19)
 
-Example 19 demonstrates a wind-battery dispatch system that showcases the Simple Generic Storage model in action. This example:
+Example 19 demonstrates a wind-battery dispatch system that showcases the `StoragePerformanceModel` model in action. This example:
 
 - Models a wind farm providing variable electricity generation
 - Uses battery storage with defined capacity and charge/discharge rates
@@ -24,7 +20,7 @@ Example 19 demonstrates a wind-battery dispatch system that showcases the Simple
 
 The example produces detailed plots showing:
 - Battery state of charge over time
-- Electricity flows (input, output, curtailed, missed load)
+- Electricity flows (input, output)
 - How the storage system balances variable wind generation with constant demand
 
 ### Hydrogen Storage

@@ -184,6 +184,18 @@ def test_generic_storage_with_simple_control_dmd_lessthan_charge_rate(plant_conf
             rtol=1e-6,
         )
 
+    with subtests.test("Expected capacity factor"):
+        assert (
+            pytest.approx(-12.5, rel=1e-6)
+            == prob.get_val("storage.capacity_factor", units="percent")[0]
+        )
+
+    with subtests.test("Expected standard capacity factor"):
+        assert (
+            pytest.approx(2.5, rel=1e-6)
+            == prob.get_val("storage.standard_capacity_factor", units="percent")[0]
+        )
+
 
 @pytest.mark.regression
 @pytest.mark.parametrize("n_timesteps", [24])
@@ -376,6 +388,26 @@ def test_generic_storage_with_simple_control_charge_rate_lessthan_demand(plant_c
             rtol=1e-6,
         )
 
+    with subtests.test("Total charge = total discharge"):
+        assert (
+            pytest.approx(
+                -1 * prob.get_val("storage.storage_hydrogen_charge", units="kg/h").sum(), rel=1e-6
+            )
+            == prob.get_val("storage.storage_hydrogen_discharge", units="kg/h").sum()
+        )
+
+    with subtests.test("Expected capacity factor"):
+        assert (
+            pytest.approx(0.0, rel=1e-6)
+            == prob.get_val("storage.capacity_factor", units="percent")[0]
+        )
+
+    with subtests.test("Expected standard capacity factor"):
+        assert (
+            pytest.approx(15.416666, rel=1e-6)
+            == prob.get_val("storage.standard_capacity_factor", units="percent")[0]
+        )
+
 
 @pytest.mark.regression
 @pytest.mark.parametrize("n_timesteps", [24])
@@ -535,6 +567,18 @@ def test_generic_storage_with_simple_control_zero_size(plant_config, subtests):
         assert np.all(
             prob.get_val("storage.SOC", units="unitless")
             == performance_model_config["init_soc_fraction"]
+        )
+
+    with subtests.test("Expected capacity factor"):
+        assert (
+            pytest.approx(0.0, rel=1e-6)
+            == prob.get_val("storage.capacity_factor", units="percent")[0]
+        )
+
+    with subtests.test("Expected standard capacity factor"):
+        assert (
+            pytest.approx(0.0, rel=1e-6)
+            == prob.get_val("storage.standard_capacity_factor", units="percent")[0]
         )
 
 
@@ -763,6 +807,18 @@ def test_generic_storage_with_simple_control_with_losses(plant_config, subtests)
             rtol=1e-6,
         )
 
+    with subtests.test("Expected capacity factor"):
+        assert (
+            pytest.approx(-3.16666666, rel=1e-6)
+            == prob.get_val("storage.capacity_factor", units="percent")[0]
+        )
+
+    with subtests.test("Expected standard capacity factor"):
+        assert (
+            pytest.approx(4.750, rel=1e-6)
+            == prob.get_val("storage.standard_capacity_factor", units="percent")[0]
+        )
+
 
 @pytest.mark.regression
 @pytest.mark.parametrize("n_timesteps", [24])
@@ -954,4 +1010,16 @@ def test_generic_storage_with_simple_control_with_losses_round_trip(plant_config
             prob.get_val("storage.storage_hydrogen_charge", units="kg/h"),
             expected_charge,
             rtol=1e-6,
+        )
+
+    with subtests.test("Expected capacity factor"):
+        assert (
+            pytest.approx(-17.5, rel=1e-6)
+            == prob.get_val("storage.capacity_factor", units="percent")[0]
+        )
+
+    with subtests.test("Expected standard capacity factor"):
+        assert (
+            pytest.approx(2.5, rel=1e-6)
+            == prob.get_val("storage.standard_capacity_factor", units="percent")[0]
         )
