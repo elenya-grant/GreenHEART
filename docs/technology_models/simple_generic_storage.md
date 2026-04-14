@@ -1,3 +1,4 @@
+(simple-generic-storage-performance)=
 # Simple Generic Storage Model
 
 The Simple Generic Storage model provides a flexible framework for modeling various types of energy storage systems in H2Integrate. While particularly useful for battery storage, this model can be used to simulate the storage of different resources including hydrogen, CO2, or any other commodity.
@@ -7,7 +8,6 @@ The Simple Generic Storage model provides a flexible framework for modeling vari
 The Simple Generic Storage model consists of two main components:
 
 1. **StoragePerformanceModel**: A minimal component that defines the input interface for the storage system
-2. **DemandOpenLoopStorageController**: The core logic component that handles storage operations, state of charge calculations, and resource management
 
 This architecture allows the storage system to work with any resource type by simply configuring the resource name and units, making it quite versatile.
 
@@ -31,9 +31,10 @@ The example produces detailed plots showing:
 
 The model can be configured for hydrogen storage systems by setting:
 ```yaml
-commodity_name: "hydrogen"
-commodity_units: "kg/h" # commodity_units must by a rate
+commodity: "hydrogen"
+commodity_rate_units: "kg/h"
 max_capacity: 1000.0  # kg
+commodity_amount_units: "kg"
 ```
 
 This is useful for modeling hydrogen production from electrolyzers with variable renewable input and steady hydrogen demand for industrial processes.
@@ -42,8 +43,9 @@ This is useful for modeling hydrogen production from electrolyzers with variable
 
 For carbon capture and utilization systems:
 ```yaml
-commodity_name: "co2"
-commodity_units: "kg/h"
+commodity: "co2"
+commodity_rate_units: "kg/h"
+commodity_amount_units: "kg"
 max_capacity: 50000.0  # kg
 ```
 
