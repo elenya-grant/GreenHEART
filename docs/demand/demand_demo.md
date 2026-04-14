@@ -32,6 +32,9 @@ The technology interconnections:
 :lines: 16-27
 ```
 
+Which we can visualize using an XDSM diagram:
+
+![](./figures/example_13_xdsm.png)
 
 The electrolyzer system is comprised of 6 stacks, each rated at 10 MW, resulting in a total capacity of 60 MW. The minimum operating point of the electrolyzer (`turndown_ratio`) is 10% of the rated capacity, meaning that the electrolyzer is turned off if there is less than 6 MW of input electricity.
 
