@@ -18,6 +18,8 @@ class GenericDemandComponent(DemandComponentBase):
     ``performance_parameters``.
     """
 
+    _time_step_bounds = (1, 1e9)  # Allow any number of timesteps, but require at least one
+
     def setup(self):
         self.config = DemandComponentBaseConfig.from_dict(
             merge_shared_inputs(self.options["tech_config"]["model_inputs"], "performance"),

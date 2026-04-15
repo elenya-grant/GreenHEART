@@ -1318,6 +1318,8 @@ class H2IntegrateModel:
             # If cycles are found, set solvers for the plant to resolve the coupling
             self.plant.nonlinear_solver = om.NonlinearBlockGS()
             self.plant.linear_solver = om.DirectSolver()
+            self.plant.nonlinear_solver.options["maxiter"] = 5
+            self.plant.nonlinear_solver.options["iprint"] = 2
 
         # initialize dispatch rules connection list
         tech_to_dispatch_connections = self.plant_config.get("tech_to_dispatch_connections", [])

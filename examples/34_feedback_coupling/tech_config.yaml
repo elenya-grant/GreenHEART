@@ -1,0 +1,59 @@
+name: technology_config
+description: This plant has wind feeding into an electrolyzer without optimization
+technologies:
+  grid_buy:
+    performance_model:
+      model: GridPerformanceModel
+    cost_model:
+      model: GridCostModel
+    model_inputs:
+      shared_parameters:
+        interconnection_size: 1.e6  # kW
+      cost_parameters:
+        cost_year: 2022
+        electricity_buy_price: 0.10  # $/kWh - only buying, no selling
+        interconnection_capex_per_kw: 0.0  # $/kW capital cost
+        interconnection_opex_per_kw: 0.0  # $/kW/year O&M cost
+        fixed_interconnection_cost: 0.0  # $ one-time fixed cost
+  wind:
+    performance_model:
+      model: PYSAMWindPlantPerformanceModel
+    cost_model:
+      model: ATBWindPlantCostModel
+    model_inputs:
+      performance_parameters:
+        num_turbines: 10
+        turbine_rating_kw: 8300
+        rotor_diameter: 196.
+        hub_height: 130.
+        create_model_from: default
+        config_name: WindPowerSingleOwner
+        pysam_options: !include "pysam_options_8.3MW.yaml"
+        run_recalculate_power_curve: false
+        layout:
+          layout_mode: basicgrid
+          layout_options:
+            row_D_spacing: 10.0
+            turbine_D_spacing: 10.0
+            rotation_angle_deg: 0.0
+            row_phase_offset: 0.0
+            layout_shape: square
+      cost_parameters:
+        capex_per_kW: 1500.0
+        opex_per_kW_per_year: 45
+        cost_year: 2019
+  combiner:
+    performance_model:
+      model: GenericCombinerPerformanceModel
+    model_inputs:
+      performance_parameters:
+        commodity: electricity
+        commodity_rate_units: kW
+  electrical_load_demand:
+    performance_model:
+      model: GenericDemandComponent
+    model_inputs:
+      performance_parameters:
+        commodity: electricity
+        commodity_rate_units: kW
+        demand_profile: 100000  # 100 MW
