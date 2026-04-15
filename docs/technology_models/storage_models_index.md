@@ -40,11 +40,11 @@ The results that are output per-year of the `plant_life` are:
 - `annual_commodity_produced`: each value is the `total_commodity_produced` scaled to a 1-year (8760 hours) simulation. This value may be negative if the storage charges more than discharges.
 - `capacity_factor`: the storage capacity factor calculated as capacity factors are calculated in converter technologies, a ratio of the sum of *`total_commodity_produced`* to the discharge rate (or `rated_commodity_production`). This value may be negative if the storage charges more than discharges.
     $
-    CF = \frac{\sum_{t=0}^{n_{\text{timesteps}}}(\text{commodity\_out})}{\text{discharge\_rate}*n_{\text{timesteps}}}
+    CF = \frac{\sum_{t=0}^{n_{\text{timesteps}}}(\text{commodity\_out}*dt)}{\text{discharge\_rate}*n_{\text{timesteps}}}
     $
 - `standard_capacity_factor`: the storage capacity factor as defined by the [NLR ATB](https://atb.nrel.gov/electricity/2024b/utility-scale_battery_storage). The ratio of the total *commodity discharged* to the discharge rate (or `rated_commodity_production`). This value will always be greater than or equal to zero.
     $
-    CF_{\text{standard}} = \frac{\sum_{t=0}^{n_{\text{timesteps}}}(\text{storage\_commodity\_discharge})}{\text{discharge\_rate}*n_{\text{timesteps}}}
+    CF_{\text{standard}} = \frac{\sum_{t=0}^{n_{\text{timesteps}}}(\text{storage\_commodity\_discharge}*dt)}{\text{discharge\_rate}*n_{\text{timesteps}}}
     $
 
 
