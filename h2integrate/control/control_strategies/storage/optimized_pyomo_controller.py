@@ -10,8 +10,8 @@ from h2integrate.core.validators import range_val
 from h2integrate.control.control_rules.plant_dispatch_model import PyomoDispatchPlantModel
 from h2integrate.control.control_strategies.storage.pyomo_controller_baseclass import (
     SolverOptions,
-    PyomoControllerBaseClass,
-    PyomoControllerBaseConfig,
+    PyomoStorageControllerBaseClass,
+    PyomoStorageControllerBaseConfig,
 )
 from h2integrate.control.control_strategies.storage.controller_opt_problem_state import (
     DispatchProblemState,
@@ -29,7 +29,7 @@ if TYPE_CHECKING:  # to avoid circular imports
 
 
 @define
-class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
+class OptimizedDispatchStorageControllerConfig(PyomoStorageControllerBaseConfig):
     """
     Configuration data container for Pyomo-based optimal dispatch.
 
@@ -94,7 +94,7 @@ class OptimizedDispatchControllerConfig(PyomoControllerBaseConfig):
         return dispatch_inputs
 
 
-class OptimizedDispatchController(PyomoControllerBaseClass):
+class OptimizedDispatchStorageController(PyomoStorageControllerBaseClass):
     """Operates storage based on optimization to meet the demand profile based on
         available commodity from generation profiles and demand profile while minimizing costs.
 
@@ -109,7 +109,7 @@ class OptimizedDispatchController(PyomoControllerBaseClass):
 
     def setup(self):
         """Initialize the optimized dispatch controller."""
-        self.config = OptimizedDispatchControllerConfig.from_dict(
+        self.config = OptimizedDispatchStorageControllerConfig.from_dict(
             merge_shared_inputs(self.options["tech_config"]["model_inputs"], "control")
         )
 

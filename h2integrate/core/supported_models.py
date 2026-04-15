@@ -155,10 +155,10 @@ from h2integrate.resource.solar.nlr_developer_meteosat_prime_meridian_models imp
     MeteosatPrimeMeridianTMYSolarAPI,
 )
 from h2integrate.control.control_strategies.storage.heuristic_pyomo_controller import (
-    HeuristicLoadFollowingController,
+    HeuristicLoadFollowingStorageController,
 )
 from h2integrate.control.control_strategies.storage.optimized_pyomo_controller import (
-    OptimizedDispatchController,
+    OptimizedDispatchStorageController,
 )
 from h2integrate.control.control_strategies.storage.simple_openloop_controller import (
     SimpleStorageOpenLoopController,
@@ -278,8 +278,8 @@ supported_models = {
     # Control
     "SimpleStorageOpenLoopController": SimpleStorageOpenLoopController,
     "DemandOpenLoopStorageController": DemandOpenLoopStorageController,
-    "HeuristicLoadFollowingController": HeuristicLoadFollowingController,
-    "OptimizedDispatchController": OptimizedDispatchController,
+    "HeuristicLoadFollowingStorageController": HeuristicLoadFollowingStorageController,
+    "OptimizedDispatchStorageController": OptimizedDispatchStorageController,
     "GenericDemandComponent": GenericDemandComponent,
     "FlexibleDemandComponent": FlexibleDemandComponent,
     # Dispatch
