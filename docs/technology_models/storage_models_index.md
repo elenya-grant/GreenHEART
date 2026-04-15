@@ -15,7 +15,7 @@ The inputs and outputs of storage performance models are generalized here for an
 ### Inputs
 - `commodity_in`: commodity available to use for charging storage
 
-If using a **feedback control strategy** (this means that `tech_to_dispatch_connections` are defined in the plant configuration file for the storage technology), the control-related inputs for control to the storage performance:
+If using a **feedback control strategy** (this means that the controller received the actual storage state periodically), the control-related inputs for control to the storage performance include:
 - `commodity_demand`: the target demand profile to satisfy with the storage performance model and the input commodity. This is passed to the control strategy through the `pyomo_dispatch_solver` method.
 - `pyomo_dispatch_solver`: the control function from the storage controller that outputs dispatch commands to the storage performance model.
 
@@ -39,13 +39,13 @@ The aggregated or summarized performance outputs are (single values):
 The results that are output per-year of the `plant_life` are:
 - `annual_commodity_produced`: each value is the `total_commodity_produced` scaled to a 1-year (8760 hours) simulation. This value may be negative if the storage charges more than discharges.
 - `capacity_factor`: the storage capacity factor calculated as capacity factors are calculated in converter technologies, a ratio of the sum of *`total_commodity_produced`* to the discharge rate (or `rated_commodity_production`). This value may be negative if the storage charges more than discharges.
-    $$
-    CF = \frac{\sum_{t=0}^{n_{timesteps}}(\text{commodity_out})}{\text{discharge_rate}*n_{\text{timesteps}}}
-    $$
+    $
+    CF = \frac{\sum_{t=0}^{n_{time}}(\text{commodity_out})}{\text{discharge_rate}*n_{\text{time}}}
+    $
 - `standard_capacity_factor`: the storage capacity factor as defined by the [NLR ATB](https://atb.nrel.gov/electricity/2024b/utility-scale_battery_storage). The ratio of the total *commodity discharged* to the discharge rate (or `rated_commodity_production`). This value will always be greater than or equal to zero.
-    $$
-    CF_{\text{standard}} = \frac{\sum_{t=0}^{n_{timesteps}}(\text{storage_commodity_discharge})}{\text{discharge_rate}*n_{\text{timesteps}}}
-    $$
+    $
+    CF_{\text{standard}} = \frac{\sum_{t=0}^{n_{time}}(\text{storage_commodity_discharge})}{\text{discharge_rate}*n_{\text{time}}}
+    $
 
 
 ## Storage Cost models:
