@@ -8,12 +8,12 @@ from pyomo.util.check_units import assert_units_consistent
 from h2integrate.core.utilities import merge_shared_inputs
 from h2integrate.core.validators import range_val
 from h2integrate.control.control_rules.plant_dispatch_model import PyomoDispatchPlantModel
-from h2integrate.control.control_strategies.pyomo_controller_baseclass import (
+from h2integrate.control.control_strategies.controller_opt_problem_state import DispatchProblemState
+from h2integrate.control.control_strategies.pyomo_storage_controller_baseclass import (
     SolverOptions,
     PyomoStorageControllerBaseClass,
     PyomoStorageControllerBaseConfig,
 )
-from h2integrate.control.control_strategies.controller_opt_problem_state import DispatchProblemState
 from h2integrate.control.control_rules.storage.pyomo_storage_rule_min_operating_cost import (
     PyomoRuleStorageMinOperatingCosts,
 )
