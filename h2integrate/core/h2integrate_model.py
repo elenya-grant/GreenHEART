@@ -23,7 +23,7 @@ from h2integrate.core.commodity_stream_definitions import (
     multivariable_streams,
     is_electricity_producer,
 )
-from h2integrate.control.control_strategies.storage.pyomo_controller_baseclass import (
+from h2integrate.control.control_strategies.pyomo_storage_controller_baseclass import (
     PyomoStorageControllerBaseClass,
 )
 
