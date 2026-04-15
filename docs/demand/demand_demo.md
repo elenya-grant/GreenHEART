@@ -106,14 +106,14 @@ h2i.setup()
 
 If we wanted to change the demand profiles for the battery (`battery`) or the demand component (`elec_load_demand`) to be different than the demand profiles specified in the technology config, we could do that using `set_val`:
 
-```python
+```{code-cell} ipython3
 electrolyzer_capacity_MW = 60
 
-# Set the battery demand equal to the minimum electricity needed to keep the electrolyzer on
-h2i.prob.set_val("battery.electricity_demand", 0.1 * electrolyzer_capacity_MW, units="MW")
+## Set the battery demand equal to the minimum electricity needed to keep the electrolyzer on
+# h2i.prob.set_val("battery.electricity_demand", 0.1 * electrolyzer_capacity_MW, units="MW")
 
-# Set the demand of the demand component equal to the rated electrical capacity of the electrolyzer
-h2i.prob.set_val("elec_load_demand.electricity_demand", electrolyzer_capacity_MW, units="MW")
+## Set the demand of the demand component equal to the rated electrical capacity of the electrolyzer
+# h2i.prob.set_val("elec_load_demand.electricity_demand", electrolyzer_capacity_MW, units="MW")
 ```
 
 We then run the model:

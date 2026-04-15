@@ -9,10 +9,14 @@ sites:
         resource_model: OpenMeteoHistoricalWindResource
         resource_parameters:
           resource_year: 2024
+          resource_dir: ../../resource_files/wind
+          resource_filename: -28.454864_114.551749_2024_openmeteo_archive_60min_local_tz.csv
       solar_resource:
         resource_model: OpenMeteoHistoricalSolarResource
         resource_parameters:
           resource_year: 2024
+          resource_dir: ../../resource_files/solar
+          resource_filename: -28.454864_114.551749_2024_openmeteo_archive_solar_60min_local_tz.csv
 technology_interconnections:
   # combine the generation and input it to the battery
   - [distributed_wind_plant, gen_combiner, electricity, cable]
