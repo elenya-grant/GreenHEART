@@ -6,7 +6,7 @@ from pytest import fixture
 from h2integrate.storage.battery.pysam_battery import PySAMBatteryPerformanceModel
 from h2integrate.storage.storage_performance_model import StoragePerformanceModel
 from h2integrate.storage.simple_storage_auto_sizing import StorageAutoSizingModel
-from h2integrate.control.control_strategies.optimized_pyomo_controller import (
+from h2integrate.control.control_strategies.storage.optimized_pyomo_controller import (
     OptimizedDispatchController,
 )
 

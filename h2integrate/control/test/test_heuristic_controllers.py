@@ -6,11 +6,11 @@ from pytest import fixture
 from h2integrate.storage.battery.pysam_battery import PySAMBatteryPerformanceModel
 from h2integrate.storage.storage_performance_model import StoragePerformanceModel
 from h2integrate.storage.simple_storage_auto_sizing import StorageAutoSizingModel
-from h2integrate.control.control_strategies.heuristic_pyomo_controller import (
-    HeuristicLoadFollowingController,
-)
 from h2integrate.control.control_rules.storage.pyomo_storage_rule_baseclass import (
     PyomoRuleStorageBaseclass,
+)
+from h2integrate.control.control_strategies.storage.heuristic_pyomo_controller import (
+    HeuristicLoadFollowingController,
 )
 
 
