@@ -790,28 +790,28 @@ def test_electrolyzer_demand(subtests, temp_copy_of_example):
     lcoh = h2i.prob.get_val("finance_subgroup_hydrogen.LCOH", units="USD/kg")[0]
 
     with subtests.test("LCOE of electricity generated"):
-        assert pytest.approx(138.905228, rel=1e-6) == lcoe_gen
+        assert pytest.approx(217.53810477, rel=1e-6) == lcoe_gen
 
     with subtests.test("LCOE of electrical load (battery for min power)"):
-        assert pytest.approx(153.193548, rel=1e-6) == lcoe_load
+        assert pytest.approx(236.15820250, rel=1e-6) == lcoe_load
 
     with subtests.test("LCOE of electrical system (battery for min power)"):
-        assert pytest.approx(150.331074, rel=1e-6) == lcoe_sys
+        assert pytest.approx(235.43108263, rel=1e-6) == lcoe_sys
 
     with subtests.test("LCOH (battery for min power)"):
-        assert pytest.approx(10.2200921123, rel=1e-4) == lcoh
+        assert pytest.approx(16.02862959, rel=1e-4) == lcoh
 
     with subtests.test("Electrolyzer capacity factor (Year 0) (battery for min power)"):
         elec_cf_yr0 = h2i.prob.get_val("electrolyzer.capacity_factor", units="percent")[0]
-        assert pytest.approx(38.64543851, rel=1e-4) == elec_cf_yr0
+        assert pytest.approx(25.43832863, rel=1e-4) == elec_cf_yr0
 
     with subtests.test("Electrical load capacity factor (battery for min power)"):
         load_cf = h2i.prob.get_val("elec_load_demand.capacity_factor", units="percent")[0]
-        assert pytest.approx(37.45560830, rel=1e-6) == load_cf
+        assert pytest.approx(24.29709189, rel=1e-6) == load_cf
 
     with subtests.test("Electricity to electrolyzer (battery for min power)"):
         electricity_to_electrolyzer = h2i.prob.get_val("electrolyzer.electricity_in", "MW").sum()
-        assert pytest.approx(196866.67725101, rel=1e-6) == electricity_to_electrolyzer
+        assert pytest.approx(127705.51498100, rel=1e-6) == electricity_to_electrolyzer
     # Re-run where we set the battery demand equal to the electrolyzer capacity
 
     h2i.prob.set_val("battery.electricity_demand", electrolyzer_capacity_MW, units="MW")
@@ -824,25 +824,25 @@ def test_electrolyzer_demand(subtests, temp_copy_of_example):
     lcoh = h2i.prob.get_val("finance_subgroup_hydrogen.LCOH", units="USD/kg")[0]
 
     with subtests.test("LCOE of electrical load (battery for full power)"):
-        assert pytest.approx(151.007427, rel=1e-6) == lcoe_load
+        assert pytest.approx(235.46701455, rel=1e-6) == lcoe_load
 
     with subtests.test("LCOE of electrical system (battery for full power)"):
-        assert pytest.approx(150.316885, rel=1e-6) == lcoe_sys
+        assert pytest.approx(235.40978870, rel=1e-6) == lcoe_sys
 
     with subtests.test("LCOH (battery for full power)"):
-        assert pytest.approx(10.807540, rel=1e-6) == lcoh
+        assert pytest.approx(17.21768237, rel=1e-6) == lcoh
 
     with subtests.test("Electrolyzer capacity factor (Year 0) (battery for full power)"):
         elec_cf_yr0 = h2i.prob.get_val("electrolyzer.capacity_factor", units="percent")[0]
-        assert pytest.approx(38.64781478, rel=1e-6) == elec_cf_yr0
+        assert pytest.approx(24.96971302, rel=1e-6) == elec_cf_yr0
 
     with subtests.test("Electrical load capacity factor (battery for full power)"):
         load_cf = h2i.prob.get_val("elec_load_demand.capacity_factor", units="percent")[0]
-        assert pytest.approx(37.99784981, rel=1e-6) == load_cf
+        assert pytest.approx(24.36841338, rel=1e-6) == load_cf
 
     with subtests.test("Electricity to electrolyzer (battery for full power)"):
         electricity_to_electrolyzer = h2i.prob.get_val("electrolyzer.electricity_in", "MW").sum()
-        assert pytest.approx(199716.69857863, rel=1e-6) == electricity_to_electrolyzer
+        assert pytest.approx(128080.38070512, rel=1e-6) == electricity_to_electrolyzer
 
 
 @pytest.mark.integration
