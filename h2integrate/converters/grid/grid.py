@@ -36,14 +36,21 @@ class GridPerformanceModel(PerformanceModelBaseClass):
     different grid connection points (for example, one for buying upstream and
     another for selling downstream).
 
+    This model is compatible with time steps ranging from 5-minutes to 1-hour.
+
     Inputs
         interconnection_size (float): Maximum power capacity for grid connection (kW).
         electricity_in (array): Power flowing into the grid (selling) (kW).
-        electricity_demand (array): Downstream electricity demand (kW).
+        electricity_set_point (array): Downstream electricity set point (kW).
 
     Outputs
         electricity_out (array): Power flowing out of the grid (buying) (kW).
     """
+
+    _time_step_bounds = (
+        300,
+        3600,
+    )  # (min, max) time step lengths (in seconds) compatible with this model
 
     def initialize(self):
         super().initialize()
@@ -77,13 +84,13 @@ class GridPerformanceModel(PerformanceModelBaseClass):
             desc="Electricity flowing into grid interconnection point (selling to grid)",
         )
 
-        # Electricity demand from downstream (for buying from grid)
+        # Electricity set point from downstream (for buying from grid)
         self.add_input(
-            "electricity_demand",
+            "electricity_set_point",
             val=0.0,
             shape=n_timesteps,
             units=self.commodity_rate_units,
-            desc="Electricity demand from downstream technologies",
+            desc="Electricity set point from downstream technologies",
         )
 
         # electricity_out is electricity flowing OUT OF the grid (buying from grid)
@@ -119,12 +126,12 @@ class GridPerformanceModel(PerformanceModelBaseClass):
         electricity_sold = np.clip(inputs["electricity_in"], 0, interconnection_size)
         outputs["electricity_sold"] = electricity_sold
 
-        # Buying: electricity flows out of grid to meet demand, limited by interconnection
-        electricity_bought = np.clip(inputs["electricity_demand"], 0, interconnection_size)
+        # Buying: electricity flows out of grid to meet set point, limited by interconnection
+        electricity_bought = np.clip(inputs["electricity_set_point"], 0, interconnection_size)
         outputs["electricity_out"] = electricity_bought
 
-        # Unmet demand if demand exceeds interconnection size
-        outputs["electricity_unmet_demand"] = inputs["electricity_demand"] - electricity_bought
+        # Unmet demand if set point exceeds interconnection size
+        outputs["electricity_unmet_demand"] = inputs["electricity_set_point"] - electricity_bought
 
         # Not sold electricity if demand exceeds interconnection size
         outputs["electricity_excess"] = inputs["electricity_in"] - electricity_sold
@@ -174,9 +181,14 @@ class GridCostModel(CostModelBaseClass):
     - Revenue from electricity sales (sell mode)
     - Support for time-varying electricity prices
 
-    Note: Although the electricity units are in kW and the prices are in USD/kWh,
-    this model assumes that each timestep represents 1 hour.
+    This model is compatible with time steps ranging from 5-minutes to 1-hour.
+
     """
+
+    _time_step_bounds = (
+        300,
+        3600,
+    )  # (min, max) time step lengths (in seconds) compatible with this model
 
     def setup(self):
         self.config = GridCostModelConfig.from_dict(
@@ -277,13 +289,13 @@ class GridCostModel(CostModelBaseClass):
             electricity_out = inputs["electricity_out"]
             buy_price = inputs["electricity_buy_price"]
             # Buying costs money (positive VarOpEx)
-            varopex += np.sum(electricity_out * buy_price)
+            varopex += np.sum((self.dt / 3600) * electricity_out * buy_price)
 
         # Add selling revenue if sell price is configured
         # electricity_sold represents power flowing INTO grid (selling)
         if self.config.electricity_sell_price is not None:
             sell_price = inputs["electricity_sell_price"]
             # Selling generates revenue (negative VarOpEx)
-            varopex -= np.sum(inputs["electricity_sold"] * sell_price)
+            varopex -= np.sum((self.dt / 3600) * inputs["electricity_sold"] * sell_price)
 
         outputs["VarOpEx"] = varopex

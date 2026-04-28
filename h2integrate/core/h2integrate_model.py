@@ -1,4 +1,5 @@
 import importlib.util
+from enum import IntEnum
 
 import numpy as np
 import networkx as nx
@@ -7,9 +8,14 @@ import matplotlib.pyplot as plt
 
 from h2integrate.core.sites import SiteLocationComponent
 from h2integrate.core.utilities import create_xdsm_from_config
+from h2integrate.core.dict_utils import check_inputs
 from h2integrate.core.file_utils import get_path, find_file, load_yaml
 from h2integrate.finances.finances import AdjustedCapexOpexComp
-from h2integrate.core.supported_models import supported_models
+from h2integrate.core.supported_models import (
+    no_cost_models,
+    supported_models,
+    no_replacement_schedule_models,
+)
 from h2integrate.core.inputs.validation import load_tech_yaml, load_plant_yaml, load_driver_yaml
 from h2integrate.core.pose_optimization import PoseOptimization
 from h2integrate.postprocess.sql_to_csv import convert_sql_to_csv_summary
@@ -17,8 +23,8 @@ from h2integrate.core.commodity_stream_definitions import (
     multivariable_streams,
     is_electricity_producer,
 )
-from h2integrate.control.control_strategies.pyomo_controller_baseclass import (
-    PyomoControllerBaseClass,
+from h2integrate.control.control_strategies.pyomo_storage_controller_baseclass import (
+    PyomoStorageControllerBaseClass,
 )
 
 
@@ -26,6 +32,13 @@ try:
     import pyxdsm
 except ImportError:
     pyxdsm = None
+
+
+class State(IntEnum):
+    INITIALIZED = 0
+    SETUP = 1
+    RUN = 2
+    POST_PROCESS = 3
 
 
 class H2IntegrateModel:
@@ -43,9 +56,6 @@ class H2IntegrateModel:
         create_om_reports = self.driver_config.get("general", {}).get("create_om_reports", True)
         self.prob = om.Problem(reports=create_om_reports)
         self.model = self.prob.model
-
-        # track if setup has been called via boolean
-        self.setup_has_been_called = False
 
         # initialize recorder_path attribute
         self.recorder_path = None
@@ -74,6 +84,8 @@ class H2IntegrateModel:
         # create driver model
         # might be an analysis or optimization
         self.create_driver_model()
+
+        self.state = State.INITIALIZED
 
     def _load_component_config(self, config_key, config_value, config_path, validator_func):
         """Helper method to load and validate a component configuration.
@@ -196,7 +208,7 @@ class H2IntegrateModel:
                 controller_model_name = vals["control_strategy"]["model"]
                 controller_cls = supported_models.get(controller_model_name)
                 if controller_cls is not None and issubclass(
-                    controller_cls, PyomoControllerBaseClass
+                    controller_cls, PyomoStorageControllerBaseClass
                 ):
                     model_inputs = self.technology_config["technologies"][name]["model_inputs"]
                     if (
@@ -238,7 +250,7 @@ class H2IntegrateModel:
                     # of the same custom model. Also check that all instances of the same custom
                     # model tech name use the same class definition.
                     if model_name in included_custom_models:
-                        model_class_name = config[model_type].get(f"{prefix}model_class_name")
+                        model_class_name = config[model_type].get(f"{prefix}model")
                         if (
                             model_class_name
                             != included_custom_models[model_name]["model_class_name"]
@@ -246,7 +258,7 @@ class H2IntegrateModel:
                             raise (
                                 ValueError(
                                     "User has specified two custom models using the same model"
-                                    "name ({model_name}), but with different model classes. "
+                                    f"name ({model_name}), but with different model classes. "
                                     "Technologies defined with different classes must have "
                                     "different technology names."
                                 )
@@ -255,7 +267,7 @@ class H2IntegrateModel:
                             continue
 
                     if (model_name not in self.supported_models) and (model_name is not None):
-                        model_class_name = config[model_type].get(f"{prefix}model_class_name")
+                        model_class_name = config[model_type].get(f"{prefix}model")
                         model_location = config[model_type].get(f"{prefix}model_location")
 
                         if not model_class_name or not model_location:
@@ -295,7 +307,7 @@ class H2IntegrateModel:
                             or config[model_type].get(f"{prefix}model_location") is not None
                         ):
                             msg = (
-                                f"Custom {prefix}model_class_name or {prefix}model_location "
+                                f"Custom {prefix}model or {prefix}model_location "
                                 f"specified for '{model_name}', "
                                 f"but '{model_name}' is a built-in H2Integrate "
                                 "model. Using built-in model instead is not allowed. "
@@ -338,6 +350,26 @@ class H2IntegrateModel:
                     finance_model_names,
                     prefix="finance_",
                 )
+
+        # check for custom resource models
+        if "sites" in self.plant_config:
+            for site_name, site_params in self.plant_config["sites"].items():
+                if "resources" in site_params:
+                    resource_models_config = {
+                        k: v
+                        for k, v in site_params["resources"].items()
+                        if "resource_parameters" in v
+                    }
+
+                    resource_model_names = [
+                        k for k, v in site_params["resources"].items() if "resource_parameters" in v
+                    ]
+                    self.create_custom_models(
+                        {site_name: resource_models_config},
+                        self.plant_parent_path,
+                        resource_model_names,
+                        prefix="resource_",
+                    )
 
     def create_site_model(self):
         """
@@ -487,6 +519,7 @@ class H2IntegrateModel:
                     plant_config=self.plant_config,
                     tech_config=individual_tech_config,
                 )
+                self._check_time_step(perf_model, comp)
                 self.plant.add_subsystem(f"{tech_name}_source", comp)
             else:
                 tech_group = self.plant.add_subsystem(tech_name, om.Group())
@@ -496,6 +529,7 @@ class H2IntegrateModel:
                 # and in combined_performance_and_cost_models
                 perf_model = individual_tech_config.get("performance_model", {}).get("model")
                 cost_model = individual_tech_config.get("cost_model", {}).get("model")
+
                 individual_tech_config.get("finance_model", {}).get("model")
                 if (
                     perf_model
@@ -521,7 +555,8 @@ class H2IntegrateModel:
                         plant_config=self.plant_config,
                         tech_config=individual_tech_config,
                     )
-                    om_model_object = tech_group.add_subsystem(tech_name, comp, promotes=["*"])
+                    self._check_time_step(perf_model, comp)
+                    om_model_object = tech_group.add_subsystem(perf_model, comp, promotes=["*"])
                     self.performance_models.append(om_model_object)
                     self.cost_models.append(om_model_object)
                     self.finance_models.append(om_model_object)
@@ -570,18 +605,23 @@ class H2IntegrateModel:
 
         for tech_name, individual_tech_config in self.technology_config["technologies"].items():
             cost_model = individual_tech_config.get("cost_model", {}).get("model")
+
             if cost_model == "FeedstockCostModel":
                 comp = self.supported_models[cost_model](
                     driver_config=self.driver_config,
                     plant_config=self.plant_config,
                     tech_config=individual_tech_config,
                 )
+                self._check_time_step(tech_name, comp)
                 self.plant.add_subsystem(tech_name, comp)
 
     def _process_model(self, model_type, individual_tech_config, tech_group):
         # Generalized function to process model definitions
         model_name = individual_tech_config[model_type]["model"]
         model_object = self.supported_models[model_name]
+
+        self._check_time_step(model_name, model_object)
+
         om_model_object = tech_group.add_subsystem(
             model_name,
             model_object(
@@ -591,7 +631,22 @@ class H2IntegrateModel:
             ),
             promotes=["*"],
         )
+
         return om_model_object
+
+    def _check_time_step(self, model_name, model_object):
+        dt = int(self.plant_config["plant"]["simulation"]["dt"])
+
+        min_ts = model_object._time_step_bounds[0]
+        max_ts = model_object._time_step_bounds[1]
+        if dt < min_ts or dt > max_ts:
+            msg = (
+                f"Model {model_name} is compatible with time steps "
+                f"between {min_ts} (s) and {max_ts} (s), but a time step of {dt} (s) "
+                "was specified. Please set plant_config['plant']['simulation']['dt'] to a"
+                f" value within the range [{min_ts}, {max_ts}]."
+            )
+            raise ValueError(msg)
 
     def create_finance_model(self):
         """
@@ -760,7 +815,12 @@ class H2IntegrateModel:
                         f"technologies: {list(self.technology_config['technologies'].keys())}"
                     )
             if commodity_stream is not None:
-                if "combiner" not in commodity_stream and commodity_stream not in tech_names:
+                commodity_stream_has_cost = (
+                    self.technology_config["technologies"]
+                    .get(commodity_stream, {})
+                    .get("cost_model", False)
+                )
+                if commodity_stream_has_cost and commodity_stream not in tech_names:
                     raise UserWarning(
                         f"The technology specific for the commodity_stream '{commodity_stream}' "
                         f"is not included in subgroup '{subgroup_name}' technologies list."
@@ -785,7 +845,14 @@ class H2IntegrateModel:
                     elec_tech_names = [
                         tech for tech in tech_configs if is_electricity_producer(tech)
                     ]
-                    if len(elec_tech_names) != 1:
+                    if len(elec_tech_names) < 1:
+                        msg = (
+                            "Commodity 'electricity' was specified, but no electricity "
+                            "producing techs were found."
+                        )
+                        raise ValueError(msg)
+
+                    elif len(elec_tech_names) > 1:
                         msg = (
                             f"Multiple electricity producing technologies found in finance subgroup"
                             f" '{subgroup_name}'. Please specify the commodity_stream for the "
@@ -1041,6 +1108,11 @@ class H2IntegrateModel:
                         f"{dest_tech}.{transport_item}_consumed",
                         f"{source_tech}.{transport_item}_consumed",
                     )
+                    # Connect the feedstock performance model output to the cost model input
+                    self.plant.connect(
+                        f"{source_tech}_source.{transport_item}_out",
+                        f"{source_tech}.{transport_item}_out",
+                    )
 
                 if perf_model_name == "FeedstockPerformanceModel":
                     source_tech = f"{source_tech}_source"
@@ -1056,6 +1128,7 @@ class H2IntegrateModel:
                     )
 
                     # Add the connection component to the model
+                    self._check_time_step(transport_type, connection_component)
                     self.plant.add_subsystem(connection_name, connection_component)
 
                     # Reorder the subsystems so transporters comes after their source technology
@@ -1163,7 +1236,7 @@ class H2IntegrateModel:
             resource_models = {}
             for site_grp, site_grp_inputs in self.plant_config["sites"].items():
                 for resource_key, resource_params in site_grp_inputs.get("resources", {}).items():
-                    resource_models[f"{site_grp}-{resource_key}"] = resource_params
+                    resource_models[f"{site_grp}.{resource_key}"] = resource_params
 
             resource_source_connections = [c[0] for c in resource_to_tech_connections]
             # Check if there is a missing resource to tech connection or missing resource model
@@ -1234,10 +1307,9 @@ class H2IntegrateModel:
 
                 # Only connect technologies that are included in the finance stackup
                 for tech_name in tech_configs.keys():
-                    # For now, assume splitters and combiners do not add any costs
-                    if "splitter" in tech_name or "combiner" in tech_name:
-                        continue
-                    if tech_name == "cable" or tech_name == "pipe":
+                    # Skip technologies whose models doesn't add costs
+                    perf_model = tech_configs[tech_name].get("performance_model").get("model")
+                    if perf_model in no_cost_models:
                         continue
 
                     self.plant.connect(
@@ -1255,7 +1327,7 @@ class H2IntegrateModel:
                         f"finance_subgroup_{group_id}.cost_year_{tech_name}",
                     )
 
-                    if is_system_finance_model and "transport" not in tech_name:
+                    if is_system_finance_model and perf_model not in no_replacement_schedule_models:
                         # connect replacement schedule to system-level finance models
                         self.plant.connect(
                             f"{tech_name}.replacement_schedule",
@@ -1322,17 +1394,26 @@ class H2IntegrateModel:
         """
         Extremely light wrapper to setup the OpenMDAO problem and track setup status.
         """
-        self.setup_has_been_called = True
         self.prob.setup()
+        self.state = State.SETUP
+
+        for tech, tech_info in self.technology_config["technologies"].items():
+            check_inputs(self.prob, tech, tech_info, self.tech_config_path)
 
     def run(self):
         # do model setup based on the driver config
         # might add a recorder, driver, set solver tolerances, etc
-        if not self.setup_has_been_called:
+        if self.state < State.SETUP:
             self.prob.setup()
-            self.setup_has_been_called = True
+
+        if self.state < State.RUN:
+            # OpenMDAO will skip this step if it encounters an issue leading to silent failures
+            # TODO: remove this step when OpenMDAO implements cursor closure
+            if self.recorder_path is not None:
+                self.recorder_path.unlink(missing_ok=True)
 
         self.prob.run_driver()
+        self.state = State.RUN
 
     def post_process(self, print_results=True, summarize_sql=False, show_plots=False):
         """Post-process the results of the OpenMDAO model.
@@ -1349,6 +1430,8 @@ class H2IntegrateModel:
             show_plots (bool): If True, run post-processing plots for any
                 performance models that support them. Defaults to False.
         """
+        if self.state < State.RUN:
+            raise RuntimeError("`run` not called, so `post_process` cannot be called.")
         if print_results:
             # Use custom summary printer instead of OpenMDAO's built-in printing so we can
             # suppress internal value printing and display only mean values.
@@ -1362,6 +1445,7 @@ class H2IntegrateModel:
                 model.post_process(show_plots=show_plots)
                 if show_plots:
                     plt.show()
+        self.state = State.POST_PROCESS
 
     @staticmethod
     def print_results(model, includes=None, excludes=None, show_units=True):

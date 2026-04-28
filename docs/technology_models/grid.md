@@ -24,7 +24,7 @@ Multiple grid instances may be used within the same plant to represent different
 | ------------------------ | ------------------ | ----- | ----------------------------------------------------------------- |
 | `interconnection_size`   | scalar             | kW    | Maximum power capacity for grid connection.                       |
 | `electricity_in`         | array[n_timesteps] | kW    | Electricity flowing into the grid (selling to grid).              |
-| `electricity_demand`     | array[n_timesteps] | kW    | Electricity demand from downstream technologies.                  |
+| `electricity_set_point`     | array[n_timesteps] | kW    | Electricity set point from downstream technologies.                  |
 
 **Outputs**
 | Name                       | Shape              | Units | Description                                                         |
@@ -66,4 +66,8 @@ The **revenue** of selling electricity to the grid is represented as a variable 
 
 ```{note}
 If you're using a price-maker financial model (e.g., calculating the LCOE) and selling all of the electricity to the grid, then the `electricity_sell_price` should most likely be set to 0. since you want to know the breakeven price of selling that electricity.
+```
+
+```{note}
+The grid components are currently compatible with 5-minute (300-second) to 1-hour (3600-second) time steps.
 ```
