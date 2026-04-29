@@ -1128,6 +1128,68 @@ class H2IntegrateModel:
                     f"{dest_tech}.{stream_name}:{var_name}_in",
                 )
 
+    def connect_system_level_controller(self):
+        # 1. create the controller
+        from h2integrate.control.control_strategies.system_level.system_level_control_draft import (
+            SystemLevelControlDraft,
+        )
+
+        slc_subgroup = om.Group()
+
+        # Add adjusted capex/opex
+        slc_controller_comp = SystemLevelControlDraft(
+            driver_config=self.driver_config,
+            tech_configs=self.technology_config,
+            plant_config=self.plant_config,
+            tech_control_types=self.tech_control_classifiers,
+        )
+
+        # NOTE: thinking it may be useful to add another component,
+        # such as a curtailment component or a pre-processing component
+        slc_subgroup.add_subsystem("system_level_controller", slc_controller_comp, promotes=["*"])
+
+        # add the finance group to the subgroup
+        self.plant.add_subsystem("system_control", slc_subgroup)
+
+        # 2. add technologies to the controller
+        technology_interconnections = self.plant_config.get("technology_interconnections", [])
+
+        for connection in technology_interconnections:
+            if len(connection) == 4:
+                source_tech, dest_tech, transport_item, transport_type = connection
+                control_classifier = self.tech_control_classifiers.get(source_tech)
+
+                if (
+                    self.technology_config["technologies"]
+                    .get(source_tech, {})
+                    .get("performance_model", {})
+                    .get("model")
+                    == "GenericSplitterPerformanceModel"
+                ):
+                    continue
+
+                if control_classifier == "curtailable":
+                    self.plant.connect(
+                        f"{source_tech}.modulated_{transport_item}_out",
+                        f"system_control.{source_tech}_modulated_{transport_item}_out",
+                    )
+
+                self.plant.connect(
+                    f"{source_tech}.{transport_item}_out",
+                    f"system_control.{source_tech}_{transport_item}_out",
+                )
+
+                self.plant.connect(
+                    f"{source_tech}.rated_{transport_item}_production",
+                    f"system_control.{source_tech}_rated_{transport_item}_production",
+                )
+
+            # unsure what to do for length 3 connections
+            elif len(connection) == 3:
+                source_tech, dest_tech, connected_parameter = connection
+                if isinstance(connected_parameter, tuple | list):
+                    source_parameter, dest_parameter = connected_parameter
+
     def connect_technologies(self):
         technology_interconnections = self.plant_config.get("technology_interconnections", [])
 
@@ -1447,6 +1509,8 @@ class H2IntegrateModel:
                         f"{tech_name}.dispatch_block_rule_function",
                         f"{dispatching_tech_name}.dispatch_block_rule_function_{tech_name}",
                     )
+        if self.slc:
+            self.connect_system_level_controller()
 
     def create_driver_model(self):
         """
