@@ -595,11 +595,12 @@ class H2IntegrateModel:
 
                         # below logic is only used if using system-level control
                         if self.slc and model_type == "performance_model":
-                            self._check_control_classifier(perf_model, om_model_object)
-                            control_classifier = comp._control_classifier
-                            self.tech_control_classifiers.update(
-                                {tech_name: getattr(comp, control_classifier)}
-                            )
+                            if "DemandComponent" not in perf_model:
+                                self._check_control_classifier(perf_model, om_model_object)
+                                control_classifier = om_model_object._control_classifier
+                                self.tech_control_classifiers.update(
+                                    {tech_name: control_classifier}
+                                )
 
                             # add curtail component to curtailable technology performance models
                             if control_classifier == "curtailable":

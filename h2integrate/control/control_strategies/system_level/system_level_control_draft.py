@@ -7,6 +7,9 @@ from h2integrate.core.utilities import BaseConfig
 
 class SystemControlParameters(BaseConfig):
     draft: str = field()
+    solver_name: str = field()
+    max_iter: int = field()
+    convergence_tolerance: float = field()
 
 
 class SystemLevelControlDraft(om.ExplicitComponent):
@@ -19,6 +22,9 @@ class SystemLevelControlDraft(om.ExplicitComponent):
     def setup(self):
         n_timesteps = self.options["plant_config"]["simulation"]["n_timesteps"]
         technology_interconnections = self.options["plant_config"]["technology_interconnections"]
+        self.control_config = SystemControlParameters.from_dict(
+            self.options["plant_config"]["system_level_control"]["control_parameters"]
+        )
 
         G = nx.DiGraph()
         for connection in technology_interconnections:
@@ -33,7 +39,7 @@ class SystemLevelControlDraft(om.ExplicitComponent):
         sources_to_commodities = {
             (e[0], e[-1]) for e in G.edges(data="commodity") if e[-1] is not None
         }
-        {e[-1] for e in sources_to_commodities}
+
         # todo: add logic to prevent including feedstock components
         commodity_to_units = {}
         for src_cmod in sources_to_commodities:
