@@ -438,6 +438,12 @@ class ProFASTDefaultIncentive(BaseConfig):
         return self.as_dict()
 
 
+@define(kw_only=True)
+class ProductionTaxCreditConfig(BaseConfig):
+    ptc_cost: float = field()
+    cost_units: str = field()
+
+
 class ProFastBase(om.ExplicitComponent):
     """
     Base component for using the ProFAST financial model within OpenMDAO.
@@ -591,6 +597,11 @@ class ProFastBase(om.ExplicitComponent):
         coproduct_cost_params.setdefault("unit", self.price_units.replace("USD", "$"))
         self.coproduct_cost_settings = ProFASTDefaultCoproduct.from_dict(coproduct_cost_params)
 
+        # initialize default PTC incentive parameters
+        ptc_params = plant_config["finance_parameters"]["model_inputs"].get("ptc_paramters", {})
+        ptc_params.setdefault("decay", -1 * self.params.inflation_rate)
+        self.ptc_cost_settings = ProFASTDefaultIncentive.from_dict(ptc_params)
+
     def populate_profast(self, inputs):
         """Populate and configure the ProFAST financial model for analysis.
 
@@ -642,7 +653,7 @@ class ProFastBase(om.ExplicitComponent):
         fixed_cost_defaults = self.fixed_cost_settings.create_dict()
         variable_cost_defaults = self.variable_cost_settings.create_dict()
         coproduct_cost_defaults = self.coproduct_cost_settings.create_dict()
-
+        self.ptc_cost_settings.create_dict()
         # loop through technologies and create cost entries
         for tech in self.tech_config:
             # get tech-specific capital item parameters
@@ -652,6 +663,7 @@ class ProFastBase(om.ExplicitComponent):
             tech_capex_info = tech_model_inputs.get("financial_parameters", {}).get(
                 "capital_items", {}
             )
+            tech_model_inputs.get("financial_parameters", {}).get("ptc_items", {})
 
             # add CapEx cost to tech-specific capital item entry
             tech_capex_info.update({"cost": float(inputs[f"capex_adjusted_{tech}"][0])})
