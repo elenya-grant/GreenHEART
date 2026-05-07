@@ -104,6 +104,11 @@ class ProFastLCO(ProFastBase):
         Returns:
             None
         """
+        if "system_level_control" in self.options["plant_config"]:
+            if np.all(inputs["capacity_factor"] == 0):
+                outputs[self.LCO_str] = 1e9
+                return
+
         pf = self.populate_profast(inputs)
 
         # simulate ProFAST

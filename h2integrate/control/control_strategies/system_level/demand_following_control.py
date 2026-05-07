@@ -60,7 +60,44 @@ class DemandFollowingControl(SystemLevelControlBase):
 
     def compute(self, inputs, outputs):
         if self.multi_commodity_system:
-            self.find_converter_techs()
+            converter_techs = self.find_converter_techs()
+            conversion_ratios = set()
+            for input_commodity, converter_tech, output_commodity in converter_techs:
+                upstream_techs = self.get_upstream_techs_for_commodity(
+                    converter_tech, input_commodity
+                )
+
+                aggregated_commodity_in = np.zeros(self.n_timesteps)
+                for upstream_tech in upstream_techs:
+                    aggregated_commodity_in += inputs[f"{upstream_tech}_{input_commodity}_out"]
+
+                # get conversion ration from input to output
+                if inputs[f"{converter_tech}_{output_commodity}_out"].sum() > 0:
+                    conversion_ratio = np.mean(
+                        np.nan_to_num(
+                            aggregated_commodity_in
+                            / inputs[f"{converter_tech}_{output_commodity}_out"]
+                        )
+                    )
+                else:
+                    conversion_ratio = aggregated_commodity_in.mean()
+
+                conversion_ratios.add(
+                    (input_commodity, converter_tech, output_commodity, conversion_ratio)
+                )
+                if output_commodity == self.commodity:
+                    break
+
+            # NOTE: this was not made for daisy-chained commodity streams
+            # i.e., natural gas -> electricity -> hydrogen
+
+            # Set the demand for the commodity upstream of the converter
+            # that produces the demanded commodity
+            upstream_commodity_demand = conversion_ratio * inputs[self.demand_input_name]
+            outputs = self.run_control_for_commodity_subset(
+                inputs, outputs, input_commodity, upstream_commodity_demand
+            )
+            # Set the demand for the demanded component
             outputs = self.run_control_for_commodity_subset(
                 inputs, outputs, self.commodity, inputs[self.demand_input_name].copy()
             )

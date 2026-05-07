@@ -704,6 +704,7 @@ class SystemLevelControlBase(om.ExplicitComponent):
             return
 
         converter_techs = set()
+        # converter_tech_names_ordered = []
 
         edges = list(self.technology_graph.edges(data="commodity"))
         upstream_converter = None
@@ -759,5 +760,6 @@ class SystemLevelControlBase(om.ExplicitComponent):
                             # formatted as (input commodity, tech_name, output comodity)
                             converter_techs.add((input_commodity, tech, output_commodity))
                     upstream_converter = tech
+                    # converter_tech_names_ordered.append(tech)
 
-        return converter_techs
+        return converter_techs  # , converter_tech_names_ordered

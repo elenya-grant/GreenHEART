@@ -15,5 +15,10 @@ h2i.setup()
 # Run the model
 h2i.run()
 
+lcoe = h2i.prob.get_val("finance_subgroup_electricity.LCOE", units="USD/(MW*h)")
+lcoh = h2i.prob.get_val("finance_subgroup_hydrogen.LCOH", units="USD/kg")
+
+print(f"LCOE: {lcoe}")
+print(f"LCOH: {lcoh}")
 # Post-process the results
-h2i.post_process()
+# h2i.post_process()
