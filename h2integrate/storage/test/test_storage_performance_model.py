@@ -1055,3 +1055,88 @@ def test_round_trip_efficiency_preserved_in_config(subtests):
         assert config_dict["round_trip_efficiency"] == round_trip_eff
         assert config_dict["charge_efficiency"] == pytest.approx(np.sqrt(round_trip_eff))
         assert config_dict["discharge_efficiency"] == pytest.approx(np.sqrt(round_trip_eff))
+
+
+@pytest.mark.regression
+@pytest.mark.parametrize("n_timesteps", [48])
+def test_generic_storage_nonhourly(plant_config, subtests):
+    plant_config["plant"]["simulation"]["dt"] = 1800
+
+    # this tests a case where the demand < charge rate and charge_rate=discharge_rate
+    model_inputs = {
+        "shared_parameters": {
+            "commodity": "hydrogen",
+            "commodity_rate_units": "kg/h",
+        },
+        "performance_parameters": {
+            "max_capacity": 40,
+            "max_charge_rate": 10,
+            "min_soc_fraction": 0.1,
+            "max_soc_fraction": 1.0,
+            "init_soc_fraction": 0.1,
+            "commodity_amount_units": "kg",
+            "charge_equals_discharge": True,
+            "charge_efficiency": 1.0,
+            "discharge_efficiency": 1.0,
+            "demand_profile": 0.0,
+        },
+        "control_parameters": {"set_demand_as_avg_commodity_in": False},
+    }
+
+    prob = om.Problem()
+
+    commodity_demand = np.full(48, 2.5)
+    commodity_in = np.repeat(
+        np.concat([np.zeros(3), np.cumsum(np.ones(15)), np.full(6, 4.0)]) / 2, 2
+    )
+
+    prob.model.add_subsystem(
+        name="IVC1",
+        subsys=om.IndepVarComp(name="hydrogen_in", val=commodity_in, units="kg/(0.5*h)"),
+        promotes=["*"],
+    )
+
+    prob.model.add_subsystem(
+        name="IVC2",
+        subsys=om.IndepVarComp(name="hydrogen_demand", val=commodity_demand, units="kg/(0.5*h)"),
+        promotes=["*"],
+    )
+
+    prob.model.add_subsystem(
+        "control",
+        SimpleStorageOpenLoopController(
+            plant_config=plant_config,
+            tech_config={"model_inputs": model_inputs},
+        ),
+        promotes=["*"],
+    )
+
+    prob.model.add_subsystem(
+        "storage",
+        StoragePerformanceModel(
+            plant_config=plant_config,
+            tech_config={"model_inputs": model_inputs},
+        ),
+        promotes=["*"],
+    )
+
+    prob.setup()
+
+    prob.run_model()
+
+    with subtests.test("Expected discharge"):
+        expected_discharge = np.repeat(np.concat([np.zeros(18), np.ones(6)]), 2)
+        np.testing.assert_allclose(
+            prob.get_val("storage.storage_hydrogen_discharge", units="kg/h"),
+            expected_discharge,
+            rtol=1e-6,
+        )
+
+    with subtests.test("Expected charge"):
+        expected_charge = np.repeat(np.concat([np.zeros(8), np.arange(-1, -9, -1), np.zeros(8)]), 2)
+        np.testing.assert_allclose(
+            prob.get_val("storage.storage_hydrogen_charge", units="kg/h"),
+            expected_charge,
+            rtol=1e-6,
+            atol=1e-10,
+        )
