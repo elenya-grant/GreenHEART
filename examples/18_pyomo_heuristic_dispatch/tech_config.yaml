@@ -37,7 +37,7 @@ technologies:
     dispatch_rule_set:
       model: PyomoRuleStorageBaseclass
     control_strategy:
-      model: HeuristicLoadFollowingController
+      model: HeuristicLoadFollowingStorageController
     performance_model:
       model: PySAMBatteryPerformanceModel
     cost_model:
@@ -60,5 +60,20 @@ technologies:
         power_capex: 311  # $/kW from 2024 ATB year 2025
         opex_fraction: 0.25  # 0.25% of capex per year from 2024 ATB
       control_parameters:
-        n_control_window: 24
+        n_control_window_hours: 24
         system_commodity_interface_limit: 1e12
+  elec_combiner:
+    performance_model:
+      model: GenericCombinerPerformanceModel
+    model_inputs:
+      performance_parameters:
+        commodity: electricity
+        commodity_rate_units: kW
+  electrical_load_demand:
+    performance_model:
+      model: GenericDemandComponent
+    model_inputs:
+      performance_parameters:
+        commodity: electricity
+        commodity_rate_units: kW
+        demand_profile: 50000  # 50 MW

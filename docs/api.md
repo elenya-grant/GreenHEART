@@ -8,6 +8,7 @@
    :recursive:
 
    core
+   feedstocks
    converters
    control
    finances
@@ -15,4 +16,5 @@
    storage
    transporters
    tools
+   demand
 ```
