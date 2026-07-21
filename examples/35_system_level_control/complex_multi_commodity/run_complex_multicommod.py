@@ -20,16 +20,27 @@ h2i.run()
 
 print("Ran V2 successfully!")
 
+h2i.model.get_val("system_level_controller.nh3_storage_ammonia_set_point", units="kg/h").min()
+h2i.model.get_val("system_level_controller.haber_bosch_ammonia_set_point", units="kg/h").max()
+h2i.model.get_val(
+    "nh3_storage.ammonia_command_value", units="kg/h"
+)  # output from storage controller
+h2i.model.get_val("nh3_storage.ammonia_out", units="kg/h").max()  # output from performance model
+h2i.model.get_val("nh3_storage.ammonia_in", units="kg/h").max()  # input to storage controller
+h2i.model.get_val("nh3_load_demand.unmet_ammonia_demand_out", units="kg/h")
 
-print("Starting V1 ...")
-h2i = H2IntegrateModel("top_level_config.yaml")
+# h2i.model.get_val("system_level_controller.")
 
-h2i.setup()
 
-# Run the model
-h2i.run()
+# print("Starting V1 ...")
+# h2i = H2IntegrateModel("top_level_config.yaml")
 
-print("Ran V1 successfully!")
+# h2i.setup()
+
+# # Run the model
+# h2i.run()
+
+# print("Ran V1 successfully!")
 # Post-process the results
 # h2i.post_process()
 

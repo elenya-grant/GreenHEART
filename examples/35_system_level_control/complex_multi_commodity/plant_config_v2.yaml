@@ -55,6 +55,7 @@ system_level_control:
   demand_component: nh3_load_demand
   control_parameters:
     use_average_conversion_factor: true
+    dispatch_component_order: [fixed, flexible, dispatchable, storage]
   solver_options:
     solver_name: gauss_seidel
     max_iter: 20
