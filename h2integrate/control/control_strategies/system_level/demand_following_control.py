@@ -16,6 +16,20 @@ from h2integrate.control.control_strategies.system_level.system_level_control_ba
 @define(kw_only=True)
 class DemandFollowingControlConfig(BaseConfig):
     use_average_conversion_factor: bool = field(default=False)
+    dispatch_component_order: list[str] = field(
+        default=["fixed", "flexible", "storage", "dispatchable"]
+    )
+
+    def __attrs_post_init__(self):
+        technology_types = ["fixed", "flexible", "storage", "dispatchable"]
+        missing_extranous_types = set(technology_types) ^ set(self.dispatch_component_order)
+        if missing_extranous_types:
+            msg = (
+                f"dispatch_component_order can only have the following types: {technology_types}. "
+                f"The following components are either missing or extraneous: "
+                f"{missing_extranous_types}"
+            )
+            raise ValueError(msg)
 
 
 class DemandFollowingControl(SystemLevelControlBase):
@@ -149,17 +163,12 @@ class DemandFollowingControl(SystemLevelControlBase):
         self.converter_upstreams = converter_upstreams
         self.converter_tech_names = converter_tech_names
 
-    def get_setpoints_for_commodity_subset(
-        self, inputs, outputs, commodity, commodity_demand, tech_subset: list | set | None = None
+    def compute_setpoint_for_fixed(
+        self, inputs, commodity, commodity_demand, tech_subset: list | set | None = None
     ):
         if tech_subset is None:
             tech_subset = set(self.input_techs)
-
         fixed_tech_subset = set(self.fixed_techs) & set(tech_subset)
-        flexible_tech_subest = set(self.flexible_techs) & set(tech_subset)
-        storage_tech_subset = set(self.storage_techs) & set(tech_subset)
-        dispatchable_tech_subset = set(self.dispatchable_techs) & set(tech_subset)
-
         # 1. Fixed techs: always produce, subtract from demand
         for fixed_tech in fixed_tech_subset:
             commodity_from_tech = self._get_commodity_for_tech(fixed_tech)
@@ -169,7 +178,14 @@ class DemandFollowingControl(SystemLevelControlBase):
                         fixed_tech, commodity_demand, commodity, inputs
                     )
                     self.tech_demands_set.append((fixed_tech, tech_commodity))
+        return commodity_demand
 
+    def compute_setpoint_for_flexible(
+        self, inputs, outputs, commodity, commodity_demand, tech_subset: list | set | None = None
+    ):
+        if tech_subset is None:
+            tech_subset = set(self.input_techs)
+        flexible_tech_subest = set(self.flexible_techs) & set(tech_subset)
         # 2. Flexible techs: operate at full production
         for flexible_tech in flexible_tech_subest:
             commodity_from_tech = self._get_commodity_for_tech(flexible_tech)
@@ -186,7 +202,14 @@ class DemandFollowingControl(SystemLevelControlBase):
                             f"{flexible_tech}_rated_{tech_commodity}_production"
                         ] * np.ones(self.n_timesteps)
                         self.tech_demands_set.append((flexible_tech, tech_commodity))
+        return commodity_demand
 
+    def compute_setpoint_for_storage(
+        self, inputs, outputs, commodity, commodity_demand, tech_subset: list | set | None = None
+    ):
+        if tech_subset is None:
+            tech_subset = set(self.input_techs)
+        storage_tech_subset = set(self.storage_techs) & set(tech_subset)
         # 3. Storage dispatch
         # number of storage components that produce the demanded commodity
         n_storage = len(
@@ -199,7 +222,14 @@ class DemandFollowingControl(SystemLevelControlBase):
                     storage_tech, commodity_demand / n_storage, commodity, inputs, outputs
                 )
                 self.tech_demands_set.append((storage_tech, commodity))
+        return commodity_demand
 
+    def compute_setpoint_for_dispatchable(
+        self, outputs, commodity, commodity_demand, tech_subset: list | set | None = None
+    ):
+        if tech_subset is None:
+            tech_subset = set(self.input_techs)
+        dispatchable_tech_subset = set(self.dispatchable_techs) & set(tech_subset)
         # 4. Dispatchable techs
         remaining_demand = np.maximum(commodity_demand, 0.0)
 
@@ -215,6 +245,116 @@ class DemandFollowingControl(SystemLevelControlBase):
                     remaining_demand / n_dispatchable
                 )
                 self.tech_demands_set.append((dispatchable_tech, commodity))
+
+        return remaining_demand
+
+    def run_compute_set_points_for_tech_type(
+        self,
+        tech_type,
+        inputs,
+        outputs,
+        commodity,
+        commodity_demand,
+        tech_subset: list | set | None = None,
+    ):
+        if tech_subset is None:
+            tech_subset = set(self.input_techs)
+
+        if tech_type == "fixed":
+            commodity_demand = self.compute_setpoint_for_fixed(
+                inputs, commodity, commodity_demand, tech_subset
+            )
+            return commodity_demand
+
+        if tech_type == "flexible":
+            commodity_demand = self.compute_setpoint_for_flexible(
+                inputs, outputs, commodity, commodity_demand, tech_subset
+            )
+            return commodity_demand
+
+        if tech_type == "storage":
+            commodity_demand = self.compute_setpoint_for_storage(
+                inputs, outputs, commodity, commodity_demand, tech_subset
+            )
+            return commodity_demand
+
+        if tech_type == "dispatchable":
+            commodity_demand = self.compute_setpoint_for_dispatchable(
+                outputs, commodity, commodity_demand, tech_subset
+            )
+            return commodity_demand
+
+    def get_setpoints_for_commodity_subset(
+        self, inputs, outputs, commodity, commodity_demand, tech_subset: list | set | None = None
+    ):
+        if tech_subset is None:
+            tech_subset = set(self.input_techs)
+
+        for tech_dispatch_type in self.config.dispatch_component_order:
+            commodity_demand = self.run_compute_set_points_for_tech_type(
+                tech_dispatch_type, inputs, outputs, commodity, commodity_demand
+            )
+
+        # fixed_tech_subset = set(self.fixed_techs) & set(tech_subset)
+        # flexible_tech_subest = set(self.flexible_techs) & set(tech_subset)
+        # storage_tech_subset = set(self.storage_techs) & set(tech_subset)
+        # dispatchable_tech_subset = set(self.dispatchable_techs) & set(tech_subset)
+
+        # # 1. Fixed techs: always produce, subtract from demand
+        # for fixed_tech in fixed_tech_subset:
+        #     commodity_from_tech = self._get_commodity_for_tech(fixed_tech)
+        #     for tech_commodity in commodity_from_tech:
+        #         if tech_commodity == commodity:
+        #             commodity_demand = self._subtract_fixed(
+        #                 fixed_tech, commodity_demand, commodity, inputs
+        #             )
+        #             self.tech_demands_set.append((fixed_tech, tech_commodity))
+
+        # # 2. Flexible techs: operate at full production
+        # for flexible_tech in flexible_tech_subest:
+        #     commodity_from_tech = self._get_commodity_for_tech(flexible_tech)
+        #     for tech_commodity in commodity_from_tech:
+        #         if tech_commodity == commodity:
+        #             commodity_demand = self._subtract_flexible(
+        #                 flexible_tech, commodity_demand, commodity, inputs, outputs
+        #             )
+        #             self.tech_demands_set.append((flexible_tech, tech_commodity))
+        #         else:
+        #             if f"{flexible_tech}_rated_{tech_commodity}_production" in inputs:
+        #                 # set the per-tech set-point as the rated production
+        #                 outputs[f"{flexible_tech}_{tech_commodity}_set_point"] = inputs[
+        #                     f"{flexible_tech}_rated_{tech_commodity}_production"
+        #                 ] * np.ones(self.n_timesteps)
+        #                 self.tech_demands_set.append((flexible_tech, tech_commodity))
+
+        # # 3. Storage dispatch
+        # # number of storage components that produce the demanded commodity
+        # n_storage = len(
+        #     [s for s in storage_tech_subset if commodity in self._get_commodity_for_tech(s)]
+        # )
+        # for storage_tech in storage_tech_subset:
+        #     commodity_from_tech = self._get_commodity_for_tech(storage_tech)
+        #     if commodity in commodity_from_tech:
+        #         commodity_demand = self._dispatch_storage(
+        #             storage_tech, commodity_demand / n_storage, commodity, inputs, outputs
+        #         )
+        #         self.tech_demands_set.append((storage_tech, commodity))
+
+        # # 4. Dispatchable techs
+        # remaining_demand = np.maximum(commodity_demand, 0.0)
+
+        # # calculate the number of dispatchable technologies that
+        # # produce the demanded commodity
+        # n_dispatchable = len(
+        #     [s for s in dispatchable_tech_subset if commodity in self._get_commodity_for_tech(s)]
+        # )
+        # for dispatchable_tech in dispatchable_tech_subset:
+        #     commodity_from_tech = self._get_commodity_for_tech(dispatchable_tech)
+        #     if commodity in commodity_from_tech:
+        #         outputs[f"{dispatchable_tech}_{commodity}_set_point"] = (
+        #             remaining_demand / n_dispatchable
+        #         )
+        #         self.tech_demands_set.append((dispatchable_tech, commodity))
 
         return outputs
 
