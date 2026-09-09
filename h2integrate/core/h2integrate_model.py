@@ -858,7 +858,7 @@ class H2IntegrateModel:
         demand_tech = slc_topology["demand_tech"]
         demand_commodity = slc_topology["demand_commodity"]
         self.plant.connect(
-            f"{demand_tech}.{demand_commodity}_demand_out",
+            f"{demand_tech}.{demand_commodity}_demand",
             f"system_level_controller.{demand_commodity}_demand",
         )
 

@@ -179,10 +179,23 @@ class SystemLevelControlBase(om.ExplicitComponent):
 
         # Input: demand profile
         self.demand_input_name = f"{self.commodity}_demand"
+
+        # Demand has to be set to the same value to prevent an error
+        demand_model_inputs = (
+            self.options["tech_config"]
+            .get("technologies", {})
+            .get(self.demand_tech, {})
+            .get("model_inputs", {})
+        )
+        demand_params = demand_model_inputs.get(
+            "performance_parameters", {}
+        ) | demand_model_inputs.get("shared_parameters", {})
+        demand_val = demand_params.get("demand_profile", 10.0)
         self.add_input(
             self.demand_input_name,
-            val=10.0,
+            val=demand_val,
             shape=self.n_timesteps,
+            # require_connection=True,
             units=self.commodity_rate_units,
             desc=f"Demand profile of {self.commodity}",
         )
