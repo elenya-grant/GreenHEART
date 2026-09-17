@@ -417,8 +417,6 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
         return ts_data
 
     def get_data(self, latitude, longitude, first_call=True):
-        site_changed = False
-
         site_changed = not np.allclose([latitude, longitude], self.resource_site, atol=1e-6, rtol=0)
 
         # 0) If site hasn't changed and resource data has already been loaded
@@ -453,18 +451,22 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
             resource_data = self.get_data_for_year(latitude, longitude, first_call=first_call)
             md, ts = self.separate_timeseries_and_meta_data(resource_data)
 
+            meta_data |= md
             if year == self.resource_years[0]:
-                # get start time
-                meta_data |= md
                 timeseries_data |= ts
             else:
                 timeseries_data = self.append_timeseries_data(timeseries_data, ts)
 
+        # NOTE: here is where we could clip data if needed
+        # timeseries_data = self.clip_timeseries_data(timeseries_data)
+        # NOTE: this is also where we could up/downsample
+
         timeseries_data = add_resource_start_end_times(timeseries_data)
+
         # reset resource-filename
         self.config.resource_filename = resource_files
 
-        return timeseries_data | meta_data
+        return meta_data | timeseries_data
 
     def compute(self, inputs, outputs, discrete_inputs, discrete_outputs):
         # update the resource data based on the input latitude and longitude
