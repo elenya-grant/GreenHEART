@@ -3,6 +3,13 @@ from datetime import timezone, timedelta
 import pandas as pd
 
 
+def is_leap_year(year):
+    is_leap = (year % 100 == 0 and year % 400 == 0 and year % 4 == 0) or (
+        year % 4 == 0 and year % 100 != 0
+    )
+    return is_leap
+
+
 def process_leap_day(data: dict, include_leap_day: bool, n_timesteps: int):
     """Process leap day data by optionally removing it and validating data length.
 
