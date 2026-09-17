@@ -96,16 +96,16 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
         self.add_input("latitude", self.config.latitude, units="deg")
         self.add_input("longitude", self.config.longitude, units="deg")
 
-        self.resource_years = self.get_resource_years()
+        self.resource_years = self._get_resource_years()
 
-    def get_resource_years(self):
+    def _get_resource_years(self):
         resource_year_validator = type(self.config.__attrs_attrs__.resource_year.validator).__name__
         if resource_year_validator == "_InValidator":
             # to accomodate tmy solar resource models
             year_options = self.config.__attrs_attrs__.resource_year.validator.options
             resource_year_type, resource_year = self.config.resource_year.split("-")
             resource_year = int(resource_year)
-            self.resource_base_year = deepcopy(resource_year)
+            resource_base_year = deepcopy(resource_year)
             future_years = sorted(
                 [
                     int(yr.split("-")[-1])
@@ -125,7 +125,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
             future_years = (
                 np.arange(self.config.resource_year, last_available_yr + 1, 1).astype(int).tolist()
             )
-            self.resource_base_year = deepcopy(self.config.resource_year)
+            resource_base_year = deepcopy(self.config.resource_year)
 
         include_leap = getattr(self.config, "include_leap_day", False)
 
@@ -148,7 +148,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
         ][0]
 
         resource_years = (
-            np.arange(self.resource_base_year, last_resource_year + 1, 1).astype(int).tolist()
+            np.arange(resource_base_year, last_resource_year + 1, 1).astype(int).tolist()
         )
         if resource_year_validator == "_InValidator":
             resource_years = [f"{resource_year_type}-{int(y)}" for y in resource_years]
