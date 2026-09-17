@@ -460,10 +460,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
             else:
                 timeseries_data = self.append_timeseries_data(timeseries_data, ts)
 
-            if year == self.resource_years[-1]:
-                # get end-time from last-year
-                meta_data["end_time"] = md["end_time"]
-
+        timeseries_data = add_resource_start_end_times(timeseries_data)
         # reset resource-filename
         self.config.resource_filename = resource_files
 
