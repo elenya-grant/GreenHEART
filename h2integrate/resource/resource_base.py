@@ -104,6 +104,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
             # to accomodate tmy solar resource models
             year_options = self.config.__attrs_attrs__.resource_year.validator.options
             resource_year_type, resource_year = self.config.resource_year.split("-")
+            resource_year = int(resource_year)
             self.resource_base_year = deepcopy(resource_year)
             future_years = sorted(
                 [
@@ -135,7 +136,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
 
         future_hours_available = int(sum(hours_per_simulation_year))
 
-        hours_simulated = (self.dt / 60) * self.n_timesteps
+        hours_simulated = (self.dt / 3600) * self.n_timesteps
 
         if future_hours_available < hours_simulated:
             msg = "Not enough future resource years"
@@ -146,7 +147,9 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
             y for y, h in zip(future_years, cumulative_hrs) if h >= hours_simulated
         ][0]
 
-        resource_years = np.arange(resource_year, last_resource_year + 1, 1).astype(int).tolist()
+        resource_years = (
+            np.arange(self.resource_base_year, last_resource_year + 1, 1).astype(int).tolist()
+        )
         if resource_year_validator == "_InValidator":
             resource_years = [f"{resource_year_type}-{int(y)}" for y in resource_years]
         return sorted(resource_years)
@@ -185,7 +188,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
 
         return resource_specs
 
-    def create_filename(self, latitude, longitude, resource_year):
+    def create_filename(self, latitude, longitude):
         """Create default filename to save downloaded data to. Suggested filename formatting is:
 
         "{latitude}_{longitude}_{resource_year}_{dataset_desc}_{interval}min_{tz_desc}_tz.csv"
@@ -194,7 +197,6 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
         Args:
             latitude (float): latitude corresponding to location for resource data
             longitude (float): longitude corresponding to location for resource data
-            resource_year (int): year corresponding to the year for resource data
 
         Returns:
             str: filename for resource data to be saved to or loaded from.
@@ -202,13 +204,12 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
 
         raise NotImplementedError("This method should be implemented in a subclass.")
 
-    def create_url(self, latitude, longitude, resource_year):
+    def create_url(self, latitude, longitude):
         """Create url for data download.
 
         Args:
             latitude (float): latitude corresponding to location for resource data
             longitude (float): longitude corresponding to location for resource data
-            resource_year (int): year corresponding to the year for resource data
 
         Returns:
             str: url to use for API call.
@@ -247,7 +248,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
         """
         raise NotImplementedError("This method should be implemented in a subclass.")
 
-    def get_data_for_year(self, latitude, longitude, resource_year, first_call=True):
+    def get_data_for_year(self, latitude, longitude, first_call=True):
         """Get resource data to handle any of the expected inputs. This method does the following:
 
         0) If this is not the first resource call of the simulation, check if latitude and longitude
@@ -306,7 +307,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
             filepath = resource_dir / self.config.resource_filename
         # Otherwise, create a filename with the method `create_filename()`.
         else:
-            filename = self.create_filename(latitude, longitude, resource_year)
+            filename = self.create_filename(latitude, longitude)
             filepath = resource_dir / filename
         # if file doesn't exist, continue to Step 2b
         if not filepath.is_file():
@@ -327,7 +328,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
                 filepath = resource_dir / self.config.resource_filename
             # Otherwise, create a filename with the method `create_filename()`.
             else:
-                filename = self.create_filename(latitude, longitude, resource_year)
+                filename = self.create_filename(latitude, longitude)
                 filepath = resource_dir / filename
 
         # Check if the filename was provided by the user and the site hasn't changed
@@ -351,7 +352,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
         # If the filepath (resource_dir/filename) does not exist, download data
         self.filepath = filepath
         # 5) Create the url to download data using `create_url()` and continue to Step 6.
-        url = self.create_url(latitude, longitude, resource_year)
+        url = self.create_url(latitude, longitude)
         # 6) Download data from the url created in Step 5 and save to a filepath created from
         # the resulting resource_dir and filename from Steps 2 and 3.
         success = self.download_data(url, filepath)
@@ -365,6 +366,14 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
             raise ValueError("Did not successfully download resource data.")
 
     def separate_timeseries_and_meta_data(self, data):
+        """Separate a dictionary into meta-data and timeseries data components
+
+        Args:
+            data (dict): dictionary of resource data
+
+        Returns:
+            tuple[dict, dict]: dictionary of meta-data and dictionary of timeseries data
+        """
         meta_data = {}
         timeseries_data = {}
         for k, v in data.items():
@@ -376,6 +385,15 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
         return meta_data, timeseries_data
 
     def append_timeseries_data(self, ts_data_full, new_ts_data):
+        """_summary_
+
+        Args:
+            ts_data_full (dict): dictionary of existing timeseries data
+            new_ts_data (dict): dictionary of new timeseries data
+
+        Returns:
+            dict: dictionary containing timeseries data from ts_data_full and new_ts_data
+        """
         shared_keys = set(ts_data_full) & set(new_ts_data)
         if len(shared_keys) != len(set(ts_data_full)):
             # new_ts_data could have extra or new_ts_data could be missing.
@@ -388,7 +406,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
             warnings.warn(msg, UserWarning)
 
         ts_data = {}
-        for k in shared_keys.items():
+        for k in list(shared_keys):
             if isinstance(ts_data_full[k], list) and isinstance(new_ts_data[k], list):
                 ts_data[k] = ts_data_full[k] + new_ts_data[k]
             else:
@@ -410,9 +428,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
                 return self.resource_data
 
         if len(self.resource_years) == 1:
-            resource_data = self.get_data_for_year(
-                latitude, longitude, int(self.resource_years[0]), first_call=first_call
-            )
+            resource_data = self.get_data_for_year(latitude, longitude, first_call=first_call)
             return resource_data
 
         # Multiple years
@@ -434,10 +450,8 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
 
             self.config.resource_year = year
 
-            resource_data = self.get_data_for_year(latitude, longitude, year, first_call=first_call)
+            resource_data = self.get_data_for_year(latitude, longitude, first_call=first_call)
             md, ts = self.separate_timeseries_and_meta_data(resource_data)
-
-            timeseries_data[year]
 
             if year == self.resource_years[0]:
                 # get start time
