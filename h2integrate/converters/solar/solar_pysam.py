@@ -149,7 +149,7 @@ class PYSAMSolarPlantPerformanceModel(SolarPerformanceBaseClass):
     """
 
     _time_step_bounds = (
-        3600,
+        1800,
         3600,
     )  # (min, max) time step lengths (in seconds) compatible with this model
 
