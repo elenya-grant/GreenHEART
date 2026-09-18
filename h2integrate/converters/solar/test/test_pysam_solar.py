@@ -7,6 +7,7 @@ from pytest import fixture
 
 from h2integrate.converters.solar.solar_pysam import PYSAMSolarPlantPerformanceModel
 from h2integrate.resource.solar.nlr_developer_goes_api_models import GOESAggregatedSolarAPI
+from h2integrate.resource.solar.nlr_developer_himawari_api_models import Himawari7SolarAPI
 
 
 @pytest.mark.unit
@@ -511,3 +512,57 @@ def test_pvwatts_singleowner_withtilt(
 
     with subtests.test("Capacity in kW-DC"):
         assert pytest.approx(system_capacity_DC, rel=1e-6) == pv_design_dict["pv_capacity_kWdc"]
+
+
+@pytest.mark.unit
+def test_pvwatts_multiyear(basic_pysam_options, plant_config, subtests):
+    plant_config["plant"]["simulation"]["n_timesteps"] = int(8760 * 2)
+    basic_pysam_options["SystemDesign"]["azimuth"] = 0
+    pv_design_dict = {
+        "pv_capacity_kWdc": 250000.0,
+        "dc_ac_ratio": 1.23,
+        "create_model_from": "default",
+        "config_name": "PVWattsSingleOwner",
+        "tilt_angle_func": "lat-func",
+        # "azimuth_angle_func": "lat-func",
+        "pysam_options": basic_pysam_options,
+    }
+
+    tech_config_dict = {
+        "model_inputs": {
+            "performance_parameters": pv_design_dict,
+        }
+    }
+
+    solar_resource_dict = {
+        "latitude": -27.3649,
+        "longitude": 152.67935,
+        "include_leap_day": False,
+        "resource_year": 2012,
+    }
+    prob = om.Problem()
+    solar_resource = Himawari7SolarAPI(
+        plant_config=plant_config,
+        resource_config=solar_resource_dict,
+        driver_config={},
+    )
+    comp = PYSAMSolarPlantPerformanceModel(
+        plant_config=plant_config,
+        tech_config=tech_config_dict,
+        driver_config={},
+    )
+    prob.model.add_subsystem("solar_resource", solar_resource, promotes=["*"])
+    prob.model.add_subsystem("pv_perf", comp, promotes=["*"])
+    prob.setup()
+
+    prob.run_model()
+
+    aep = prob.get_val("pv_perf.annual_electricity_produced", units="MW*h/year")
+    with subtests.test("AEP Year 0"):
+        assert pytest.approx(aep[0], rel=1e-6) == 485833.9519324205
+    with subtests.test("AEP Year 1"):
+        assert pytest.approx(aep[1], rel=1e-6) == 499205.0824042033
+    with subtests.test("AEP from years 0"):
+        assert all(aep[i] == aep[0] for i in range(0, len(aep), 2))
+    with subtests.test("AEP from years 1"):
+        assert all(aep[i] == aep[1] for i in range(1, len(aep), 2))

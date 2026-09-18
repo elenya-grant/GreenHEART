@@ -393,11 +393,12 @@ class PYSAMSolarPlantPerformanceModel(SolarPerformanceBaseClass):
         n_repeats = np.ceil(self.plant_life / len(resource_years))
         dc_life = np.tile(dc_annual, int(n_repeats))[: self.plant_life]
         ac_life = np.tile(ac_annual, int(n_repeats))[: self.plant_life]
+        n_timesteps_life = np.tile(n_timesteps_per_year, int(n_repeats))[: self.plant_life]
 
         return {
             "dc_annual": dc_life,
             "ac_annual": ac_life,
-            "n_timesteps_per_year": n_timesteps_per_year,
+            "n_timesteps_per_year": n_timesteps_life,
         }
 
     def compute(self, inputs, outputs, discrete_inputs, discrete_outputs):
