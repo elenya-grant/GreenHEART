@@ -103,6 +103,7 @@ class NLRDeveloperAPIWindResourceBase(WindResourceBase, ResourceBaseAPIModel):
             "names": [str(resource_year)],  # TODO: update to handle multiple years
             "interval": str(self.interval),
             "utc": str(self.utc).lower(),
+            "leap_day": str(self.config.include_leap_day).lower(),
             "api_key": get_nlr_developer_api_key(),
             "email": get_nlr_developer_api_email(),
         }

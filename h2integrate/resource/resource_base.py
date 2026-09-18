@@ -68,6 +68,7 @@ class ResourceBaseAPIConfig(BaseConfig):
     resource_data: dict | object = field(default={})
     resource_filename: Path | str = field(default="")
     resource_dir: Path | str | None = field(default=None)
+    include_leap_day: bool = field(default=False)
 
 
 class ResourceBaseAPIModel(om.ExplicitComponent):
@@ -123,6 +124,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
                     raise ValueError(msg)
 
             return
+
         # Bounds validator
         for validator in self.config.__attrs_attrs__.resource_year.validator._validators:
             if "<" in validator.compare_op:
@@ -133,6 +135,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
                 first_yr = (
                     validator.bound if validator.compare_op == ">=" else int(validator.bound + 1)
                 )
+
         if resource_year < first_yr or resource_year > last_yr:
             msg = (
                 f"Invaild resource year of {resource_year}. "
@@ -156,7 +159,6 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
 
             ts_data["year"] = np.array(ts_data["year"]).astype(int)
             ts_df = ts_df[ts_df["year"] == resource_year]
-            # i_yr = np.argwhere(ts_data["year"]==resource_year).flatten()
         elif "Year" in ts_data:
             ts_data["Year"] = np.array(ts_data["Year"]).astype(int)
             ts_df = ts_df[ts_df["Year"] == resource_year]
