@@ -336,6 +336,7 @@ class PYSAMSolarPlantPerformanceModel(SolarPerformanceBaseClass):
         return reformatted_data
 
     def loop_simulation_years(self, dc_degradation, resource_data):
+        # TODO: finish this method
         ts_data = {
             k: v for k, v in resource_data.items() if isinstance(v, list | tuple | np.ndarray)
         }
@@ -343,10 +344,11 @@ class PYSAMSolarPlantPerformanceModel(SolarPerformanceBaseClass):
         resource_years = ts_df["year"].unique()
         ts_df = ts_df.set_index(keys=["year"])
         cnt = 0
-        generation_profile = np.zeros(self.n_timesteps)
+
         annual_ac = []
         annual_dc = []
-        for year in resource_years:
+        n_timesteps_per_year = np.zeros(len(resource_years))
+        for cnt, year in enumerate(resource_years):
             # run without dc degradation
             solar_resource = ts_df.loc[year].to_dict(orient="list")
             n_timesteps_in_year = len(solar_resource["month"])
@@ -357,19 +359,38 @@ class PYSAMSolarPlantPerformanceModel(SolarPerformanceBaseClass):
             self.system_model.value("system_use_lifetime_out", 0)
             self.system_model.execute()
             if cnt == 0:
-                generation_profile = np.array(self.system_model.Outputs.gen)
+                ac_gen = np.array(self.system_model.Outputs.ac) / 1e3
+                dc_gen = np.array(self.system_model.Outputs.dc) / 1e3
+                # generation_profile = np.array(self.system_model.Outputs.gen)
             else:
-                generation_profile = np.concat(
-                    [generation_profile, np.array(self.system_model.Outputs.gen)], axis=0
-                )
+                ac_gen_new = np.array(self.system_model.Outputs.ac) / 1e3
+                dc_gen_new = np.array(self.system_model.Outputs.dc) / 1e3
+                dc_gen = np.concat([dc_gen, dc_gen_new], axis=0)
+                ac_gen = np.concat([ac_gen, ac_gen_new], axis=0)
+                # generation_profile = np.concat(
+                #     [generation_profile, np.array(self.system_model.Outputs.gen)], axis=0
+                # )
 
             annual_ac.append(self.system_model.value("ac_annual"))  # kWh-AC/year
             dc_aep = np.sum(self.system_model.value("dc") / 1e3) * (self.dt / 3600)  # kWh-DC/year
             annual_dc.append(dc_aep)
+            n_timesteps_in_year[cnt] = len(self.system_model.Outputs.ac)
 
-            cnt += 1
+        n_repeats = np.ceil(self.plant_life / len(resource_years))
+        dc_life = np.tile(annual_dc, int(n_repeats))[: self.plant_life]
+        ac_life = np.tile(annual_ac, int(n_repeats))[: self.plant_life]
+        n_timesteps_life = np.tile(n_timesteps_per_year, int(n_repeats))[: self.plant_life]
 
         # TODO: apply dc degradation at the end
+        res = {
+            "ac_annual": ac_life,
+            "dc_annual": dc_life,
+            "dc_out": dc_gen,
+            "ac_out": ac_gen,
+            "n_timesteps_per_year": n_timesteps_life,
+        }
+
+        return res
 
     def chunk_results_from_multiyear_sim(self, outputs_dict, solar_resource):
         # inverter input power in W (converted to kW)
@@ -436,9 +457,6 @@ class PYSAMSolarPlantPerformanceModel(SolarPerformanceBaseClass):
             self.config.pysam_options.get("Lifetime", {}).get("system_use_lifetime_out", 0)
         )
 
-        running_lifetime = bool(getattr(self.system_model.Lifetime, "system_use_lifetime_out", 0))
-        (len(set(solar_resource_data["year"])) > 1 and self.fraction_of_year_simulated > 1)
-
         if running_lifetime:
             raise NotImplementedError("Cannot yet run PvWatts with lifetime simulation")
 
@@ -465,8 +483,11 @@ class PYSAMSolarPlantPerformanceModel(SolarPerformanceBaseClass):
                 annual_res = self.chunk_results_from_multiyear_sim(outputs_dict, solar_resource)
                 # chunk_results_from_multiyear_sim(self, outputs_dict, solar_resource)
 
-        # assign outputs
-        outputs["electricity_out"] = self.system_model.Outputs.gen  # kW-AC
+        if "ac_gen" in annual_res:
+            outputs["electricity_out"] = annual_res["ac_gen"]
+        else:
+            # assign outputs
+            outputs["electricity_out"] = self.system_model.Outputs.gen  # kW-AC
         pv_capacity_kWdc = self.system_model.value("system_capacity")
         dc_ac_ratio = self.system_model.value("dc_ac_ratio")
         outputs["system_capacity_AC"] = pv_capacity_kWdc / dc_ac_ratio
