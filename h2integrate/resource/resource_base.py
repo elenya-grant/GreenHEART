@@ -184,7 +184,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
             if isinstance(resource_starting_year, str):
                 # resource_year is formatted like `tmy-2020`
                 resource_year_type, resource_year = resource_starting_year.split("-")
-                resource_year = int(resource_year)
+                resource_base_year = int(resource_year)
             else:
                 # resource_year is just the year, get the "type" from the config (like tmy or tgy)
                 resource_year_type, _ = self.config.resource_year.split("-")
@@ -196,7 +196,8 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
                 [
                     int(yr.split("-")[-1])
                     for yr in year_options
-                    if (f"{resource_year_type}-" in yr) and int(yr.split("-")[-1]) >= resource_year
+                    if (f"{resource_year_type}-" in yr)
+                    and int(yr.split("-")[-1]) >= resource_base_year
                 ]
             )
 
