@@ -3,12 +3,17 @@ from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import openmdao.api as om
 from attrs import field, define
 
 from h2integrate.core.utilities import BaseConfig
 from h2integrate.core.file_utils import check_resource_dir
+from h2integrate.resource.utilities.data_tools import (
+    append_timeseries_data,
+    clip_data_to_n_timesteps,
+    clip_data_to_resource_year,
+    separate_timeseries_and_meta_data,
+)
 from h2integrate.resource.utilities.time_tools import (
     is_leap_year,
     process_leap_day,
@@ -105,6 +110,15 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
         self.resource_years = self._get_resource_years(self.config.resource_year)
 
     def _check_resource_year(self, resource_year):
+        """Check if the input resource year is valid based on the config validator.
+
+        Args:
+            resource_year (str | int): resource year to pull data for.
+            If resource_year is a string, it should be formatted as 'tmy-{year}' or similar.
+
+        Raises:
+            ValueError: If the resource year in invalid based on the config validator
+        """
         init_resource_year = deepcopy(self.config.resource_year)
 
         resource_year_validator = type(self.config.__attrs_attrs__.resource_year.validator).__name__
@@ -143,37 +157,37 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
             )
             raise ValueError(msg)
 
-    def clip_data_to_resource_year(self, ts_data, resource_year):
-        meta_data, ts_data = self.separate_timeseries_and_meta_data(ts_data)
+    # def clip_data_to_resource_year(self, ts_data, resource_year):
+    #     meta_data, ts_data = separate_timeseries_and_meta_data(ts_data)
 
-        ts_df = pd.DataFrame(ts_data)
-        if isinstance(resource_year, str):
-            # for TMY datasets, year is different
-            resource_year = int(resource_year.split("-")[-1])
-            return meta_data | ts_data
+    #     ts_df = pd.DataFrame(ts_data)
+    #     if isinstance(resource_year, str):
+    #         # for TMY datasets, year is different
+    #         resource_year = int(resource_year.split("-")[-1])
+    #         return meta_data | ts_data
 
-        if "year" in ts_data:
-            if (yr_ts := ts_data.get("year")) is not None:
-                if len(set(yr_ts)) == 1:
-                    return meta_data | ts_data
+    #     if "year" in ts_data:
+    #         if (yr_ts := ts_data.get("year")) is not None:
+    #             if len(set(yr_ts)) == 1:
+    #                 return meta_data | ts_data
 
-            ts_data["year"] = np.array(ts_data["year"]).astype(int)
-            ts_df = ts_df[ts_df["year"] == resource_year]
-        elif "Year" in ts_data:
-            ts_data["Year"] = np.array(ts_data["Year"]).astype(int)
-            ts_df = ts_df[ts_df["Year"] == resource_year]
-            raise ValueError("'year' column should be lower-case")
-        else:
-            raise ValueError("Missing 'year' timeseries info")
+    #         ts_data["year"] = np.array(ts_data["year"]).astype(int)
+    #         ts_df = ts_df[ts_df["year"] == resource_year]
+    #     elif "Year" in ts_data:
+    #         ts_data["Year"] = np.array(ts_data["Year"]).astype(int)
+    #         ts_df = ts_df[ts_df["Year"] == resource_year]
+    #         raise ValueError("'year' column should be lower-case")
+    #     else:
+    #         raise ValueError("Missing 'year' timeseries info")
 
-        ts_clipped = {c: ts_df[c].values for c in ts_df.columns.to_list()}
-        # ts_clipped = {k:v[i_yr] for k,v in ts_data.items()}
-        return meta_data | ts_clipped
+    #     ts_clipped = {c: ts_df[c].values for c in ts_df.columns.to_list()}
+    #     # ts_clipped = {k:v[i_yr] for k,v in ts_data.items()}
+    #     return meta_data | ts_clipped
 
-    def clip_data_to_n_timesteps(self, ts_data, n_timesteps):
-        meta_data, ts_data = self.separate_timeseries_and_meta_data(ts_data)
-        ts_clipped = {k: v[: int(n_timesteps)] for k, v in ts_data.items()}
-        return meta_data | ts_clipped
+    # def clip_data_to_n_timesteps(self, ts_data, n_timesteps):
+    #     meta_data, ts_data = separate_timeseries_and_meta_data(ts_data)
+    #     ts_clipped = {k: v[: int(n_timesteps)] for k, v in ts_data.items()}
+    #     return meta_data | ts_clipped
 
     def _get_resource_years(self, resource_starting_year):
         resource_year_validator = type(self.config.__attrs_attrs__.resource_year.validator).__name__
@@ -442,7 +456,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
         if filepath.is_file():
             self.filepath = filepath
             data = self.load_data(filepath)
-            data = self.clip_data_to_resource_year(data, resource_year)
+            data = clip_data_to_resource_year(data, resource_year)
             data = add_resource_start_end_times(data)
             return data
 
@@ -458,63 +472,63 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
             data = self.load_data(filepath)
             if (yr_ts := data.get("year")) is not None:
                 if len(set(yr_ts)) > 1:
-                    data = self.clip_data_to_resource_year(data, resource_year)
+                    data = clip_data_to_resource_year(data, resource_year)
             data = add_resource_start_end_times(data)
             return data
 
         else:
             raise ValueError("Did not successfully download resource data.")
 
-    def separate_timeseries_and_meta_data(self, data):
-        """Separate a dictionary into meta-data and timeseries data components
+    # def separate_timeseries_and_meta_data(self, data):
+    #     """Separate a dictionary into meta-data and timeseries data components
 
-        Args:
-            data (dict): dictionary of resource data
+    #     Args:
+    #         data (dict): dictionary of resource data
 
-        Returns:
-            tuple[dict, dict]: dictionary of meta-data and dictionary of timeseries data
-        """
-        meta_data = {}
-        timeseries_data = {}
-        for k, v in data.items():
-            if isinstance(v, (str | bool | int | float | dict)):
-                meta_data[k] = v
-            else:
-                timeseries_data[k] = v
+    #     Returns:
+    #         tuple[dict, dict]: dictionary of meta-data and dictionary of timeseries data
+    #     """
+    #     meta_data = {}
+    #     timeseries_data = {}
+    #     for k, v in data.items():
+    #         if isinstance(v, (str | bool | int | float | dict)):
+    #             meta_data[k] = v
+    #         else:
+    #             timeseries_data[k] = v
 
-        return meta_data, timeseries_data
+    #     return meta_data, timeseries_data
 
-    def append_timeseries_data(self, ts_data_full, new_ts_data):
-        """_summary_
+    # def append_timeseries_data(self, ts_data_full, new_ts_data):
+    #     """_summary_
 
-        Args:
-            ts_data_full (dict): dictionary of existing timeseries data
-            new_ts_data (dict): dictionary of new timeseries data
+    #     Args:
+    #         ts_data_full (dict): dictionary of existing timeseries data
+    #         new_ts_data (dict): dictionary of new timeseries data
 
-        Returns:
-            dict: dictionary containing timeseries data from ts_data_full and new_ts_data
-        """
-        shared_keys = set(ts_data_full) & set(new_ts_data)
-        if len(shared_keys) != len(set(ts_data_full)):
-            # new_ts_data could have extra or new_ts_data could be missing.
-            # if shared_keys < len(set(ts_data_full)), then new_ts_data is missing
-            missing_data = (set(new_ts_data) - shared_keys) & (set(ts_data_full) - shared_keys)
-            msg = (
-                f"Mismatch in timeseries data. Non-shared data keys of {sorted(missing_data)} "
-                f"will be removed. "
-            )
-            warnings.warn(msg, UserWarning)
+    #     Returns:
+    #         dict: dictionary containing timeseries data from ts_data_full and new_ts_data
+    #     """
+    #     shared_keys = set(ts_data_full) & set(new_ts_data)
+    #     if len(shared_keys) != len(set(ts_data_full)):
+    #         # new_ts_data could have extra or new_ts_data could be missing.
+    #         # if shared_keys < len(set(ts_data_full)), then new_ts_data is missing
+    #         missing_data = (set(new_ts_data) - shared_keys) & (set(ts_data_full) - shared_keys)
+    #         msg = (
+    #             f"Mismatch in timeseries data. Non-shared data keys of {sorted(missing_data)} "
+    #             f"will be removed. "
+    #         )
+    #         warnings.warn(msg, UserWarning)
 
-        ts_data = {}
-        for k in list(shared_keys):
-            if isinstance(ts_data_full[k], list) and isinstance(new_ts_data[k], list):
-                ts_data[k] = ts_data_full[k] + new_ts_data[k]
-            else:
-                ts_data[k] = np.concat(
-                    [np.array(ts_data_full[k]), np.array(new_ts_data[k])], axis=0
-                )
+    #     ts_data = {}
+    #     for k in list(shared_keys):
+    #         if isinstance(ts_data_full[k], list) and isinstance(new_ts_data[k], list):
+    #             ts_data[k] = ts_data_full[k] + new_ts_data[k]
+    #         else:
+    #             ts_data[k] = np.concat(
+    #                 [np.array(ts_data_full[k]), np.array(new_ts_data[k])], axis=0
+    #             )
 
-        return ts_data
+    #     return ts_data
 
     def get_data(self, latitude, longitude, first_call=True):
         site_changed = not np.allclose([latitude, longitude], self.resource_site, atol=1e-6, rtol=0)
@@ -533,14 +547,12 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
                 resource_filename=self.config.resource_filename,
                 first_call=first_call,
             )
-            md, ts = self.separate_timeseries_and_meta_data(resource_data)
+            md, ts = separate_timeseries_and_meta_data(resource_data)
             ts = process_leap_day(
                 ts, getattr(self.config, "include_leap_day", False), self.n_timesteps
             )
             resource_data = md | ts
-            resource_data = self.clip_data_to_n_timesteps(
-                resource_data, n_timesteps=self.n_timesteps
-            )
+            resource_data = clip_data_to_n_timesteps(resource_data, n_timesteps=self.n_timesteps)
             resource_data = add_resource_start_end_times(resource_data)
             return resource_data
 
@@ -567,13 +579,13 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
             resource_data = self.get_data_for_year(
                 latitude, longitude, year, resource_filename=resource_fname, first_call=first_call
             )
-            md, ts = self.separate_timeseries_and_meta_data(resource_data)
+            md, ts = separate_timeseries_and_meta_data(resource_data)
 
             meta_data |= md
             if year == self.resource_years[0]:
                 timeseries_data |= ts
             else:
-                timeseries_data = self.append_timeseries_data(timeseries_data, ts)
+                timeseries_data = append_timeseries_data(timeseries_data, ts)
 
         # NOTE: here is where we could clip data if needed
         # timeseries_data = self.clip_timeseries_data(timeseries_data)
@@ -581,9 +593,7 @@ class ResourceBaseAPIModel(om.ExplicitComponent):
         timeseries_data = process_leap_day(
             timeseries_data, getattr(self.config, "include_leap_day", False), self.n_timesteps
         )
-        timeseries_data = self.clip_data_to_n_timesteps(
-            timeseries_data, n_timesteps=self.n_timesteps
-        )
+        timeseries_data = clip_data_to_n_timesteps(timeseries_data, n_timesteps=self.n_timesteps)
         timeseries_data = add_resource_start_end_times(timeseries_data)
 
         # reset resource-filename
