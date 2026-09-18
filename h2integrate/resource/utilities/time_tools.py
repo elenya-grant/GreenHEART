@@ -35,6 +35,7 @@ def process_leap_day(data: dict, include_leap_day: bool, n_timesteps: int):
     convert_to_dict = False
     if isinstance(data, dict):
         data = pd.DataFrame(data)
+        # TODO: update to use `separate_timeseries_and_meta_data`
         convert_to_dict = True
 
     case_of_time_cols = "lower" if "month" in data.columns.to_list() else "upper"

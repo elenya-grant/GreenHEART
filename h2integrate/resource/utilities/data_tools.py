@@ -25,11 +25,14 @@ def separate_timeseries_and_meta_data(data):
 
 
 def append_timeseries_data(data_full, new_data, return_with_metadata=False):
-    """_summary_
+    """Append timeseries data from `new_data` to `data_full` and return the resulting dictionary.
 
     Args:
-        ts_data_full (dict): dictionary of existing timeseries data
-        new_ts_data (dict): dictionary of new timeseries data
+        data_full (dict): dictionary of existing timeseries data
+        ts_data (dict): dictionary of new timeseries data to append to data_full
+        return_with_metadata (bool, optional): If true, return the combined
+        timeseries data dictionary with any meta-data possible extracted from
+        the data_full dictionary
 
     Returns:
         dict: dictionary containing timeseries data from data_full and new_data
@@ -38,12 +41,10 @@ def append_timeseries_data(data_full, new_data, return_with_metadata=False):
     _, new_ts_data = separate_timeseries_and_meta_data(new_data)
     shared_keys = set(ts_data_full) & set(new_ts_data)
     if len(shared_keys) != len(set(ts_data_full)):
-        # new_ts_data could have extra or new_ts_data could be missing.
-        # if shared_keys < len(set(ts_data_full)), then new_ts_data is missing
         missing_data = (set(new_ts_data) - shared_keys) & (set(ts_data_full) - shared_keys)
         msg = (
-            f"Mismatch in timeseries data. Non-shared data keys of {sorted(missing_data)} "
-            f"will be removed. "
+            "Mismatch in timeseries data. Non-shared data keys of "
+            f"{sorted(missing_data)} will be removed. "
         )
         warnings.warn(msg, UserWarning)
 
@@ -61,12 +62,34 @@ def append_timeseries_data(data_full, new_data, return_with_metadata=False):
 
 
 def clip_data_to_n_timesteps(data, n_timesteps):
+    """Clip timeseries data to `n_timesteps`
+
+    Args:
+        data (dict): dictionary of resource data
+        n_timesteps (int): number of timesteps that the data should contain
+
+    Returns:
+        dict: resource data, where timeseries data is clipped to n_timesteps
+    """
     meta_data, ts_data = separate_timeseries_and_meta_data(data)
     ts_clipped = {k: v[: int(n_timesteps)] for k, v in ts_data.items()}
     return meta_data | ts_clipped
 
 
 def clip_data_to_resource_year(data, resource_year):
+    """Remove extraneous resource year data from the resource data dictionary
+
+    Args:
+        data (dict): resource data
+        resource_year (str | int): resource year to pull data for.
+        If resource_year is a string, it should be formatted as 'tmy-{year}' or similar.
+
+    Raises:
+        ValueError: if data is missing a 'year' or 'Year' key
+
+    Returns:
+        dict: dictionary of resource data only containing data for resource_year
+    """
     if isinstance(resource_year, str):
         # for TMY datasets, year is different across the months
         # return data as-is
@@ -87,7 +110,7 @@ def clip_data_to_resource_year(data, resource_year):
         # (np.argwhere doesn't work for some reason)
         ts_df = pd.DataFrame(ts_data)
         ts_df = ts_df[ts_df[yr_col] == resource_year]
-        # convert the data-frame back to a timeseries
+        # convert the dataframe back to a dictionary
         ts_clipped = {c: ts_df[c].values for c in ts_df.columns.to_list()}
 
         return meta_data | ts_clipped
