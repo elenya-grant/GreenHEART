@@ -187,9 +187,33 @@ class PYSAMSolarPlantPerformanceModel(SolarPerformanceBaseClass):
                 else:
                     design_dict.update({group: group_parameters})
         # TODO: add check that if using lifetime simulation, that analysis_year is plant_life
+        running_lifetime = bool(
+            self.config.pysam_options.get("Lifetime", {}).get("system_use_lifetime_out", 0)
+        )
 
         self.design_dict = design_dict
         self.system_model.assign(design_dict)
+
+        if running_lifetime:
+            analysis_period = getattr(self.system_model.Lifetime, "analysis_period", 1)
+            if analysis_period != self.plant_life:
+                msg = (
+                    f"Changing analysis_period from {analysis_period} to {self.plant_life}"
+                    " to reflect plant_life"
+                )
+                warnings.warn(msg, UserWarning, stacklevel=3)
+                self.config.pysam_options["Lifetime"]["analysis_period"] = self.plant_life
+            dc_deg = getattr(self.system_model.Lifetime, "dc_degradation", [0.0] * self.plant_life)
+            if len(dc_deg) != self.plant_life:
+                msg = "Changing dc_degradation to be the same length as plant_life."
+                warnings.warn(msg, UserWarning, stacklevel=3)
+
+                if len(dc_deg) > self.plant_life:
+                    dc_degradation = dc_deg[: self.plant_life]
+                else:
+                    n_reps = np.ceil(self.plant_life / len(dc_deg))
+                    dc_degradation = np.tile(np.array(dc_deg), n_reps)[: self.plant_life]
+                self.config.pysam_options["Lifetime"]["dc_degradation"] = dc_degradation.tolist()
 
     def calc_tilt_angle(self, latitude):
         """
@@ -335,7 +359,7 @@ class PYSAMSolarPlantPerformanceModel(SolarPerformanceBaseClass):
                     reformatted_data.update({new_key: values})
         return reformatted_data
 
-    def loop_simulation_years(self, dc_degradation, resource_data):
+    def loop_simulation_years(self, resource_data):
         # TODO: finish this method
         ts_data = {
             k: v for k, v in resource_data.items() if isinstance(v, list | tuple | np.ndarray)
@@ -347,16 +371,23 @@ class PYSAMSolarPlantPerformanceModel(SolarPerformanceBaseClass):
 
         annual_ac = []
         annual_dc = []
+
+        dc_degradation = self.config.pysam_options.get("Lifetime", {}).get(
+            "dc_degradation", [0.0] * self.plant_life
+        )
+
         n_timesteps_per_year = np.zeros(len(resource_years))
-        for cnt, year in enumerate(resource_years):
+        resource_year_nrep = np.ceil(self.plant_life / len(resource_years))
+        resource_year_order = np.tile(resource_years, int(resource_year_nrep))[: self.plant_life]
+        for cnt, year in enumerate(resource_year_order):
             # run without dc degradation
             solar_resource = ts_df.loc[year].to_dict(orient="list")
             n_timesteps_in_year = len(solar_resource["month"])
             solar_resource["year"] = [year] * n_timesteps_in_year
             n_timesteps_in_year = ts_df.loc[year]
-            # self.system_model.value("analysis_period", 1)
-            # self.system_model.value("dc_degradation", [0.0])
-            self.system_model.value("system_use_lifetime_out", 0)
+            self.system_model.value("analysis_period", 1)
+            self.system_model.value("dc_degradation", [dc_degradation[cnt]])
+            self.system_model.value("system_use_lifetime_out", 1)
             self.system_model.execute()
             if cnt == 0:
                 ac_gen = np.array(self.system_model.Outputs.ac) / 1e3
@@ -376,18 +407,18 @@ class PYSAMSolarPlantPerformanceModel(SolarPerformanceBaseClass):
             annual_dc.append(dc_aep)
             n_timesteps_in_year[cnt] = len(self.system_model.Outputs.ac)
 
-        n_repeats = np.ceil(self.plant_life / len(resource_years))
-        dc_life = np.tile(annual_dc, int(n_repeats))[: self.plant_life]
-        ac_life = np.tile(annual_ac, int(n_repeats))[: self.plant_life]
-        n_timesteps_life = np.tile(n_timesteps_per_year, int(n_repeats))[: self.plant_life]
+        # n_repeats = np.ceil(self.plant_life / len(resource_years))
+        # dc_life = np.tile(annual_dc, int(n_repeats))[: self.plant_life]
+        # ac_life = np.tile(annual_ac, int(n_repeats))[: self.plant_life]
+        # n_timesteps_life = np.tile(n_timesteps_per_year, int(n_repeats))[: self.plant_life]
 
         # TODO: apply dc degradation at the end
         res = {
-            "ac_annual": ac_life,
-            "dc_annual": dc_life,
+            "ac_annual": annual_ac,  # ac_life,
+            "dc_annual": annual_dc,  # dc_life,
             "dc_out": dc_gen,
             "ac_out": ac_gen,
-            "n_timesteps_per_year": n_timesteps_life,
+            "n_timesteps_per_year": n_timesteps_per_year,  # n_timesteps_life,
         }
 
         return res
@@ -457,31 +488,35 @@ class PYSAMSolarPlantPerformanceModel(SolarPerformanceBaseClass):
             self.config.pysam_options.get("Lifetime", {}).get("system_use_lifetime_out", 0)
         )
 
-        if running_lifetime:
-            raise NotImplementedError("Cannot yet run PvWatts with lifetime simulation")
+        # if running_lifetime:
+        #     raise NotImplementedError("Cannot yet run PvWatts with lifetime simulation")
 
-        if self.fraction_of_year_simulated <= 1:
+        if self.fraction_of_year_simulated <= 1 and not running_lifetime:
             # running with single resource of resource data
             self.system_model.execute(0)
             annual_res = self.system_model.Outputs.export()
             annual_res["n_timesteps_per_year"] = np.full(self.plant_life, self.n_timesteps)
 
-        else:
-            # running multiple years of resource data
-            if running_lifetime:
-                # running multiple years with lifetime outputs
-                # loop through resource data and degradation
-                dc_deg = self.config.pysam_options.get("Lifetime", {}).get(
-                    "dc_degradation", [0.0] * self.plant_life
-                )
-                self.loop_simulation_years(dc_deg, solar_resource)
+        elif self.fraction_of_year_simulated > 1 and not running_lifetime:
+            self.system_model.execute(0)
+            outputs_dict = self.system_model.Outputs.export()
+            annual_res = self.chunk_results_from_multiyear_sim(outputs_dict, solar_resource)
 
-            else:
-                # running multiple years without lifetime outputs
-                self.system_model.execute(0)
-                outputs_dict = self.system_model.Outputs.export()
-                annual_res = self.chunk_results_from_multiyear_sim(outputs_dict, solar_resource)
-                # chunk_results_from_multiyear_sim(self, outputs_dict, solar_resource)
+        else:
+            annual_res = self.loop_simulation_years(solar_resource)
+
+            # # running multiple years of resource data
+            # if running_lifetime:
+            #     # running multiple years with lifetime outputs
+            #     # loop through resource data and degradation
+            #     annual_res = self.loop_simulation_years(solar_resource)
+
+            # else:
+            #     # running multiple years without lifetime outputs
+            #     self.system_model.execute(0)
+            #     outputs_dict = self.system_model.Outputs.export()
+            #     annual_res = self.chunk_results_from_multiyear_sim(outputs_dict, solar_resource)
+            #     # chunk_results_from_multiyear_sim(self, outputs_dict, solar_resource)
 
         if "ac_gen" in annual_res:
             outputs["electricity_out"] = annual_res["ac_gen"]
