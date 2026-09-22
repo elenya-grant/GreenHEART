@@ -55,16 +55,16 @@ def test_changing_resource_site_with_filename(
         prob.get_val("resource.solar_resource_data")["id"]
     )
     current_site = (
-        prob.model.get_val("resource.latitude", units="deg")[0],
-        prob.model.get_val("resource.longitude", units="deg")[0]
+        prob.get_val("resource.latitude", units="deg")[0],
+        prob.get_val("resource.longitude", units="deg")[0]
         )
 
     with subtests.test("Run 0: using resource data for site0"):
         assert sites_to_expected_site_data[current_site] == result_data_site
 
     # Run 1: change latitude and longitude to the other site
-    prob.model.set_val("resource.latitude", 35.2018863, units="deg")
-    prob.model.set_val("resource.longitude", -101.945027, units="deg")
+    prob.set_val("resource.latitude", 35.2018863, units="deg")
+    prob.set_val("resource.longitude", -101.945027, units="deg")
     prob.run_model()
     result_data_site1 = (
         prob.get_val("resource.solar_resource_data")["site_lat"],
@@ -72,8 +72,8 @@ def test_changing_resource_site_with_filename(
         prob.get_val("resource.solar_resource_data")["id"]
     )
     current_site1 = (
-        prob.model.get_val("resource.latitude", units="deg")[0],
-        prob.model.get_val("resource.longitude", units="deg")[0]
+        prob.get_val("resource.latitude", units="deg")[0],
+        prob.get_val("resource.longitude", units="deg")[0]
         )
     with subtests.test("Run 1: using resource data for changed site (site_changed=True)"):
         assert sites_to_expected_site_data[current_site1] == result_data_site1
@@ -86,8 +86,8 @@ def test_changing_resource_site_with_filename(
         prob.get_val("resource.solar_resource_data")["id"]
     )
     current_site2 = (
-        prob.model.get_val("resource.latitude", units="deg")[0],
-        prob.model.get_val("resource.longitude", units="deg")[0]
+        prob.get_val("resource.latitude", units="deg")[0],
+        prob.get_val("resource.longitude", units="deg")[0]
         )
     with subtests.test("Run 2: using resource data for changed site with site_change=False"):
         assert sites_to_expected_site_data[current_site2] == result_data_site2
