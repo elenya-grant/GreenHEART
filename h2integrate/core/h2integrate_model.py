@@ -104,6 +104,9 @@ class H2IntegrateModel:
         # technologies are connected within the `technology_interconnections` section of the
         # plant config
         self.connect_technologies()
+        self.connect_sites_to_techs()
+        self.connect_techs_to_finance()
+        self.finalize_connections()
 
         # create driver model
         # might be an analysis or optimization
@@ -1759,6 +1762,7 @@ class H2IntegrateModel:
                 err_msg = f"Invalid connection: {connection}"
                 raise ValueError(err_msg)
 
+    def connect_sites_to_techs(self):
         site_to_tech_connections = self.plant_config.get("site_to_tech_connections", [])
 
         if "sites" in self.plant_config:
@@ -1858,6 +1862,7 @@ class H2IntegrateModel:
                         )
                         raise ValueError(msg)
 
+    def connect_techs_to_finance(self):
         # connect outputs of the technology models to the cost and finance models of the
         # same name if the cost and finance models are not None
         if "finance_parameters" in self.plant_config:
@@ -1918,6 +1923,7 @@ class H2IntegrateModel:
                             f"finance_subgroup_{group_id}.replacement_schedule_{tech_name}",
                         )
 
+    def finalize_connections(self):
         self.plant.options["auto_order"] = True
 
         # Check if there are any loops in the technology interconnections
