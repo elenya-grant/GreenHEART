@@ -1,14 +1,24 @@
+import re
+
 import numpy as np
 import pandas as pd
 import pytest
 import openmdao.api as om
 from attrs import field, define, validators
 
+from h2integrate.resource import resource_baseclass
 from h2integrate.resource.resource_baseclass import ResourceBaseAPIModel, ResourceBaseAPIConfig
 
 
 @pytest.fixture
-def input_config(n_timesteps, resource_year, include_leap, yr_setting, resource_fname, yr_order):
+def input_config(
+    n_timesteps,
+    resource_year,
+    include_leap,
+    resource_filename,
+    resource_filenames,
+    resource_year_order,
+):
     plant = {
         "plant_life": 30,
         "simulation": {
@@ -23,9 +33,9 @@ def input_config(n_timesteps, resource_year, include_leap, yr_setting, resource_
         "longitude": -95.0,
         "resource_year": resource_year,
         "include_leap_day": include_leap,
-        "resource_year_setting": yr_setting,
-        "resource_year_order": yr_order,
-        "resource_filename": resource_fname,
+        "resource_year_order": resource_year_order,
+        "resource_filename": resource_filename,
+        "resource_filenames": resource_filenames,
         "timezone": 0,
     }
 
@@ -65,6 +75,9 @@ class FakeResource(ResourceBaseAPIModel):
         self, latitude, longitude, resource_year, resource_filename="", forced_download=False
     ):
         # simple method that overwrites get_data_for_year in resource baseclass
+        filename_match = re.search(r"\d{4}", str(resource_filename))
+        if filename_match:
+            resource_year = int(filename_match.group(0))
         dates = pd.date_range(
             start=f"{resource_year}-01-01 00:30:00",
             end=f"{resource_year}-12-31 23:30:00",
@@ -92,68 +105,49 @@ class FakeResource(ResourceBaseAPIModel):
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "resource_year,n_timesteps,include_leap,yr_setting,resource_fname,yr_order,expected_msg",
+    "resource_year,n_timesteps,include_leap,resource_filename,resource_filenames,"
+    "resource_year_order,expected_msg",
     [
-        (2015, 8760, False, "year_order", "", None, "`resource_year_order` is required."),
-        (2015, 8760, False, "filenames", "", None, "`resource_filename` must be a list."),
-        (2015, 8760, False, "start_year", "", [2015, 2016], "`resource_year_order` is an extran"),
-        (2015, 8760, False, "start_year", [""], None, "`resource_filename` must be a single"),
-        (2015, 8760, False, "start_year", [""], [2015, 2016], "Invalid inputs provided"),
-        (2015, 8760, False, "filenames", [""], [2015, 2016], "`resource_year_order` is an extran"),
-        (2015, 8760, False, "year_order", [""], [2015, 2016], "`resource_filename` is an extran"),
+        (2015, 8760, False, ["file.csv"], None, None, "`resource_filename` must be a single"),
+        (2015, 8760, False, "", "file.csv", None, "`resource_filenames` must be a list."),
+        (2015, 8760, False, "file.csv", ["file.csv"], None, "Provide either `resource_filename`"),
     ],
-    ids=[
-        "yr_order-missing",
-        "filenames-missing",
-        "start_year-extra_attr",
-        "start_year-invalid_type",
-        "start_year-two_invalid",
-        "filenames-extra_attr",
-        "yr_order-extra_attr",
-    ],
+    ids=["single-filename-is-list", "filenames-is-not-list", "both-filename-fields"],
 )
-def test_config_attribute_errors(input_config, expected_msg, yr_setting):
+def test_config_attribute_errors(input_config, expected_msg):
     with pytest.raises(AttributeError) as excinfo:
         FakeResourceConfig.from_dict(input_config["site"])
     assert expected_msg in str(excinfo.value)
-    assert f"`resource_year_setting` of '{yr_setting}'" in str(excinfo.value)
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "resource_year,n_timesteps,include_leap,yr_setting,resource_fname,yr_order,expected_msg",
+    "resource_year,n_timesteps,include_leap,resource_filename,resource_filenames,"
+    "resource_year_order,expected_msg",
     [
-        # Invalid setting with <= 1 year
-        (2012, 4380, False, "year_order", "", [2012], "_year_setting` must be 'start_year'"),
-        (2012, 8760, False, "filenames", [""], None, "_year_setting` must be 'start_year'"),
-        (2012, 8784, True, "year_order", "", [2012], "_year_setting` must be 'start_year'"),
-        (2012, 8784, True, "filenames", [""], None, "_year_setting` must be 'start_year'"),
-        # Not enough inputs
-        (2012, 17520, False, "year_order", "", [2012], "2 resource years are req"),
-        (2012, 17520, False, "filenames", [""], None, "2 resource filenames are req"),
-        # Too many inputs
-        (2012, 17520, False, "year_order", "", [2012, 2012, 2012], "2 resource years are req"),
-        (2012, 17520, False, "filenames", ["", "", ""], None, "2 resource filenames are req"),
-    ],
-    ids=[
-        # Invalid setting with <= 1 year
-        "yr_order-0.5yr",
-        "filenames-1yr",
-        "yr_order-1yr-leap",
-        "filenames-1yr-leap",
-        # Not enough inputs
-        "yr_order-too_short",
-        "filenames-too_short",
-        # Too many inputs
-        "yr_order-too_long",
-        "filenames-too_long",
+        (2012, 17520, False, "", None, [2012], "2 resource years are required"),
+        (2012, 17520, False, "", ["data_2012.csv"], None, "2 resource filenames are required"),
+        (
+            2012,
+            17520,
+            False,
+            "",
+            ["data_2012.csv", "data_2013.csv", "data_2014.csv"],
+            None,
+            "2 resource filenames are required",
+        ),
+        (
+            2012,
+            17520,
+            False,
+            "",
+            ["data_2012.csv", "data_2013.csv"],
+            [2012],
+            "2 resource years are required",
+        ),
     ],
 )
 def test_setup_errors(input_config, expected_msg):
-    # this test is pretty dependent on the function
-    # `get_number_of_resource_years_needed`
-    error_type = AttributeError if "must be 'start_year'" in expected_msg else ValueError
-
     prob = om.Problem()
     comp = FakeResource(
         plant_config=input_config,
@@ -162,7 +156,7 @@ def test_setup_errors(input_config, expected_msg):
     )
     prob.model.add_subsystem("resource", comp)
 
-    with pytest.raises(error_type) as excinfo:
+    with pytest.raises(ValueError) as excinfo:
         prob.setup()
     assert expected_msg in str(excinfo.value)
 
@@ -186,12 +180,10 @@ def test_setup_errors(input_config, expected_msg):
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "resource_year,n_timesteps,include_leap,yr_setting,resource_fname,yr_order",
-    [(2012, 17544, True, "filenames", ["data_2013.csv", "data_2012.csv"], None)],
+    "resource_year,n_timesteps,include_leap,resource_filename,resource_filenames,resource_year_order",
+    [(2012, 17544, True, "", ["data_2013.csv", "data_2012.csv"], None)],
 )
 def test_get_data_filenames(subtests, input_config):
-    # This is testing whether the resource years are properly estimated from the first call
-
     prob = om.Problem()
     comp = FakeResource(
         plant_config=input_config,
@@ -206,6 +198,9 @@ def test_get_data_filenames(subtests, input_config):
 
     with subtests.test("Initial filename"):
         assert data_site0["filename"] == "data_2012.csv"
+    with subtests.test("Years inferred in filename order"):
+        assert np.all(data_site0["year"][:8760] == 2013)
+        assert np.all(data_site0["year"][8760:] == 2012)
 
     # Run again, dont change the site
     prob.run_model()
@@ -245,3 +240,30 @@ def test_get_data_filenames(subtests, input_config):
     prob.run_model()
     with subtests.test("Third filename"):
         assert prob.get_val("resource.fake_resource_data")["filename"] == ""
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "n_timesteps,resource_year,include_leap,resource_filename,resource_filenames,resource_year_order",
+    [(17544, 2012, True, "", ["unknown_a.csv", "unknown_b.csv"], None)],
+)
+def test_filename_year_fallback_on_site_change(input_config, monkeypatch):
+    monkeypatch.setattr(resource_baseclass, "estimate_resource_year_from_data", lambda _data: None)
+
+    prob = om.Problem()
+    comp = FakeResource(
+        plant_config=input_config,
+        resource_config=input_config["site"],
+        driver_config={},
+    )
+    prob.model.add_subsystem("resource", comp)
+    prob.setup()
+    prob.run_model()
+
+    prob.set_val("resource.latitude", 35.0, units="deg")
+    prob.set_val("resource.longitude", -100.0, units="deg")
+    with pytest.warns(UserWarning, match="using configured resource_year 2012"):
+        prob.run_model()
+
+    data_site1 = prob.get_val("resource.fake_resource_data")
+    assert np.all(data_site1["year"] == 2012)

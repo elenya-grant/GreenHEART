@@ -18,6 +18,24 @@ Another key difference is that the NLR resource datasets are constrained to spec
 OpenMeteo data can be downloaded directly from the web instead of using the models in H2I. If OpenMeteo resource data is downloaded directly from the web and in the local timezone of the site, the data is downloaded with a UTC offset in *daylight time* whereas data downloaded with the H2I resource models will use a UTC offset in *standard time*. Resource data downloaded from the NLR Developer developer network in local time also use a UTC offset in *standard time*.
 ```
 
+## Selecting resource years for API resources
+
+API resource models infer how to select resource years from the inputs provided; no separate
+`resource_year_setting` is required.
+
+- If `resource_year_order` is provided, its ordered years are used. If `resource_filenames` is also
+  provided, each filename is paired with the year at the same index.
+- If `resource_filenames` is provided without `resource_year_order`, each file's year is inferred
+  from its time-series data. Typical meteorological year files use a `tmy-YYYY`, `tgy-YYYY`, or
+  `tdy-YYYY` filename to identify the year.
+- If neither list is provided, `resource_year` is the starting year and the model selects
+  subsequent years as needed. A single `resource_filename`, if supplied, is reused for each year.
+
+When the site changes, files supplied through `resource_filenames` are not reused. The model loads
+data for the years inferred from those files, or for `resource_year` when a file's year could not be
+inferred. It emits a warning when using that fallback. Supplying `resource_year_order` alongside
+`resource_filenames` avoids inferring the years and makes the replacement years explicit.
+
 
 ## Setting resource data for a technology
 

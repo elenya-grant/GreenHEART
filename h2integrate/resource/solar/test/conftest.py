@@ -40,16 +40,22 @@ def site_config_multiyear(lat, lon):
 
 @pytest.fixture
 def resource_config_multiyear(
-    lat, lon, resource_year, include_leap, yr_setting, resource_fname, yr_order
+    lat,
+    lon,
+    resource_year,
+    include_leap,
+    resource_filename,
+    resource_filenames,
+    resource_year_order,
 ):
     resource_config = {
         "latitude": lat,
         "longitude": lon,
         "resource_year": resource_year,
         "include_leap_day": include_leap,
-        "resource_year_setting": yr_setting,
-        "resource_year_order": yr_order,
-        "resource_filename": resource_fname,
+        "resource_year_order": resource_year_order,
+        "resource_filename": resource_filename,
+        "resource_filenames": resource_filenames,
     }
     return resource_config
 
