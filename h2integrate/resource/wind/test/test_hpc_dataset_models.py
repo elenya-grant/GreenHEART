@@ -78,7 +78,10 @@ def test_pysam_windpower_integration(
 
     prob.model.add_subsystem("wind_resource", resource_comp, promotes=["*"])
     prob.model.add_subsystem("wind_perf", wind_plant, promotes=["*"])
-    prob.setup()
+
+    with subtests.test("Warning for not common variable is raised at setup"):
+        with pytest.warns(UserWarning, match="latent_heat_flux"):
+            prob.setup()
     prob.run_model()
 
     aep = prob.get_val("wind_perf.annual_electricity_produced", units="MW*h/year")[0]
