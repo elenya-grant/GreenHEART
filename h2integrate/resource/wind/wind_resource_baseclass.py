@@ -1,7 +1,13 @@
 import warnings
+from enum import IntEnum
 from typing import ClassVar
 
 from openmdao.utils import units
+
+
+class WarningState(IntEnum):
+    INITIALIZED = 0
+    WARNED = 1
 
 
 class WindResourceBase:
@@ -15,6 +21,8 @@ class WindResourceBase:
         "is_day": "unitless",
         "specifichumidity": "percent",
     }
+
+    warning_status = WarningState.INITIALIZED
 
     def compare_units_and_correct(self, data, data_units):
         """Convert data to standard units defined in ``output_vars_to_units``.
@@ -46,6 +54,8 @@ class WindResourceBase:
                 ``output_vars_to_units``.
             - **data_units** (*dict*): updated units of data in ``data``.
         """
+
+        raised_warnings = False
         for data_col, orig_units in data_units.items():
             output_var = [k for k in self.output_vars_to_units if k in data_col]
             if len(output_var) == 1:
@@ -54,14 +64,19 @@ class WindResourceBase:
                     data[data_col] = units.convert_units(data[data_col], orig_units, desired_units)
                     data_units[data_col] = desired_units
             else:
-                if len(output_var) < 1:
-                    warnings.warn(
-                        f"{data_col} not found as common variable.", UserWarning, stacklevel=3
-                    )
-                else:
-                    warnings.warn(
-                        f"{data_col} not found as a unique common variable.",
-                        UserWarning,
-                        stacklevel=3,
-                    )
+                if self.warning_status < 1:
+                    if len(output_var) < 1:
+                        warnings.warn(
+                            f"{data_col} not found as common variable.", UserWarning, stacklevel=3
+                        )
+                    else:
+                        warnings.warn(
+                            f"{data_col} not found as a unique common variable.",
+                            UserWarning,
+                            stacklevel=3,
+                        )
+                    raised_warnings = True
+        if raised_warnings:
+            self.warning_status = WarningState.WARNED
+
         return data, data_units
