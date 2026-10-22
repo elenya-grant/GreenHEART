@@ -1057,6 +1057,7 @@ class SystemLevelControlBase(om.ExplicitComponent):
         #     grouped_techs[f"{key[0]}-{i}"] = value
         #     groups_to_commodities[f"{key[0]}-{i}"] = key[0]
 
+        converter_upstreams = dict(sorted(converter_upstreams.items()))
         for i, ((commodity, _), upstream_commodity_techs) in enumerate(converter_upstreams.items()):
             group_name = f"{commodity}-{i}"
             grouped_techs[group_name] = upstream_commodity_techs

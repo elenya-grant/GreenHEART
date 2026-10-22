@@ -31,7 +31,9 @@ def get_successors_for_tech_with_input_cmod(technology_graph, tech, input_commod
         if in_flows[upstream_tech] > 1 and produces_cmod:
             # if only use >1, then it wouldn't catch splitters
             # use `in_flows[upstream_tech] >= 1` to properly handle splitters
-            new_techs = get_successors_for_tech_with_input_cmod(upstream_tech, input_commodity)
+            new_techs = get_successors_for_tech_with_input_cmod(
+                technology_graph, upstream_tech, input_commodity
+            )
             if new_techs:
                 successor_techs_with_commod |= set(new_techs)
 

@@ -3,6 +3,7 @@ import pytest
 import openmdao.api as om
 
 from h2integrate import EXAMPLE_DIR, H2IntegrateModel
+from h2integrate.core.connection_utils import create_technology_graph
 from h2integrate.core.inputs.validation import load_tech_yaml, load_plant_yaml
 from h2integrate.control.control_strategies.system_level.system_level_control_baseclass import (
     SystemLevelControlBase,
@@ -40,7 +41,7 @@ def make_slc_topology(plant_config, tech_config):
     tech_control_classifiers = make_tech_classifiers(list(tech_config["technologies"]))
     model.tech_control_classifiers = tech_control_classifiers
     model.technology_config = tech_config
-    model.technology_graph = model.create_technology_graph(
+    model.technology_graph = create_technology_graph(
         plant_config.get("technology_interconnections", {})
     )
     slc_topology = model._classify_slc_technologies()
@@ -399,23 +400,34 @@ def test_multi_commodity_post_setup_nh3_system(subtests):
         ("ammonia", "nh3_combiner", "ammonia"),
     ]
 
+    # ammonia,nh3_load_demand should be group 0
+    # electricity,electrolyzer is group 1
+    # electricity, haber_bosch is group 2
+    # hydrogen, haber_bosch is group 3
+    # nitrogen, haber_bosch is group 4
     n2_nh3_recipe = [("nitrogen", "haber_bosch", "ammonia"), *demand_group_general]
-    n2_nh3_recipe_name = [k for k in conversion_recipes if k[0] == "ammonia" and k[1] == "nitrogen"]
+    # n2_nh3_recipe_name = [
+    # k for k in conversion_recipes if k[0] == "ammonia" and k[1] == "nitrogen"
+    # ][0]
+    n2_nh3_recipe_name = ("ammonia", "nitrogen", "ammonia-0")
     with subtests.test("Nitrogen to Ammonia Recipe"):
-        assert conversion_recipes[n2_nh3_recipe_name[0]] == [set(n2_nh3_recipe)]
+        assert conversion_recipes[n2_nh3_recipe_name] == [set(n2_nh3_recipe)]
 
     electricity_nh3_recipe = [("electricity", "haber_bosch", "ammonia"), *demand_group_general]
-    electricity_nh3_recipe_name = [
-        k for k in conversion_recipes if k[0] == "ammonia" and k[1] == "electricity"
-    ]
+    # electricity_nh3_recipe_name = [
+    #     k for k in conversion_recipes if k[0] == "ammonia" and k[1] == "electricity"
+    # ][0]
+    electricity_nh3_recipe_name = ("ammonia", "electricity", "ammonia-0")
     with subtests.test("Electricity to Ammonia Recipe"):
-        assert conversion_recipes[electricity_nh3_recipe_name[0]] == [set(electricity_nh3_recipe)]
+        assert conversion_recipes[electricity_nh3_recipe_name] == [set(electricity_nh3_recipe)]
 
     h2_nh3_recipe = [("hydrogen", "haber_bosch", "ammonia"), *demand_group_general]
-    h2_nh3_recipe_name = [k for k in conversion_recipes if k[0] == "ammonia" and k[1] == "hydrogen"]
-
+    # h2_nh3_recipe_name = [
+    # k for k in conversion_recipes if k[0] == "ammonia" and k[1] == "hydrogen"
+    # ][0]
+    h2_nh3_recipe_name = ("ammonia", "hydrogen", "ammonia-0")
     with subtests.test("Hydrogen to Ammonia Recipe"):
-        assert conversion_recipes[h2_nh3_recipe_name[0]] == [set(h2_nh3_recipe)]
+        assert conversion_recipes[h2_nh3_recipe_name] == [set(h2_nh3_recipe)]
 
     h2_elec_subrecipe = {
         ("hydrogen", "h2_storage", "hydrogen"),
@@ -424,11 +436,12 @@ def test_multi_commodity_post_setup_nh3_system(subtests):
     }
     h2_elec_recipe = [set(h2_nh3_recipe), h2_elec_subrecipe]
 
-    h2_elec_recipe_name = [
-        k for k in conversion_recipes if k[0] == "hydrogen" and k[1] == "electricity"
-    ]
+    # h2_elec_recipe_name = [
+    #     k for k in conversion_recipes if k[0] == "hydrogen" and k[1] == "electricity"
+    # ][0]
+    h2_elec_recipe_name = ("hydrogen", "electricity", "hydrogen-3")
     with subtests.test("Electricity for Hydrogen Recipe"):
-        assert conversion_recipes[h2_elec_recipe_name[0]] == h2_elec_recipe
+        assert conversion_recipes[h2_elec_recipe_name] == h2_elec_recipe
 
     with subtests.test("4 recipes"):
         assert len(conversion_recipes) == 4
