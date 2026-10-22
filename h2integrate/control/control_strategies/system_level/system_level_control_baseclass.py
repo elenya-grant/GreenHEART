@@ -1377,10 +1377,16 @@ class SystemLevelControlBase(om.ExplicitComponent):
         Returns:
             np.ndarray: conversion ratio of ``in_cmod/out_cmod``.
         """
-        input_name_fmt = "{tech}_{commod}_out"
-        in_names = [input_name_fmt.format(tech=t, commod=in_cmod) for t in list(tech_ancestors)]
-        total_in_cmod = [inputs[n] for n in in_names if n in inputs]
-        total_input = np.array(total_in_cmod).sum(axis=0)
+
+        # below is for commodity consumved by converter
+        if f"{converter_tech}_{in_cmod}_consumed" in inputs:
+            total_input = inputs[f"{converter_tech}_{in_cmod}_consumed"]
+        else:
+            # below is for total commodity into converter
+            input_name_fmt = "{tech}_{commod}_out"
+            in_names = [input_name_fmt.format(tech=t, commod=in_cmod) for t in list(tech_ancestors)]
+            total_in_cmod = [inputs[n] for n in in_names if n in inputs]
+            total_input = np.array(total_in_cmod).sum(axis=0)
         total_output = inputs[input_name_fmt.format(tech=converter_tech, commod=out_cmod)]
 
         conversion_factor = total_input / np.abs(total_output)
