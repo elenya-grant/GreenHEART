@@ -4,7 +4,8 @@ import numpy as np
 from attrs import field, define
 
 from h2integrate.core.utilities import BaseConfig
-from h2integrate.control.control_strategies.system_level.system_level_control_base import (
+from h2integrate.core.supported_models import register
+from h2integrate.control.control_strategies.system_level.system_level_control_baseclass import (
     SystemLevelControlBase,
 )
 
@@ -14,6 +15,7 @@ class DemandFollowingControlConfig(BaseConfig):
     use_average_conversion_factor: bool = field(default=False)
 
 
+@register
 class DemandFollowingControl(SystemLevelControlBase):
     """Demand-following system-level controller.
 
