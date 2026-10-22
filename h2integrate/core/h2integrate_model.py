@@ -35,6 +35,9 @@ from h2integrate.control.control_strategies.passthrough_controller import Passth
 from h2integrate.control.control_strategies.system_level.solver_options import (
     SLCSolverOptionsConfig,
 )
+from h2integrate.control.control_strategies.system_level.converter_tools import (
+    _find_converter_techs,
+)
 from h2integrate.control.control_strategies.system_level.system_level_control_baseclass import (
     _get_tech_buy_price_input_name,
 )
@@ -643,6 +646,27 @@ class H2IntegrateModel:
 
         slc_topology["tech_control_classifiers"] = upstream_tech_control_classifiers
 
+        multi_commodity_system = (
+            True if len({e[-1] for e in slc_topology["tech_to_commodity"]}) > 1 else False
+        )
+
+        if multi_commodity_system:
+            non_feedstock_classifiers = ["fixed", "flexible", "dispatchable", "storage"]
+            non_feedstock_techs = [
+                k
+                for k, v in slc_topology["tech_control_classifiers"].items()
+                if v in non_feedstock_classifiers
+            ]
+            storage_techs = [
+                k for k, v in slc_topology["tech_control_classifiers"].items() if v == "storage"
+            ]
+            converters, converter_upstreams = _find_converter_techs(
+                slc_topology["technology_graph"], non_feedstock_techs, storage_techs
+            )
+
+            slc_topology["converters"] = list(converters)
+            slc_topology["converter_upstreams"] = converter_upstreams
+
         return slc_topology
 
     def add_system_level_controller(self, slc_topology):
@@ -727,6 +751,7 @@ class H2IntegrateModel:
             - Adds ``"system_level_controller"`` subsystem to ``self.plant``.
             - Creates OpenMDAO connections within ``self.plant``.
         """
+
         plant_slc_config = self.plant_config["system_level_control"]
 
         # --- Step 1: Select and instantiate the controller class ----------
@@ -795,6 +820,16 @@ class H2IntegrateModel:
                 f"system_level_controller.{tech_name}_{commodity}_set_point",
                 f"{tech_name}.{commodity}_set_point",
             )
+
+        if "converters" in slc_topology:
+            converters_to_consumed = list(
+                {(tech, cmod_in) for _, tech, cmod_in in slc_topology["converters"]}
+            )
+            for tech_name, commodity_consumed in converters_to_consumed:
+                self.plant.connect(
+                    f"{tech_name}.{commodity_consumed}_consumed",
+                    f"system_level_controller.{tech_name}_{commodity_consumed}_consumed",
+                )
 
         # --- Step 3: Connect marginal-cost inputs (cost-aware strategies) -
         if strategy_name in ("CostMinimizationControl", "ProfitMaximizationControl"):

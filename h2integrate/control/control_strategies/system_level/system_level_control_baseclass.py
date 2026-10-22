@@ -355,8 +355,9 @@ class SystemLevelControlBase(om.ExplicitComponent):
         self._setup_tech_category("dispatchable", self.dispatchable_techs)
         self._setup_tech_category("storage", self.storage_techs)
         self._setup_feedstock_category(self.feedstock_comps)
-
-        self._post_setup_multi_commodity()
+        if "converters" in slc_topology:
+            self._setup_consumption_category(slc_topology["converters"])
+            self._post_setup_multi_commodity()
 
     def _setup_commodity(
         self,
@@ -664,6 +665,37 @@ class SystemLevelControlBase(om.ExplicitComponent):
                     else:
                         # Connection provided units — record them for future use
                         self.commodities_to_units[commodity] = meta_data["units"]
+
+    def _setup_consumption_category(self, converters):
+        # TODO: Add doc-string and inline comments
+        converters_to_consumed = list({(tech, cmod_in) for _, tech, cmod_in in converters})
+        for tech_name, commodity_consumed in converters_to_consumed:
+            consumption_name = f"{tech_name}_{commodity_consumed}_consumed"
+            if commodity_consumed in self.commodities_to_units:
+                self.add_input(
+                    consumption_name,
+                    val=0.0,
+                    shape=self.n_timesteps,
+                    units=self.commodities_to_units[commodity_consumed],
+                )
+            elif commodity_consumed in self.commodities_to_ref_var:
+                self.commodities_to_ref_var[commodity_consumed]
+                self.add_input(
+                    consumption_name,
+                    val=0.0,
+                    shape=self.n_timesteps,
+                    units=None,
+                    copy_units=self.commodities_to_ref_var[commodity_consumed],
+                )
+            else:
+                self.add_input(
+                    consumption_name,
+                    val=0.0,
+                    shape=self.n_timesteps,
+                    units=None,
+                    units_by_conn=True,
+                )
+                self.commodities_to_ref_var[commodity_consumed] = consumption_name
 
     def _subtract_fixed(self, fixed_tech, remaining_demand, commodity, inputs):
         """Apply fixed techs: subtract their output from demand.
