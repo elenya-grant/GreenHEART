@@ -980,7 +980,7 @@ class SystemLevelControlBase(om.ExplicitComponent):
         return np.full(self.n_timesteps, marginal_cost_scalar)
 
     def _post_setup_multi_commodity(self):
-        """This method creates sets the attribute ``rename_me_config``, which is a
+        """This method creates sets the attribute ``hchs_config``, which is a
         ``HCHSConfig`` object. This method is only used in
         heterogeneous commodity hybrid system (HCHS). Below is a summary of what this method does:
 
@@ -1103,7 +1103,7 @@ class SystemLevelControlBase(om.ExplicitComponent):
             converters, simple_graph, grouped_techs
         )
 
-        self.rename_me_config = HCHSConfig(
+        self.hchs_config = HCHSConfig(
             converter_upstreams,
             converters,
             grouped_techs,
@@ -1132,26 +1132,33 @@ class SystemLevelControlBase(om.ExplicitComponent):
             list[str]: Controller-managed technologies upstream of ``tech_name``
                 that produce ``commodity``.
         """
+        from h2integrate.control.control_strategies.system_level.converter_tools import (
+            get_successors_for_tech_with_input_cmod,
+        )
+
         # Build the set of techs the controller can see
         if include_feedstock_sources:
             input_techs = self.input_techs | set(self.feedstock_comps)
         else:
             input_techs = set(self.input_techs)
 
+        ancestors_with_commodity = get_successors_for_tech_with_input_cmod(
+            self.technology_graph, tech_name, commodity
+        )
         # TODO: refactor to call get_successors_for_tech_with_input_cmod
         # All graph ancestors of tech_name (any depth)
-        ancestors = nx.ancestors(self.technology_graph, tech_name)
+        # ancestors = nx.ancestors(self.technology_graph, tech_name)
 
-        # Keep only ancestors that have an outgoing edge carrying the target commodity.
-        # Edges are (source, dest, commodity) tuples
-        ancestors_with_commodity = {
-            src
-            for src, _, comm in self.technology_graph.edges(data="commodity")
-            if src in ancestors and commodity in (comm or [])
-        }
+        # # Keep only ancestors that have an outgoing edge carrying the target commodity.
+        # # Edges are (source, dest, commodity) tuples
+        # ancestors_with_commodity = {
+        #     src
+        #     for src, _, comm in self.technology_graph.edges(data="commodity")
+        #     if src in ancestors and commodity in (comm or [])
+        # }
 
         # Intersect with controller-managed techs
-        return list(ancestors_with_commodity & input_techs)
+        return list(set(ancestors_with_commodity) & input_techs)
 
     def get_successors_for_tech_with_input_cmod(self, tech, input_commodity):
         """Find technologies upstream of ``tech`` that produce ``input_commodity``
@@ -1543,14 +1550,13 @@ class SystemLevelControlBase(om.ExplicitComponent):
 
         techs_to_demand = [
             s
-            for s in list(self.rename_me_config.simple_graph.predecessors(tech_group))
-            if self.rename_me_config.simple_graph.edges[s, tech_group].get("commodity", "")
-            == input_cmod
+            for s in list(self.hchs_config.simple_graph.predecessors(tech_group))
+            if self.hchs_config.simple_graph.edges[s, tech_group].get("commodity", "") == input_cmod
         ]
         if len(techs_to_demand) != 1:
             raise ValueError("Unexpected situation!")
-        if techs_to_demand[0] in self.rename_me_config.grouped_techs:
-            techs_in_group = list(self.rename_me_config.grouped_techs[techs_to_demand[0]])
+        if techs_to_demand[0] in self.hchs_config.grouped_techs:
+            techs_in_group = list(self.hchs_config.grouped_techs[techs_to_demand[0]])
         else:
             techs_in_group = techs_to_demand[0]
         return techs_in_group

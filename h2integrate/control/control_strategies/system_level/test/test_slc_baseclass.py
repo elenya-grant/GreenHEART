@@ -4,7 +4,7 @@ import openmdao.api as om
 
 from h2integrate import EXAMPLE_DIR, H2IntegrateModel
 from h2integrate.core.inputs.validation import load_tech_yaml, load_plant_yaml
-from h2integrate.control.control_strategies.system_level.system_level_control_base import (
+from h2integrate.control.control_strategies.system_level.system_level_control_baseclass import (
     SystemLevelControlBase,
 )
 
@@ -15,11 +15,11 @@ def make_tech_classifiers(tech_list):
     dispatchable_techs = ["electrolyzer", "haber_bosch", "natural_gas_plant", "grid_buy", "grid"]
     storage_techs = ["battery", "h2_storage", "nh3_storage"]
     feedstock_techs = ["ng_feedstock", "n2_feedstock", "electricity_feedstock", "ocean"]
-    classifiers = {k: "flexible" for k in flexible_techs}
-    classifiers |= {k: "dispatchable" for k in dispatchable_techs}
-    classifiers |= {k: "storage" for k in storage_techs}
-    classifiers |= {k: "feedstock" for k in feedstock_techs}
-    classifiers |= {k: "fixed" for k in fixed_techs}
+    classifiers = dict.fromkeys(flexible_techs, "flexible")
+    classifiers |= dict.fromkeys(dispatchable_techs, "dispatchable")
+    classifiers |= dict.fromkeys(storage_techs, "storage")
+    classifiers |= dict.fromkeys(feedstock_techs, "feedstock")
+    classifiers |= dict.fromkeys(fixed_techs, "fixed")
 
     classifiers |= {k: "connector" for k in tech_list if "combiner" in k}
     classifiers |= {k: "splitter" for k in tech_list if "splitter" in k}
@@ -169,26 +169,26 @@ def test_find_converter_techs_fake_system(subtests):
     slc._post_setup_multi_commodity()
 
     with subtests.test("12 distinct conversions"):
-        assert len(slc.rename_me_config.converters) == len(converters)
+        assert len(slc.hchs_config.converters) == len(converters)
         assert len(converters) == 12
 
     with subtests.test("9 groups"):
-        assert len(slc.rename_me_config.grouped_techs) == 9
+        assert len(slc.hchs_config.grouped_techs) == 9
 
     with subtests.test("17 conversion recipes"):
-        assert len(slc.rename_me_config.conversion_recipes) == 17
+        assert len(slc.hchs_config.conversion_recipes) == 17
 
     conversion_to_group_name = {}
-    for input_cmod, tech, output_cmod in list(slc.rename_me_config.converters):
+    for input_cmod, tech, output_cmod in list(slc.hchs_config.converters):
         group_name = [
             k[2][1]
-            for k in slc.rename_me_config.conversion_recipes
+            for k in slc.hchs_config.conversion_recipes
             if k[0] == output_cmod and k[1] == input_cmod
         ]
         conversion_to_group_name[(input_cmod, tech, output_cmod)] = list(set(group_name))[0]
 
-    grouped_tech_in_degrees = dict(slc.rename_me_config.simple_graph.in_degree())
-    grouped_tech_out_degrees = dict(slc.rename_me_config.simple_graph.out_degree())
+    grouped_tech_in_degrees = dict(slc.hchs_config.simple_graph.in_degree())
+    grouped_tech_out_degrees = dict(slc.hchs_config.simple_graph.out_degree())
     electrolyzer_in_degs = [
         grouped_tech_in_degrees[conversion_to_group_name[con]] for con in electrolyzer_conversions
     ]
@@ -204,21 +204,21 @@ def test_find_converter_techs_fake_system(subtests):
     with subtests.test("out degrees are <1 except for electrolyzer upstream"):
         for source_group in multi_output_grouped_techs:
             assert all(
-                slc.rename_me_config.simple_graph.has_edge(source_group, dest_group)
+                slc.hchs_config.simple_graph.has_edge(source_group, dest_group)
                 for dest_group in electrolyzer_groups
             )
             assert grouped_tech_out_degrees[source_group] == 3
 
     recipe_names_long = [
         k
-        for k in slc.rename_me_config.conversion_recipes
+        for k in slc.hchs_config.conversion_recipes
         if k[0] == "fresh_water" and k[1] == "salt_water"
     ]
     r0_partial = [("ammonia", "nh3_storage", "ammonia"), ("ammonia", "nh3_combiner", "ammonia")]
     r2 = [("salt_water", "desalination", "fresh_water")]
     with subtests.test("desalination recipes"):
         for recipe_name in recipe_names_long:
-            recipe = slc.rename_me_config.conversion_recipes[recipe_name]
+            recipe = slc.hchs_config.conversion_recipes[recipe_name]
 
             cmod_diff = list(set(recipe[0]) - set(r0_partial))
             cmod = cmod_diff[0][0]
@@ -331,7 +331,7 @@ def test_multi_commodity_post_setup_nh3_system(subtests):
         ("electricity", "electrolyzer", "hydrogen"),
     }
 
-    converters = prob.model.slc.rename_me_config.converters
+    converters = prob.model.slc.hchs_config.converters
 
     with subtests.test("converters"):
         assert converters == expected_converters
@@ -345,7 +345,7 @@ def test_multi_commodity_post_setup_nh3_system(subtests):
         # ("ammonia", "nh3_load_demand"): {"haber_bosch", "nh3_storage"},
     }
 
-    converter_upstreams = prob.model.slc.rename_me_config.converter_upstreams
+    converter_upstreams = prob.model.slc.hchs_config.converter_upstreams
     # with subtests.test("converter upstreams"):
     for k, v in expected_converter_upstreams.items():
         with subtests.test(f"converter upstreams {k}"):
@@ -355,7 +355,7 @@ def test_multi_commodity_post_setup_nh3_system(subtests):
             assert input_tech_upstreams == v
 
     # Check simple_graph
-    simple_graph = prob.model.slc.rename_me_config.simple_graph
+    simple_graph = prob.model.slc.hchs_config.simple_graph
     edges = list(simple_graph.edges(data="commodity"))
     with subtests.test("number of edges"):
         assert len(edges) == 5
@@ -373,7 +373,7 @@ def test_multi_commodity_post_setup_nh3_system(subtests):
         assert set(non_numbered_edges) == set(expected_edges)
 
     # Check grouped_techs
-    grouped_techs = prob.model.slc.rename_me_config.grouped_techs
+    grouped_techs = prob.model.slc.hchs_config.grouped_techs
     expected_groups = [
         {"solar", "battery", "wind", "combiner", "elec_combiner"},
         {"electrolyzer", "h2_storage", "h2_combiner"},
@@ -389,7 +389,7 @@ def test_multi_commodity_post_setup_nh3_system(subtests):
         assert len(failed_groups) == 0
 
     # Check conversion_recipes
-    conversion_recipes_list = prob.model.slc.rename_me_config.conversion_recipes
+    conversion_recipes_list = prob.model.slc.hchs_config.conversion_recipes
     conversion_recipes = {}
     for k, v in conversion_recipes_list.items():
         v_as_set = [set(vi) for vi in v]
@@ -434,7 +434,7 @@ def test_multi_commodity_post_setup_nh3_system(subtests):
         assert len(conversion_recipes) == 4
 
     # Check non_converter_conversion_factor_keys
-    non_converter_keys = prob.model.slc.rename_me_config.non_converter_conversion_factor_keys
+    non_converter_keys = prob.model.slc.hchs_config.non_converter_conversion_factor_keys
     non_converter_techs = [k[1] for k in non_converter_keys]
     expected_non_converter_techs = [
         "nh3_storage",
@@ -460,7 +460,7 @@ def test_multi_commodity_post_setup_nh3_system(subtests):
     with subtests.test("nh3_storage key"):
         assert ("ammonia", "nh3_storage", "ammonia") in non_converter_keys
 
-    converter_tech_names = prob.model.slc.rename_me_config.converter_tech_names
+    converter_tech_names = prob.model.slc.hchs_config.converter_tech_names
     with subtests.test("Converter tech names"):
         assert converter_tech_names == {"haber_bosch", "electrolyzer"}
 
@@ -603,14 +603,14 @@ def test_multi_commodity_conversion_factor_nh3_system(subtests):
         ("nitrogen", "haber_bosch", "ammonia"): 2.5 / 40,
         ("electricity", "haber_bosch", "ammonia"): 13.0 / 40,
     }
-    non_converter_keys = prob.model.slc.rename_me_config.non_converter_conversion_factor_keys
+    non_converter_keys = prob.model.slc.hchs_config.non_converter_conversion_factor_keys
     non_converter_factor = 1.0
     non_converter_conversion_factors = dict(
         zip(non_converter_keys, [non_converter_factor] * len(non_converter_keys))
     )
     all_conversion_factors = conversion_factors | non_converter_conversion_factors
 
-    conversion_recipes = prob.model.slc.rename_me_config.conversion_recipes
+    conversion_recipes = prob.model.slc.hchs_config.conversion_recipes
 
     # Nitrogen/Ammonia
     n2_recipe_name = [k for k in conversion_recipes if k[0] == "ammonia" and k[1] == "nitrogen"][0]

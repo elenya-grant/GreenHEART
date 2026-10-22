@@ -166,7 +166,7 @@ class DemandFollowingControl(SystemLevelControlBase):
             return
 
         converter_conversion_factors = self.get_conversion_factors(
-            self.rename_me_config.converters, self.rename_me_config.converter_upstreams, inputs
+            self.hchs_config.converters, self.hchs_config.converter_upstreams, inputs
         )
 
         conversion_factor_of_1 = (
@@ -175,16 +175,16 @@ class DemandFollowingControl(SystemLevelControlBase):
 
         non_converter_conversion_factors = dict(
             zip(
-                self.rename_me_config.non_converter_conversion_factor_keys,
+                self.hchs_config.non_converter_conversion_factor_keys,
                 [conversion_factor_of_1]
-                * len(self.rename_me_config.non_converter_conversion_factor_keys),
+                * len(self.hchs_config.non_converter_conversion_factor_keys),
             )
         )
         conversion_factors = non_converter_conversion_factors | converter_conversion_factors
 
         self.tech_demands_set = []
 
-        demand_techs = self.rename_me_config.converter_upstreams[(self.commodity, self.demand_tech)]
+        demand_techs = self.hchs_config.converter_upstreams[(self.commodity, self.demand_tech)]
 
         outputs = self.get_setpoints_for_commodity_subset(
             inputs,
@@ -195,7 +195,7 @@ class DemandFollowingControl(SystemLevelControlBase):
         )
 
         conversion_factors_tracker = {}
-        for recipe_name, recipe in self.rename_me_config.conversion_recipes.items():
+        for recipe_name, recipe in self.hchs_config.conversion_recipes.items():
             commodity_to_demand = recipe_name[1]
             techs_to_demand = self.get_techs_to_demand_from_recipe(recipe_name)
             conversion_factor = self.get_conversion_from_recipe(conversion_factors, recipe)
