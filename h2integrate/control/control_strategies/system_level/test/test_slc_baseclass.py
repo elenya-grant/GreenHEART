@@ -556,6 +556,9 @@ def test_multi_commodity_conversion_factor_nh3_system(subtests):
         "electricity_feedstock_electricity_out": np.full(8760, 13.0),
     }
 
+    # TODO: add fake consumed input profiles
+    # i.e. "electrolyzer_electricity_consumed", "haber_bosch_hydrogen_consumed"
+
     # Test `get_converter_capacity_ratio` and `get_converter_conversion_ratio`
     # Electricity to hydrogen
     elec_per_h2_ratio = prob.model.slc.get_converter_conversion_ratio(
