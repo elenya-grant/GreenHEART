@@ -55,6 +55,27 @@ class DemandFollowingControl(SystemLevelControlBase):
     def get_setpoints_for_commodity_subset(
         self, inputs, outputs, commodity, commodity_demand, tech_subset: list | set | None = None
     ):
+        """Dispatches a group of technologies that produce ``commodity`` to achieve the
+        ``commodity_demand``.
+
+        Args:
+            inputs (om.vectors.default_vector.DefaultVector | dict): OpenMDAO inputs
+                to the `compute()` method. This should at least include the commodity
+                demand profile and input commodity profile.
+            outputs (om.vectors.default_vector.DefaultVector): OpenMDAO outputs
+                from the `compute()` method
+            commodity (str): name of commodity to demand
+            commodity_demand (np.ndarray): total demand of commodity ``commodity``
+            tech_subset (list | set | None, optional): technologies that produce
+                ``commodity`` that should be dipatched to achieve the ``commodity_demand``.
+                If None, uses all the technologies that are classified as 'fixed', 'flexible',
+                'dispatchable', or 'storage'. Defaults to None.
+
+        Returns:
+            om.vectors.default_vector.DefaultVector: outputs updated with the set-points for
+                each technology subset
+
+        """
         # TODO: rename this method
         if tech_subset is None:
             tech_subset = set(self.input_techs)
@@ -63,6 +84,8 @@ class DemandFollowingControl(SystemLevelControlBase):
         flexible_tech_subest = set(self.flexible_techs) & set(tech_subset)
         storage_tech_subset = set(self.storage_techs) & set(tech_subset)
         dispatchable_tech_subset = set(self.dispatchable_techs) & set(tech_subset)
+
+        # TODO: update the technology dispatch order based on the order of the techs
 
         # 1. Fixed techs: always produce, subtract from demand
         for fixed_tech in fixed_tech_subset:
@@ -160,11 +183,13 @@ class DemandFollowingControl(SystemLevelControlBase):
 
     def compute(self, inputs, outputs):
         if not self.multi_commodity_system:
+            # no converters in system, just set setpoints for all technologies
             self.get_setpoints_for_commodity_subset(
                 inputs, outputs, self.commodity, inputs[self.demand_input_name].copy()
             )
             return
 
+        # there are converters in the system
         converter_conversion_factors = self.get_conversion_factors(
             self.hchs_config.converters, self.hchs_config.converter_upstreams, inputs
         )

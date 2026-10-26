@@ -352,9 +352,10 @@ class SystemLevelControlBase(om.ExplicitComponent):
         self.techs_to_commodities = slc_topology["tech_to_commodity"]
 
         # There are multiple commodities being produced by technologies in the system
-        self.multi_commodity_system = (
-            True if len({e[-1] for e in self.techs_to_commodities}) > 1 else False
-        )
+        # self.multi_commodity_system = (
+        #     True if len({e[-1] for e in self.techs_to_commodities}) > 1 else False
+        # )
+        self.multi_commodity_system = False
 
         self.commodities_to_units = {self.commodity: self.commodity_rate_units}
         self.commodities_to_ref_var = {}
@@ -364,6 +365,7 @@ class SystemLevelControlBase(om.ExplicitComponent):
         self._setup_tech_category("storage", self.storage_techs)
         self._setup_feedstock_category(self.feedstock_comps)
         if "converters" in slc_topology:
+            self.multi_commodity_system = True
             self._setup_consumption_category(slc_topology["converters"])
             self._post_setup_multi_commodity()
 
@@ -1185,17 +1187,6 @@ class SystemLevelControlBase(om.ExplicitComponent):
         ancestors_with_commodity = get_successors_for_tech_with_input_cmod(
             self.technology_graph, tech_name, commodity
         )
-        # TODO: refactor to call get_successors_for_tech_with_input_cmod
-        # All graph ancestors of tech_name (any depth)
-        # ancestors = nx.ancestors(self.technology_graph, tech_name)
-
-        # # Keep only ancestors that have an outgoing edge carrying the target commodity.
-        # # Edges are (source, dest, commodity) tuples
-        # ancestors_with_commodity = {
-        #     src
-        #     for src, _, comm in self.technology_graph.edges(data="commodity")
-        #     if src in ancestors and commodity in (comm or [])
-        # }
 
         # Intersect with controller-managed techs
         return sorted(set(ancestors_with_commodity) & input_techs)
@@ -1616,3 +1607,60 @@ class SystemLevelControlBase(om.ExplicitComponent):
                 path_conversion *= conversion_factors.get(tech_conversion, 1.0)
 
         return path_conversion
+
+    def get_conversion_for_tech_group(self, conversion_factors, recipe_name):
+        # NOTE: this is an attempt at methodizing whats in
+        # demand following control right now
+        input_cmod, tech_group, _ = recipe_name
+
+        if isinstance(tech_group, tuple):
+            conversion_factor_group_tracker = {}
+            techs_to_demand = self.get_techs_to_demand_from_recipe(recipe_name)
+
+            for other_recipe in self.hchs_config.conversion_recipes:
+                if other_recipe[0] != input_cmod:
+                    continue
+                techs_from_other_recipe = self.get_techs_to_demand_from_recipe(other_recipe)
+                different_techs = set(techs_to_demand) ^ set(techs_from_other_recipe)
+                if not bool(different_techs):
+                    # other_recipe uses the same techs
+
+                    dispatched_tech_keyname = tuple(sorted(techs_to_demand)) + tuple(
+                        other_recipe[1]
+                    )
+                    conversion_factor = self.get_conversion_from_recipe(
+                        conversion_factors, other_recipe
+                    )
+                    # using np.asarray in-case conversion factors are single values
+                    conversion_factor_group_tracker[dispatched_tech_keyname] = np.asarray(
+                        conversion_factor
+                    )
+            conversion_factors_for_group = np.concat(
+                [np.reshape(cf, (1, len(cf))) for _, cf in conversion_factor_group_tracker.items()],
+                axis=0,
+            )
+            # get the maximum demand of a specific technology group
+            # NOTE: could return other recipes that were included
+            return np.max(conversion_factors_for_group, axis=0)
+
+        conversion_factor = self.get_conversion_from_recipe(conversion_factors, other_recipe)
+        return conversion_factor
+        # else:
+        # NOTE: below check would not work yet
+        # note: could still run a check
+        # still check for unexpected edge-case
+        # tech_groups_dispatched = [k[:-1] for k in conversion_factor_group_tracker]
+        # tech_group_dispatched_cnt = [
+        #     tech_groups_dispatched.count(i) for i in tech_groups_dispatched
+        # ]
+        # if any(tech_group_dispatched_cnt > 1):
+        #     weird_tech_groups = sorted(
+        #         {i for i in tech_groups_dispatched if tech_groups_dispatched.count(i) > 1}
+        #     )
+        #     weird_tech_groups_cnt = [tech_groups_dispatched.count(i) for i in weird_tech_groups]
+        #     msg = (
+        #         f"Unexpected: technology groups {weird_tech_groups} have been "
+        #         f"dispatched {weird_tech_groups_cnt} times. Potentially a bug in "
+        #         "making conversion recipes"
+        #     )
+        #     raise ValueError(msg)
