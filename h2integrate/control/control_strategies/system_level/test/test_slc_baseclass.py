@@ -275,27 +275,27 @@ def test_find_converter_techs_fake_system(subtests):
             fake_inputs, input_cmod, output_cmod, tech, list(tech_ancestors)
         )
         conversion_factors[(input_cmod, tech, output_cmod)] = conversion_ratio
-    slc.get_techs_to_demand_from_recipe(("fresh_water", "salt_water", (8, "fresh_water-3")))
+    slc.get_techs_to_demand_from_recipe(("fresh_water", "salt_water", (10, "fresh_water-3")))
 
-    # recipe_name_h2 = ('hydrogen', 'electricity', (3, 'hydrogen-5'))
-    # recipe_name_o2 = ('oxygen', 'electricity', (5, 'oxygen-7'))
-    # recipe_name_heat = ('heat', 'electricity', (1, 'heat-4'))
-    # TODO: update the 'advanced' naming so the numbers don't change
-    recipe_name_h2 = [
-        (a, b, c)
-        for a, b, c in slc.hchs_config.conversion_recipes
-        if (a == "hydrogen") and (b == "electricity") and ("hydrogen-") in c[1]
-    ][0]
-    recipe_name_o2 = [
-        (a, b, c)
-        for a, b, c in slc.hchs_config.conversion_recipes
-        if (a == "oxygen") and (b == "electricity") and ("oxygen-") in c[1]
-    ][0]
-    recipe_name_heat = [
-        (a, b, c)
-        for a, b, c in slc.hchs_config.conversion_recipes
-        if (a == "heat") and (b == "electricity") and ("heat-") in c[1]
-    ][0]
+    recipe_name_h2 = ("hydrogen", "electricity", (3, "hydrogen-5"))
+    recipe_name_o2 = ("oxygen", "electricity", (5, "oxygen-7"))
+    recipe_name_heat = ("heat", "electricity", (1, "heat-4"))
+
+    # recipe_name_h2 = [
+    #     (a, b, c)
+    #     for a, b, c in slc.hchs_config.conversion_recipes
+    #     if (a == "hydrogen") and (b == "electricity") and ("hydrogen-") in c[1]
+    # ][0]
+    # recipe_name_o2 = [
+    #     (a, b, c)
+    #     for a, b, c in slc.hchs_config.conversion_recipes
+    #     if (a == "oxygen") and (b == "electricity") and ("oxygen-") in c[1]
+    # ][0]
+    # recipe_name_heat = [
+    #     (a, b, c)
+    #     for a, b, c in slc.hchs_config.conversion_recipes
+    #     if (a == "heat") and (b == "electricity") and ("heat-") in c[1]
+    # ][0]
     # All the things that end up at electricity, below are all the same
     e_group_h2 = slc.get_techs_to_demand_from_recipe(recipe_name_h2)
     e_group_o2 = slc.get_techs_to_demand_from_recipe(recipe_name_o2)
@@ -315,13 +315,55 @@ def test_find_converter_techs_fake_system(subtests):
         conversion_factors, slc.hchs_config.conversion_recipes[recipe_name_heat]
     )
 
-    conversion_factors[("electricity", "electrolyzer", "heat")]
-    conversion_factors[("electricity", "electrolyzer", "hydrogen")]
-    conversion_factors[("electricity", "electrolyzer", "oxygen")]
-    with subtests.test("place holder"):
-        assert np.all(conversion_factor_h2 > 0)
-        assert np.all(conversion_factor_o2 > 0)
-        assert np.all(conversion_factor_heat > 0)
+    with subtests.test("conversion factor nh3->hydrogen->electricity"):
+        assert pytest.approx(conversion_factor_h2[0], rel=1e-6) == 0.76282
+    with subtests.test("conversion factor nh3->o2->electricity"):
+        assert np.allclose(conversion_factor_o2, np.full(8760, 0.875), rtol=1e-6, atol=1e-6)
+    with subtests.test("conversion factor nh3->heat->electricity"):
+        assert np.allclose(conversion_factor_heat, np.full(8760, 0.4375), rtol=1e-6, atol=1e-6)
+    # conversion_factors[("electricity", "electrolyzer", "heat")]
+    # conversion_factors[("electricity", "electrolyzer", "hydrogen")]
+    # conversion_factors[("electricity", "electrolyzer", "oxygen")]
+    # with subtests.test("place holder"):
+    #     assert np.all(conversion_factor_h2 > 0)
+    #     assert np.all(conversion_factor_o2 > 0)
+    #     assert np.all(conversion_factor_heat > 0)
+
+    # NOTE: below is to play with integration in demand following (should be removed from test)
+    # conversion_factors_tracker = {}
+    # dispatched_tech_tracker = {}
+    # dispatched_commodity_tracker = {}
+    # end_use_demand = np.ones(8760)
+    # for recipe_name, recipe in slc.hchs_config.conversion_recipes.items():
+    #     commodity_to_demand = recipe_name[1]
+    #     techs_to_demand = slc.get_techs_to_demand_from_recipe(recipe_name)
+    #     conversion_factor = slc.get_conversion_from_recipe(conversion_factors, recipe)
+    #     dispatched_tech_keyname = tuple(sorted(techs_to_demand)) + tuple(recipe_name[-1])
+    #     demand = end_use_demand * conversion_factor
+
+    #     dispatched_tech_tracker[dispatched_tech_keyname] = demand
+    #     dispatched_commodity_tracker[dispatched_tech_keyname] = commodity_to_demand
+    #     conversion_factors_tracker[recipe_name] = conversion_factor
+
+    # if isinstance(list(slc.hchs_config.conversion_recipes.keys())[0][-1], tuple):
+    #     # using complex keynames
+    #     techs_in_group = sorted({k[:-2] for k in dispatched_tech_tracker})
+    #     tech_group_to_recipe_ids = {}
+    #     # will have to do a np.max on all the demand for a tech
+
+    #     for tech_group in techs_in_group:
+    #         # find which key in dispatched_tech_tracker starts with these techs
+    #         recipe_ids = [k[-2:] for k in dispatched_tech_tracker if k[:-2]==tech_group]
+
+    #         tech_group_conversion_factors = np.zeros((len(recipe_ids), slc.n_timesteps))
+    #         if tech_group not in tech_group_to_recipe_ids:
+    #             tech_group_to_recipe_ids[tech_group] = recipe_ids
+    #             for ii,recipe_id in enumerate(recipe_ids):
+    #                 ref_name = tuple(sorted(tech_group)) + tuple(recipe_id)
+    #                 tech_group_conversion_factors[ii,:] = dispatched_tech_tracker[ref_name]
+    # commodity = dispatched_commodity_tracker[ref_name]
+
+    # tech_group_max_demand = np.max(tech_group_conversion_factors, axis=0)
 
 
 @pytest.mark.unit
