@@ -5,6 +5,11 @@ import numpy as np
 import networkx as nx
 import openmdao.api as om
 
+from h2integrate.control.control_strategies.system_level.converter_tools import (
+    _find_converter_techs,
+    get_successors_for_tech_with_input_cmod,
+)
+
 
 def _get_tech_buy_price_input_name(tech_config, tech_name):
     """Return the variable name of a tech's buy-price input, or ``None`` if absent.
@@ -751,8 +756,6 @@ class SystemLevelControlBase(om.ExplicitComponent):
             # Storage tech has its own sub-controller: emit a combined demand
             # signal (always positive) equal to the commodity flowing into
             # storage from upstream techs plus any remaining demand.
-            # TODO: possibly replace self.get_upstream_techs_for_commodity with
-            # get_successors_for_tech_with_input_cmod
             upstream_techs = self.get_upstream_techs_for_commodity(storage_tech, commodity)
             commodity_into_storage = np.zeros(self.n_timesteps)
             for tech_name in upstream_techs:
@@ -1040,7 +1043,10 @@ class SystemLevelControlBase(om.ExplicitComponent):
         if not self.multi_commodity_system:
             return
         # converter upstreams now has values of lists intead of sets
-        converters, converter_upstreams = self._find_converter_techs()
+        # converters, converter_upstreams = self._find_converter_techs()
+        converters, converter_upstreams = _find_converter_techs(
+            self.technology_graph, self.input_techs, self.storage_techs
+        )
 
         demand_group_techs = self.get_successors_for_tech_with_input_cmod(
             self.demand_tech, self.commodity
@@ -1169,9 +1175,6 @@ class SystemLevelControlBase(om.ExplicitComponent):
             list[str]: Controller-managed technologies upstream of ``tech_name``
                 that produce ``commodity``.
         """
-        from h2integrate.control.control_strategies.system_level.converter_tools import (
-            get_successors_for_tech_with_input_cmod,
-        )
 
         # Build the set of techs the controller can see
         if include_feedstock_sources:
@@ -1195,14 +1198,14 @@ class SystemLevelControlBase(om.ExplicitComponent):
         # }
 
         # Intersect with controller-managed techs
-        return list(set(ancestors_with_commodity) & input_techs)
+        return sorted(set(ancestors_with_commodity) & input_techs)
 
     def get_successors_for_tech_with_input_cmod(self, tech, input_commodity):
         """Find technologies upstream of ``tech`` that produce ``input_commodity``
         for ``tech``.
 
         Args:
-            tech (str): Technology whose upstream suppliers are sought.
+            tech (str): Technology whose upstream suppliers of ``commodity`` are sought.
             commodity (str): Commodity of interest that is an input commodity to ``tech``
                 (e.g. ``"electricity"``).
 
@@ -1241,7 +1244,8 @@ class SystemLevelControlBase(om.ExplicitComponent):
         return list(successor_techs_with_commod)
 
     def _find_converter_techs(self):
-        """Identify technologies that transform one commodity into another.
+        """TODO: remove this method and replace with function
+        Identify technologies that transform one commodity into another.
 
         A "converter" is a tech whose output commodities differ from the commodities
         produced by its upstream ancestors (e.g. an electrolyzer: electricity → hydrogen).
@@ -1275,57 +1279,9 @@ class SystemLevelControlBase(om.ExplicitComponent):
                 }
 
         """
-        in_flows = dict(self.technology_graph.in_degree)
-        out_flows = dict(self.technology_graph.out_degree)
-
-        non_converter_techs = [
-            k for k in list(self.technology_graph.nodes) if in_flows[k] < 1 or out_flows[k] < 1
-        ]
-        likely_converter_techs = (
-            set(self.technology_graph.nodes) - set(non_converter_techs) - set(self.storage_techs)
-        ) & set(self.input_techs)
-
-        converter_info = set()
-        converter_upstreams = {}
-        for converter in list(likely_converter_techs):
-            # predecessors are upstream and directly connected to the converter
-            predecessor_techs = set(self.technology_graph.predecessors(converter))
-            # succesor techs are directly downstream of the converter
-            successor_techs = set(self.technology_graph.successors(converter))
-
-            input_commods = set()
-            for upstream_tech in predecessor_techs:
-                if (
-                    cmod := self.technology_graph.edges[upstream_tech, converter].get("commodity")
-                ) is not None:
-                    if isinstance(cmod, str):
-                        input_commods.add(cmod)
-                    else:
-                        input_commods |= set(cmod)
-
-            output_commods = set()
-            for downstream_tech in list(successor_techs):
-                if (
-                    cmod := self.technology_graph.edges[converter, downstream_tech].get("commodity")
-                ) is not None:
-                    if isinstance(cmod, str):
-                        output_commods.add(cmod)
-                    else:
-                        output_commods |= set(cmod)
-            # A converter has commodities that appear only on one side:
-            # upstream-only commodities are consumed, output-only are produced.
-            consumed = input_commods - output_commods
-            produced = output_commods - input_commods
-            if consumed and produced:
-                # If both sides have unique commodities, this tech is a converter
-
-                for input_commod in input_commods:
-                    upstream_techs_with_commod = self.get_successors_for_tech_with_input_cmod(
-                        converter, input_commod
-                    )
-                    converter_upstreams[(input_commod, converter)] = upstream_techs_with_commod
-                    for output_commod in output_commods:
-                        converter_info.add((input_commod, converter, output_commod))
+        converter_info, converter_upstreams = _find_converter_techs(
+            self.technology_graph, self.input_techs, self.storage_techs
+        )
 
         return converter_info, converter_upstreams
 

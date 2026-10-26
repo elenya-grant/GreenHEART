@@ -3,7 +3,9 @@ def get_successors_for_tech_with_input_cmod(technology_graph, tech, input_commod
     for ``tech``.
 
     Args:
-        tech (str): Technology whose upstream suppliers are sought.
+        technology_graph (nx.DiGraph): directional graph object representation of the
+            technology_interconnections found in the ``plant_config``
+        tech (str): Technology whose upstream suppliers of ``commodity`` are sought.
         commodity (str): Commodity of interest that is an input commodity to ``tech``
             (e.g. ``"electricity"``).
 
@@ -45,6 +47,14 @@ def _find_converter_techs(technology_graph, input_techs, storage_techs):
 
     A "converter" is a tech whose output commodities differ from the commodities
     produced by its upstream ancestors (e.g. an electrolyzer: electricity → hydrogen).
+
+    Args:
+        technology_graph (nx.DiGraph): directional graph object representation of the
+            technology_interconnections found in the ``plant_config``
+        input_techs (list[str]): list of technologies that have technology control classifiers of
+            'dispatchable', 'fixed', 'flexible', or 'storage'
+        storage_techs (list[str]): list of technologies that have a technology control classifier
+            of 'storage'
 
     Returns:
         tuple[set, dict]: 2-element tuple containing ``converters`` and ``converter_upstreams``.
