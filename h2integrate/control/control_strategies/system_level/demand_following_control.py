@@ -195,11 +195,16 @@ class DemandFollowingControl(SystemLevelControlBase):
         )
 
         conversion_factors_tracker = {}
+        dispatched_tech_tracker = {}
         for recipe_name, recipe in self.hchs_config.conversion_recipes.items():
             commodity_to_demand = recipe_name[1]
             techs_to_demand = self.get_techs_to_demand_from_recipe(recipe_name)
             conversion_factor = self.get_conversion_from_recipe(conversion_factors, recipe)
             demand = inputs[self.demand_input_name].copy() * conversion_factor
+
+            dispatched_tech_keyname = tuple(sorted(techs_to_demand)) + tuple(recipe_name[-1])
+            dispatched_tech_tracker[dispatched_tech_keyname] = demand
+
             outputs = self.get_setpoints_for_commodity_subset(
                 inputs,
                 outputs,
@@ -208,6 +213,37 @@ class DemandFollowingControl(SystemLevelControlBase):
                 tech_subset=techs_to_demand,
             )
             conversion_factors_tracker[recipe_name] = conversion_factor
+
+        # Check if we had set setpoints for multiple tech groups
+        # (should only happen if using complex names)
+        if isinstance(self.hchs_config.conversion_recipes[-1], tuple):
+            # using complex keynames
+            techs_in_group = sorted({k[:-2] for k in dispatched_tech_tracker})
+            # tech_group_to_recipe_ids = {}
+            for tech_group in techs_in_group:
+                print(tech_group)
+                pass  # TODO: finish
+                # find which key in dispatched_tech_tracker starts with these techs
+                # recipe_id = [k[-2:] for k in dispatched_tech_tracker if k[:-2]==tech_group]
+
+        else:
+            # still check for unexpected edge-case
+            tech_groups_dispatched = [k[:-1] for k in dispatched_tech_tracker]
+            tech_group_dispatched_cnt = [
+                tech_groups_dispatched.count(i) for i in tech_groups_dispatched
+            ]
+            if any(tech_group_dispatched_cnt > 1):
+                weird_tech_groups = sorted(
+                    {i for i in tech_groups_dispatched if tech_groups_dispatched.count(i) > 1}
+                )
+                weird_tech_groups_cnt = [tech_groups_dispatched.count(i) for i in weird_tech_groups]
+                msg = (
+                    f"Unexpected: technology groups {weird_tech_groups} have been "
+                    f"dispatched {weird_tech_groups_cnt} times. Potentially a bug in "
+                    "making conversion recipes"
+                )
+                raise ValueError(msg)
+
         unset_techs_cmods = self.techs_to_commodities - set(self.tech_demands_set)
         unset_techs = [k for k in list(unset_techs_cmods) if k[0] not in self.feedstock_comps]
         if unset_techs:

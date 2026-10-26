@@ -226,6 +226,102 @@ def test_find_converter_techs_fake_system(subtests):
             assert cmod in pem_output_cmod
             assert ("fresh_water", "electrolyzer", cmod) in recipe[1]
             assert recipe[2] == r2
+    # TODO: add tests for get_conversion_from_recipe with some fake inputs
+    h2_storage_profile = np.tile(
+        np.concatenate([np.arange(-5.0, 6.0, 1), np.arange(6.0, -5, -1)]), 399
+    )[:8760]
+    fake_inputs = {
+        "ocean_salt_water_out": np.full(8760, 7.0),
+        "desalination_fresh_water_out": np.full(8760, 5.0),
+        "desalination_rated_fresh_water_production": np.array([5.0]),
+        "desalination_salt_water_consumed": np.full(8760, 6.0),
+        # --- above for this example ---
+        "wind_rated_electricity_production": np.array([30.0]),
+        "wind_electricity_out": np.full(8760, 15.0),
+        "solar_rated_electricity_production": np.array([25.0]),
+        "solar_electricity_out": np.full(8760, 20.0),
+        "battery_rated_electricity_production": np.array([16.0]),
+        "battery_electricity_out": np.zeros(8760),
+        "electrolyzer_rated_hydrogen_production": np.array([71.0]),
+        "electrolyzer_hydrogen_out": np.full(8760, 39.0),
+        # --- below for this example ---
+        "electrolyzer_rated_oxygen_production": np.array([71.0 * 8]),
+        "electrolyzer_oxygen_out": np.full(8760, 39.0 * 8),
+        "electrolyzer_rated_heat_production": np.array([71.0 * (2 / 3)]),
+        "electrolyzer_heat_out": np.full(8760, 39.0 * (2 / 3)),
+        "electrolyzer_fresh_water_consumed": np.full(8760, 6.0),
+        "electrolyzer_electricity_consumed": np.full(8760, 15.0) + np.full(8760, 20.0),
+        # --- above for this example ---
+        "h2_storage_rated_hydrogen_production": np.array([14.0]),
+        "h2_storage_hydrogen_out": h2_storage_profile,
+        "haber_bosch_rated_ammonia_production": np.array([50.0]),
+        "haber_bosch_ammonia_out": np.full(8760, 40),
+        "nh3_storage_rated_ammonia_production": np.array([4.0]),
+        "nh3_storage_ammonia_out": np.tile(np.array([-1, 1]), 4380),
+        "n2_feedstock_nitrogen_out": np.full(8760, 2.5),
+        "grid_electricity_out": np.full(8760, 13.0),
+        # --- below for this example ---
+        "haber_bosch_oxygen_consumed": np.full(8760, 39.0 * 8),
+        "haber_bosch_hydrogen_consumed": h2_storage_profile + np.full(8760, 39.0),
+        "haber_bosch_electricity_consumed": np.full(8760, 13.0),
+        "haber_bosch_nitrogen_consumed": np.full(8760, 1.5),  # less than whats input
+        "haber_bosch_heat_consumed": np.full(8760, 39.0 * (1 / 3)),  # less than whats input
+    }
+
+    conversion_factors = {}
+    for input_cmod, tech, output_cmod in list(converters):
+        tech_ancestors = converter_upstreams[(input_cmod, tech)]
+        conversion_ratio = slc.get_converter_conversion_ratio(
+            fake_inputs, input_cmod, output_cmod, tech, list(tech_ancestors)
+        )
+        conversion_factors[(input_cmod, tech, output_cmod)] = conversion_ratio
+    slc.get_techs_to_demand_from_recipe(("fresh_water", "salt_water", (8, "fresh_water-3")))
+
+    # recipe_name_h2 = ('hydrogen', 'electricity', (3, 'hydrogen-5'))
+    # recipe_name_o2 = ('oxygen', 'electricity', (5, 'oxygen-7'))
+    # recipe_name_heat = ('heat', 'electricity', (1, 'heat-4'))
+    # TODO: update the 'advanced' naming so the numbers don't change
+    recipe_name_h2 = [
+        (a, b, c)
+        for a, b, c in slc.hchs_config.conversion_recipes
+        if (a == "hydrogen") and (b == "electricity") and ("hydrogen-") in c[1]
+    ][0]
+    recipe_name_o2 = [
+        (a, b, c)
+        for a, b, c in slc.hchs_config.conversion_recipes
+        if (a == "oxygen") and (b == "electricity") and ("oxygen-") in c[1]
+    ][0]
+    recipe_name_heat = [
+        (a, b, c)
+        for a, b, c in slc.hchs_config.conversion_recipes
+        if (a == "heat") and (b == "electricity") and ("heat-") in c[1]
+    ][0]
+    # All the things that end up at electricity, below are all the same
+    e_group_h2 = slc.get_techs_to_demand_from_recipe(recipe_name_h2)
+    e_group_o2 = slc.get_techs_to_demand_from_recipe(recipe_name_o2)
+    e_group_heat = slc.get_techs_to_demand_from_recipe(recipe_name_heat)
+
+    with subtests.test("Electricity techs upstream from electrolyzer based on recipe"):
+        assert e_group_h2 == e_group_o2
+        assert e_group_o2 == e_group_heat
+
+    conversion_factor_h2 = slc.get_conversion_from_recipe(
+        conversion_factors, slc.hchs_config.conversion_recipes[recipe_name_h2]
+    )
+    conversion_factor_o2 = slc.get_conversion_from_recipe(
+        conversion_factors, slc.hchs_config.conversion_recipes[recipe_name_o2]
+    )
+    conversion_factor_heat = slc.get_conversion_from_recipe(
+        conversion_factors, slc.hchs_config.conversion_recipes[recipe_name_heat]
+    )
+
+    conversion_factors[("electricity", "electrolyzer", "heat")]
+    conversion_factors[("electricity", "electrolyzer", "hydrogen")]
+    conversion_factors[("electricity", "electrolyzer", "oxygen")]
+    with subtests.test("place holder"):
+        assert np.all(conversion_factor_h2 > 0)
+        assert np.all(conversion_factor_o2 > 0)
+        assert np.all(conversion_factor_heat > 0)
 
 
 @pytest.mark.unit
