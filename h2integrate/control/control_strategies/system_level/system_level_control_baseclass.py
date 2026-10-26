@@ -161,14 +161,17 @@ class HCHSConfig:
         >>> list(conversion_recipes.keys(())
         [
             # (input_commodity, output_commodity, group_name)
+            # TODO: update recipe names to:
+            # (input_commodity, group_name, output_commodity)
             ('ammonia', 'electricity', 'ammonia-3'),
             ('ammonia', 'hydrogen', 'ammonia-3'),
             ('hydrogen', 'electricity', 'hydrogen-2')
+            # currently, its output_commodity, input_commodity, group_name
         ]
 
         Recipe to calculate electricity demand for ammonia plant
 
-        >>> conversion_recipes[("ammonia", "electricity", "ammonia-3")]
+        >>> conversion_recipes[("electricity", "ammonia-3", "ammonia")]
         [
             [
                 ('ammonia', 'nh3_combiner', 'ammonia'),
@@ -179,7 +182,7 @@ class HCHSConfig:
 
         Recipe to calculate hydrogen demand for ammonia plant
 
-        >>> conversion_recipes[("ammonia", "hydrogen", "ammonia-3")]
+        >>> conversion_recipes[("hydrogen", "ammonia-3", "ammonia")]
         [
             [
                 ('ammonia', 'nh3_combiner', 'ammonia'),
@@ -190,7 +193,7 @@ class HCHSConfig:
 
         Recipe to calculate electricity demand for hydrogen used in the ammonia plant
 
-        >>> conversion_recipes[("hydrogen", "electricity", "hydrogen-2")]
+        >>> conversion_recipes[("electricity", "hydrogen-2", "hydrogen")]
         [
             # recipe of hydrogen to ammonia
             [
@@ -1403,13 +1406,13 @@ class SystemLevelControlBase(om.ExplicitComponent):
             for p0, p1 in zip(reverse_path[1:], reverse_path[:-1])
         ]
         commodity_nodes = list(itertools.pairwise(commodity_conversions))
-        techs = reverse_path[1:]
+        groups = reverse_path[1:]
 
         commodity_graph = nx.DiGraph()  # nodes are commodities
         for i, commod_node in enumerate(commodity_nodes):
             # ammonia, hydrogen
             down_cmod, up_cmod = commod_node
-            commodity_graph.add_edge(down_cmod, up_cmod, tech=techs[i])
+            commodity_graph.add_edge(down_cmod, up_cmod, tech=groups[i])
 
         commodity_edges = commodity_graph.edges(data="tech")
 
@@ -1417,22 +1420,26 @@ class SystemLevelControlBase(om.ExplicitComponent):
 
         for edge in commodity_edges:
             # in_cmod is demand of next tech
-            out_cmod, in_cmod, tech = edge
-            if tech in grouped_techs:
-                techs_in_group = list(grouped_techs[tech])
+            out_cmod, in_cmod, group = edge
+            if group in grouped_techs:
+                techs_in_group = list(grouped_techs[group])
 
                 recipe = []
-                for t in techs_in_group:
-                    if t in converter_tech_names:
-                        recipe.append((in_cmod, t, out_cmod))
+                for tech in techs_in_group:
+                    if tech in converter_tech_names:
+                        recipe.append((in_cmod, tech, out_cmod))
                     else:
-                        recipe.append((out_cmod, t, out_cmod))
+                        # non-converter, has same output as input
+                        recipe.append((out_cmod, tech, out_cmod))
                 # TODO: add check if any other non-converter techs have a non-1 conversion factor
             else:
-                recipe = [(in_cmod, tech, out_cmod)]
+                recipe = [(in_cmod, group, out_cmod)]
 
             path_recipe.append(recipe)
-            compounding_conversion_factor_recipes[(out_cmod, in_cmod, tech)] = path_recipe.copy()
+
+            # compounding_conversion_factor_recipes[(out_cmod, in_cmod, group)] = path_recipe.copy()
+            compounding_conversion_factor_recipes[(in_cmod, group, out_cmod)] = path_recipe.copy()
+
         return compounding_conversion_factor_recipes
 
     def _make_conversion_factor_recipes(
@@ -1467,19 +1474,19 @@ class SystemLevelControlBase(om.ExplicitComponent):
                 }
 
             use_complex_keys (bool, optional): If True, use key names formatted as
-                ``(output_commodity, input_commodity, (i, converter_tech_group))``.
+                ``(input_commodity, (i, converter_tech_group), output_commodity)``.
                 Defaults to False.
 
         Returns:
             dict[tuple[str], list[list]]: recipes to calculate the conversion ratio from
             the demand commodity to all upstream subsystems. Keys are the recipe name, which
-            are tuples ``(output_commodity, input_commodity, converter_tech_group)``.
+            are tuples ``(input_commodity, converter_tech_group, output_commodity)``.
 
             Values are embedded lists. Each list defines the technologies in a
             step of the conversion. Each element of a list is a tuple formatted as
             ``(input_commodity, technology, output_commodity)``. An example is shown below.
 
-            >>> conversion_recipes[("hydrogen", "electricity", "hydrogen-2")]
+            >>> conversion_recipes[("electricity", "hydrogen-2", "hydrogen")]
             [
                 [
                     ('ammonia', 'nh3_combiner', 'ammonia'),
@@ -1496,7 +1503,7 @@ class SystemLevelControlBase(om.ExplicitComponent):
             Note:
                 For more complext system architecturs, the conversion recipe keys
                 may be formatted as
-                ``(output_commodity, input_commodity, (i, converter_tech_group))``
+                ``(input_commodity, (i, converter_tech_group), output_commodity)``
                 where ``i`` is a unique number to distinguish the recipe.
 
         """
@@ -1544,8 +1551,11 @@ class SystemLevelControlBase(om.ExplicitComponent):
                 #     break
 
                 if use_complex_keys:
+                    # new_res = {
+                    #     (k[0], k[1], (cnt + i, k[2])): v for i, (k, v) in enumerate(res.items())
+                    # }
                     new_res = {
-                        (k[0], k[1], (cnt + i, k[2])): v for i, (k, v) in enumerate(res.items())
+                        (k[0], (cnt + i, k[1]), k[2]): v for i, (k, v) in enumerate(res.items())
                     }
                     compounding_conversion_factor_recipes |= new_res
                     cnt += len(res)
@@ -1571,8 +1581,8 @@ class SystemLevelControlBase(om.ExplicitComponent):
 
         Args:
             recipe_name (tuple): name of recipe formatted as a tuple of
-                ``(input_commodity, output_commodity, tech_group_name)`` or
-                ``(input_commodity, output_commodity, (i,tech_group_name))``.
+                ``(input_commodity, tech_group_name, output_commodity)`` or
+                ``(input_commodity, (i,tech_group_name), output_commodity)``.
                 This should be a key from the dictionary returned from
                 ``_make_conversion_factor_recipes()``.
 
@@ -1583,7 +1593,8 @@ class SystemLevelControlBase(om.ExplicitComponent):
             list[str]: list of technologies that output the ``input_commodity``
             and are connected upstream of ``tech_group_name``
         """
-        _, input_cmod, tech_group = recipe_name
+        input_cmod, tech_group, _ = recipe_name
+        # _, input_cmod, tech_group = recipe_name
         if isinstance(tech_group, tuple):
             _, tech_group = tech_group
 

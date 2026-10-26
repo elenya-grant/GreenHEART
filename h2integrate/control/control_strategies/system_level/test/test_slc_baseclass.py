@@ -182,9 +182,9 @@ def test_find_converter_techs_fake_system(subtests):
     conversion_to_group_name = {}
     for input_cmod, tech, output_cmod in list(slc.hchs_config.converters):
         group_name = [
-            k[2][1]
+            k[1][1]
             for k in slc.hchs_config.conversion_recipes
-            if k[0] == output_cmod and k[1] == input_cmod
+            if k[-1] == output_cmod and k[0] == input_cmod
         ]
         conversion_to_group_name[(input_cmod, tech, output_cmod)] = list(set(group_name))[0]
 
@@ -275,11 +275,15 @@ def test_find_converter_techs_fake_system(subtests):
             fake_inputs, input_cmod, output_cmod, tech, list(tech_ancestors)
         )
         conversion_factors[(input_cmod, tech, output_cmod)] = conversion_ratio
-    slc.get_techs_to_demand_from_recipe(("fresh_water", "salt_water", (10, "fresh_water-3")))
+    slc.get_techs_to_demand_from_recipe(("salt_water", (10, "fresh_water-3"), "fresh_water"))
 
-    recipe_name_h2 = ("hydrogen", "electricity", (3, "hydrogen-5"))
-    recipe_name_o2 = ("oxygen", "electricity", (5, "oxygen-7"))
-    recipe_name_heat = ("heat", "electricity", (1, "heat-4"))
+    # recipe_name_h2 = ("hydrogen", "electricity", (3, "hydrogen-5"))
+    # recipe_name_o2 = ("oxygen", "electricity", (5, "oxygen-7"))
+    # recipe_name_heat = ("heat", "electricity", (1, "heat-4"))
+    # TODO: update names to below:
+    recipe_name_h2 = ("electricity", (3, "hydrogen-5"), "hydrogen")
+    recipe_name_o2 = ("electricity", (5, "oxygen-7"), "oxygen")
+    recipe_name_heat = ("electricity", (1, "heat-4"), "heat")
 
     # recipe_name_h2 = [
     #     (a, b, c)
@@ -543,11 +547,14 @@ def test_multi_commodity_post_setup_nh3_system(subtests):
     # electricity, haber_bosch is group 2
     # hydrogen, haber_bosch is group 3
     # nitrogen, haber_bosch is group 4
+    # TODO: update recipe order to be
+    # in_commodity,
     n2_nh3_recipe = [("nitrogen", "haber_bosch", "ammonia"), *demand_group_general]
     # n2_nh3_recipe_name = [
     # k for k in conversion_recipes if k[0] == "ammonia" and k[1] == "nitrogen"
     # ][0]
-    n2_nh3_recipe_name = ("ammonia", "nitrogen", "ammonia-0")
+    # n2_nh3_recipe_name = ("ammonia", "nitrogen", "ammonia-0")
+    n2_nh3_recipe_name = ("nitrogen", "ammonia-0", "ammonia")
     with subtests.test("Nitrogen to Ammonia Recipe"):
         assert conversion_recipes[n2_nh3_recipe_name] == [set(n2_nh3_recipe)]
 
@@ -555,7 +562,8 @@ def test_multi_commodity_post_setup_nh3_system(subtests):
     # electricity_nh3_recipe_name = [
     #     k for k in conversion_recipes if k[0] == "ammonia" and k[1] == "electricity"
     # ][0]
-    electricity_nh3_recipe_name = ("ammonia", "electricity", "ammonia-0")
+    # electricity_nh3_recipe_name = ("ammonia", "electricity", "ammonia-0")
+    electricity_nh3_recipe_name = ("electricity", "ammonia-0", "ammonia")
     with subtests.test("Electricity to Ammonia Recipe"):
         assert conversion_recipes[electricity_nh3_recipe_name] == [set(electricity_nh3_recipe)]
 
@@ -563,7 +571,12 @@ def test_multi_commodity_post_setup_nh3_system(subtests):
     # h2_nh3_recipe_name = [
     # k for k in conversion_recipes if k[0] == "ammonia" and k[1] == "hydrogen"
     # ][0]
-    h2_nh3_recipe_name = ("ammonia", "hydrogen", "ammonia-0")
+    # h2_nh3_recipe_name = ("ammonia", "hydrogen", "ammonia-0")
+    h2_nh3_recipe_name = (
+        "hydrogen",
+        "ammonia-0",
+        "ammonia",
+    )
     with subtests.test("Hydrogen to Ammonia Recipe"):
         assert conversion_recipes[h2_nh3_recipe_name] == [set(h2_nh3_recipe)]
 
@@ -577,7 +590,8 @@ def test_multi_commodity_post_setup_nh3_system(subtests):
     # h2_elec_recipe_name = [
     #     k for k in conversion_recipes if k[0] == "hydrogen" and k[1] == "electricity"
     # ][0]
-    h2_elec_recipe_name = ("hydrogen", "electricity", "hydrogen-3")
+    # h2_elec_recipe_name = ("hydrogen", "electricity", "hydrogen-3")
+    h2_elec_recipe_name = ("electricity", "hydrogen-3", "hydrogen")
     with subtests.test("Electricity for Hydrogen Recipe"):
         assert conversion_recipes[h2_elec_recipe_name] == h2_elec_recipe
 
@@ -766,8 +780,9 @@ def test_multi_commodity_conversion_factor_nh3_system(subtests):
 
     conversion_recipes = prob.model.slc.hchs_config.conversion_recipes
 
+    # TODO: update recipe names
     # Nitrogen/Ammonia
-    n2_recipe_name = [k for k in conversion_recipes if k[0] == "ammonia" and k[1] == "nitrogen"][0]
+    n2_recipe_name = [k for k in conversion_recipes if k[-1] == "ammonia" and k[0] == "nitrogen"][0]
     # n2_recipe_name = ("ammonia", "nitrogen", "ammonia-5")
     with subtests.test("Nitrogen/Ammonia Conversion Factor"):
         conversion_factor = prob.model.slc.get_conversion_from_recipe(
@@ -780,7 +795,7 @@ def test_multi_commodity_conversion_factor_nh3_system(subtests):
 
     # Electricity/Ammonia
     elec_recipe_name = [
-        k for k in conversion_recipes if k[0] == "ammonia" and k[1] == "electricity"
+        k for k in conversion_recipes if k[-1] == "ammonia" and k[0] == "electricity"
     ][0]
     # elec_recipe_name = ("ammonia", "electricity", "ammonia-5")
     with subtests.test("Electricity/Ammonia Conversion Factor"):
@@ -793,7 +808,7 @@ def test_multi_commodity_conversion_factor_nh3_system(subtests):
         assert ["electricity_feedstock"] == techs_to_demand
 
     # Hydrogen/Ammonia
-    h2_recipe_name = [k for k in conversion_recipes if k[0] == "ammonia" and k[1] == "hydrogen"][0]
+    h2_recipe_name = [k for k in conversion_recipes if k[-1] == "ammonia" and k[0] == "hydrogen"][0]
     # h2_recipe_name = ("ammonia", "hydrogen", "ammonia-5")
     with subtests.test("Hydrogen/Ammonia Conversion Factor"):
         conversion_factor = prob.model.slc.get_conversion_from_recipe(
@@ -808,7 +823,7 @@ def test_multi_commodity_conversion_factor_nh3_system(subtests):
 
     # Electricity/Hydrogen/Ammonia
     eh2_recipe_name = [
-        k for k in conversion_recipes if k[0] == "hydrogen" and k[1] == "electricity"
+        k for k in conversion_recipes if k[-1] == "hydrogen" and k[0] == "electricity"
     ][0]
     # eh2_recipe_name = ("hydrogen", "electricity", "hydrogen-1")
     with subtests.test("Electricity/Hydrogen/Ammonia Conversion Factor"):

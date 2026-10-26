@@ -194,16 +194,20 @@ class DemandFollowingControl(SystemLevelControlBase):
             tech_subset=demand_techs,
         )
 
-        conversion_factors_tracker = {}
+        # conversion_factors_tracker = {}
         dispatched_tech_tracker = {}
         dispatched_commodity_tracker = {}
         for recipe_name, recipe in self.hchs_config.conversion_recipes.items():
-            commodity_to_demand = recipe_name[1]  # is this only relevant for complex keys?
+            # TODO: update order of recipe names
+            commodity_to_demand, recipe_group_id, _ = recipe_name
+            # commodity_to_demand = recipe_name[1]
             techs_to_demand = self.get_techs_to_demand_from_recipe(recipe_name)
             conversion_factor = self.get_conversion_from_recipe(conversion_factors, recipe)
             demand = inputs[self.demand_input_name].copy() * conversion_factor
 
-            dispatched_tech_keyname = tuple(sorted(techs_to_demand)) + tuple(recipe_name[-1])
+            # dispatched_tech_keyname = tuple(sorted(techs_to_demand)) + tuple(recipe_name[-1])
+            dispatched_tech_keyname = tuple(sorted(techs_to_demand)) + tuple(recipe_group_id)
+
             dispatched_tech_tracker[dispatched_tech_keyname] = demand
             dispatched_commodity_tracker[dispatched_tech_keyname] = commodity_to_demand
             outputs = self.get_setpoints_for_commodity_subset(
@@ -213,11 +217,11 @@ class DemandFollowingControl(SystemLevelControlBase):
                 demand,
                 tech_subset=techs_to_demand,
             )
-            conversion_factors_tracker[recipe_name] = conversion_factor
+            # conversion_factors_tracker[recipe_name] = conversion_factor
 
         # Check if we had set setpoints for multiple tech groups
         # (should only happen if using complex names)
-        if isinstance(list(self.hchs_config.conversion_recipes.keys())[0][-1], tuple):
+        if isinstance(list(self.hchs_config.conversion_recipes.keys())[0][1], tuple):
             # using complex keynames
             techs_in_group = sorted({k[:-2] for k in dispatched_tech_tracker})
             tech_group_to_recipe_ids = {}
