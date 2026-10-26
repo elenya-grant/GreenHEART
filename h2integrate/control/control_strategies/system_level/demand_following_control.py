@@ -196,15 +196,16 @@ class DemandFollowingControl(SystemLevelControlBase):
 
         conversion_factors_tracker = {}
         dispatched_tech_tracker = {}
+        dispatched_commodity_tracker = {}
         for recipe_name, recipe in self.hchs_config.conversion_recipes.items():
-            commodity_to_demand = recipe_name[1]
+            commodity_to_demand = recipe_name[1]  # is this only relevant for complex keys?
             techs_to_demand = self.get_techs_to_demand_from_recipe(recipe_name)
             conversion_factor = self.get_conversion_from_recipe(conversion_factors, recipe)
             demand = inputs[self.demand_input_name].copy() * conversion_factor
 
             dispatched_tech_keyname = tuple(sorted(techs_to_demand)) + tuple(recipe_name[-1])
             dispatched_tech_tracker[dispatched_tech_keyname] = demand
-
+            dispatched_commodity_tracker[dispatched_tech_keyname] = commodity_to_demand
             outputs = self.get_setpoints_for_commodity_subset(
                 inputs,
                 outputs,
@@ -216,15 +217,48 @@ class DemandFollowingControl(SystemLevelControlBase):
 
         # Check if we had set setpoints for multiple tech groups
         # (should only happen if using complex names)
-        if isinstance(self.hchs_config.conversion_recipes[-1], tuple):
+        if isinstance(list(self.hchs_config.conversion_recipes.keys())[0][-1], tuple):
             # using complex keynames
             techs_in_group = sorted({k[:-2] for k in dispatched_tech_tracker})
-            # tech_group_to_recipe_ids = {}
+            tech_group_to_recipe_ids = {}
+            # will have to do a np.max on all the demand for a tech
+
             for tech_group in techs_in_group:
-                print(tech_group)
-                pass  # TODO: finish
                 # find which key in dispatched_tech_tracker starts with these techs
-                # recipe_id = [k[-2:] for k in dispatched_tech_tracker if k[:-2]==tech_group]
+                recipe_ids = [k[-2:] for k in dispatched_tech_tracker if k[:-2] == tech_group]
+
+                tech_group_conversion_demand = np.zeros((len(recipe_ids), self.n_timesteps))
+                if tech_group not in tech_group_to_recipe_ids:
+                    tech_group_to_recipe_ids[tech_group] = recipe_ids
+                    # 1: check that all tech_group_commodities are the same
+                    tech_group_commods = [
+                        dispatched_commodity_tracker[tuple(sorted(tech_group)) + tuple(recipe_id)]
+                        for recipe_id in recipe_ids
+                    ]
+                    n_tech_group_commodities = list(set(tech_group_commods))
+                    if len(n_tech_group_commodities) > 1:
+                        # check that all tech_group_commodities are the same
+                        msg = (
+                            f"Unexpected situation. Commodities {sorted(set(tech_group_commods))} "
+                            f"were found for tech group containing technologies: {tech_group}"
+                        )
+                        raise ValueError(msg)
+                    # 2: get the demand for each group
+                    for ii, recipe_id in enumerate(recipe_ids):
+                        ref_name = tuple(sorted(tech_group)) + tuple(recipe_id)
+                        tech_group_conversion_demand[ii, :] = dispatched_tech_tracker[ref_name]
+                        tech_group_commodity = dispatched_commodity_tracker[ref_name]
+
+                    # get the maximum demand of a specific technology group
+                    tech_group_max_demand = np.max(tech_group_conversion_demand, axis=0)
+
+                    outputs = self.get_setpoints_for_commodity_subset(
+                        inputs,
+                        outputs,
+                        tech_group_commodity,
+                        tech_group_max_demand,
+                        tech_subset=tech_group,
+                    )
 
         else:
             # still check for unexpected edge-case

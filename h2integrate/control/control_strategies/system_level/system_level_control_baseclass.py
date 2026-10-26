@@ -1511,7 +1511,7 @@ class SystemLevelControlBase(om.ExplicitComponent):
         needs_complex_keys = False
         compounding_conversion_factor_recipes = {}
         cnt = 0
-        for starting_tech in list(starting_techs):
+        for starting_tech in sorted(starting_techs):
             paths = list(nx.all_simple_paths(simple_graph, starting_tech, self.demand_tech))
             for path in paths:
                 res = self._make_recipe_from_grouped_path(
