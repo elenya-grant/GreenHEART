@@ -586,6 +586,18 @@ class LPArbitrageControl(SystemLevelControlBase):
 
         model.balance = pyo.Constraint(model.T, rule=_balance_rule)
 
+        def _charge_limiting_rule(m, s, t):
+            """Prevent charging beyond the storage technology's rated capacity."""
+            return m.charge[s, t] <= m.charge_rate[s] * m.is_charging[s, t]
+
+        model.charge_limiting = pyo.Constraint(model.S, model.T, rule=_charge_limiting_rule)
+
+        def _discharge_limiting_rule(m, s, t):
+            """Prevent discharging beyond the storage technology's rated capacity."""
+            return m.discharge[s, t] <= m.discharge_rate[s] * m.is_discharging[s, t]
+
+        model.discharge_limiting = pyo.Constraint(model.S, model.T, rule=_discharge_limiting_rule)
+
         def _charge_discharge_rule(m, s, t):
             """Prevent simultaneous charging and discharging for a storage technology."""
             return m.is_charging[s, t] + m.is_discharging[s, t] <= 1
@@ -627,9 +639,7 @@ class LPArbitrageControl(SystemLevelControlBase):
             )
             unmet_cost = self.config.value_of_lost_load * sum(m.unmet[t] for t in m.T)
             cycle_cost = self.config.storage_cycle_cost * sum(
-                m.charge[s, t] * m.is_charging[s, t] + m.discharge[s, t] * m.is_discharging[s, t]
-                for s in m.S
-                for t in m.T
+                m.charge[s, t] + m.discharge[s, t] for s in m.S for t in m.T
             )
             return dt_h * (revenue - generation_cost - unmet_cost - cycle_cost)
 
