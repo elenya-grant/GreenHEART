@@ -1,15 +1,15 @@
 description: Driver config for CSVGen parameter sweep
 name: driver_config
 general:
-  folder_output: ex_20_out
-  create_om_reports: true
+  folder_output: ex_20_out_v3
+  create_om_reports: false
 driver:
   parameter_sweep:
     flag: true
     debug_print: true
     generator: csvgen
     filename: csv_doe_cases.csv
-    run_parallel: false
+    run_parallel: true
 design_variables:
   solar:
     system_capacity_DC:
@@ -26,8 +26,9 @@ design_variables:
 objective:
   name: finance_subgroup_hydrogen.LCOH_optimistic
 recorder:
-  file: cases.sql
+  file: cases_again_v2.sql
   overwrite_recorder: true
+  recorder_attachment: "driver" # "driver" or "model", use "driver" if running in parallel
   flag: true
   includes: ['*']
   excludes: ['*_resource*']

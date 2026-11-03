@@ -53,15 +53,15 @@ class WindResourceBase:
                 if desired_units != orig_units:
                     data[data_col] = units.convert_units(data[data_col], orig_units, desired_units)
                     data_units[data_col] = desired_units
-            else:
-                if len(output_var) < 1:
-                    warnings.warn(
-                        f"{data_col} not found as common variable.", UserWarning, stacklevel=3
-                    )
-                else:
-                    warnings.warn(
-                        f"{data_col} not found as a unique common variable.",
-                        UserWarning,
-                        stacklevel=3,
-                    )
+            # else:
+            #     if len(output_var) < 1:
+            #         warnings.warn(
+            #             f"{data_col} not found as common variable.", UserWarning, stacklevel=3
+            #         )
+            #     else:
+            #         warnings.warn(
+            #             f"{data_col} not found as a unique common variable.",
+            #             UserWarning,
+            #             stacklevel=3,
+            #         )
         return data, data_units

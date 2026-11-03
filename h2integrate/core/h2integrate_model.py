@@ -95,6 +95,8 @@ class H2IntegrateModel:
 
         self.create_finance_model()
 
+        self.create_correlation_comp()
+
         # add system-level controller if configured
         if self.slc:
             slc_topology = self._classify_slc_technologies()
@@ -110,6 +112,68 @@ class H2IntegrateModel:
         self.create_driver_model()
 
         self.state = State.INITIALIZED
+
+
+    def create_correlation_comp(self):
+        from h2integrate.core.correlation_comp import CorrelationComponentModel
+
+        if "correlation_parameters" not in self.plant_config:
+            # print("did not find correlation parameters")
+            return
+
+        # print("making correlation component")
+        # get all the output commodity profiles
+        techs_to_output_commodities = set()
+        
+        for source, _, commodities in self.technology_graph.edges(data="commodity"):
+            if commodities is None:
+                continue
+            techs_to_output_commodities.update((source, commodity) for commodity in commodities)
+
+        
+        # if "grid_sell" in self.technology_config["technologies"]:
+        #     techs_to_output_commodities.update(set([("grid_sell", "electricity")]))
+        # if "grid_buy" in self.technology_config["technologies"]:
+        #     techs_to_output_commodities.update(set([("grid_buy", "electricity")]))
+        # if "out_combiner" in self.technology_config["technologies"]:
+        #     techs_to_output_commodities.update(set([("out_combiner", "electricity")]))
+        # if "charge_combiner" in self.technology_config["technologies"]:
+        #     techs_to_output_commodities.update(set([("charge_combiner", "electricity")]))
+
+        self.correlation_commodity_connections = list(techs_to_output_commodities) 
+        # print(f"found {len(self.correlation_commodity_connections)} connections for correlation: {self.correlation_commodity_connections}")
+        corr_group = om.Group()
+        comp = CorrelationComponentModel(plant_config=self.plant_config, tech_config=self.technology_config["technologies"], driver_config=self.driver_config, techs_to_output_commodities=list(techs_to_output_commodities))
+        corr_group.add_subsystem("corr_comp", comp, promotes=["*"])
+        self.plant.add_subsystem("correlation", corr_group)
+
+    def connect_correlation_comp(self):
+        if "correlation_parameters" not in self.plant_config:
+            return
+
+        corr_connections = []
+        # tech_output_profiles is a dictionary of {tech_name: [tech_output_names]}
+        tech_specific_output_profiles = self.plant_config["correlation_parameters"].get("techs_specific_outputs_profiles",{})
+        # print(f"got tech specific output profiles of {tech_specific_output_profiles}")
+        # NOTE: logic does not allow for SLC outputs to be connected
+        for tech_name, commodity in self.correlation_commodity_connections:
+            # H2I would connect {tech}.{commodity}_out to corr_comp.{tech}_{commodity}_out
+            self.plant.connect(f"{tech_name}.{commodity}_out", f"correlation.ts_{tech_name}_{commodity}_out")
+            corr_connections.append(f"{tech_name}_{commodity}_out")
+
+            # for tech_output_profile in tech_specific_output_profiles.get(tech_name, []):
+            #         # H2I would connect {tech}.{tech_output_profile} to corr_comp.{tech}_{tech_output_profile}
+            #         input_name = f"{tech_name}_{tech_output_profile}"
+            #         if input_name not in corr_connections:
+            #             self.plant.connect(f"{tech_name}.{tech_output_profile}", f"correlation.{tech_name}_{tech_output_profile}")
+            #             corr_connections.append(input_name)
+        for tech_name, output_profiles in tech_specific_output_profiles.items():
+            if tech_name in self.technology_config["technologies"]:
+                for tech_output_profile in output_profiles:
+                    input_name = f"{tech_name}_{tech_output_profile}"
+                    if input_name not in corr_connections:
+                        self.plant.connect(f"{tech_name}.{tech_output_profile}", f"correlation.ts_{tech_name}_{tech_output_profile}")
+                        corr_connections.append(input_name)
 
     def load_config(self, config_input):
         """Load and validate configuration files for the H2I model.
@@ -1983,6 +2047,7 @@ class H2IntegrateModel:
                             f"finance_subgroup_{group_id}.replacement_schedule_{tech_name}",
                         )
 
+        self.connect_correlation_comp()
         self.plant.options["auto_order"] = True
 
         # Check if there are any loops in the technology interconnections

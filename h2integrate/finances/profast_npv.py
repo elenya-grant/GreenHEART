@@ -1,6 +1,6 @@
 import warnings
 from collections.abc import Iterable
-
+import warnings
 import numpy as np
 from openmdao.utils.units import convert_units, simplify_unit
 
@@ -37,6 +37,12 @@ class ProFastNPV(ProFastBase):
             f"NPV_{self.output_txt}",
             val=0.0,
             units="USD",
+        )
+
+        self.add_output(
+            f"irr_{self.output_txt}",
+            val=0.0,
+            units="percent",
         )
 
         return
@@ -117,16 +123,17 @@ class ProFastNPV(ProFastBase):
 
         if non_pos_prod or has_zero_cf:
             # Has either zero rated production or zero capacity factor
-            outputs[f"NPV_{self.output_txt}"] = -1e20
+            outputs[f"NPV_{self.output_txt}"] = -1e12
             bug_desc = "capacity" if non_pos_prod else "capacity factor"
             msg = (
                 f"Commodity stream for finance group has a zero {bug_desc}. "
                 "If you recieve this warning multiple times, there may be a problem "
                 "with your setup. ProFAST is not being run on this iteration and the "
-                f"NPV_{self.output_txt} is being set to default value of -1e20"
+                f"NPV_{self.output_txt} is being set to default value of -1e12"
             )
-            warnings.warn(msg, UserWarning)
+            # warnings.warn(msg, UserWarning)
             return
+
         # ensure that sell price units are compatible with the rate units
         if float(conversion_ratio) != 1.0:
             # convert rate units to units compatible with the price_units
@@ -150,3 +157,18 @@ class ProFastNPV(ProFastBase):
         sell_profile = np.concatenate([np.full(non_op_Nyears, sell_price[0]), sell_price])
 
         outputs[f"NPV_{self.output_txt}"] = pf.cash_flow(price=sell_profile)
+
+        if hasattr(pf, "irr"):
+            irr_val = getattr(pf, "irr")
+
+            if isinstance(irr_val, str | bool | dict):
+                irr_val = 0.0
+
+            if isinstance(irr_val, np.ndarray | list | tuple):  # only for IRR
+                if len(irr_val)>0:
+                    irr_val = irr_val[-1]
+                else:
+                    # print(f"IRR IS {irr_val}")
+                    irr_val = 0.0
+
+            outputs[f"irr_{self.output_txt}"] = irr_val

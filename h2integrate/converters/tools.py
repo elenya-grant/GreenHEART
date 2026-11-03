@@ -2,7 +2,6 @@ import warnings
 
 import numpy as np
 
-
 def check_pysam_input_params(user_dict, pysam_options):
     """Checks for different values provided in two dictionaries that have the general format::
 

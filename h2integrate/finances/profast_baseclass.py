@@ -609,10 +609,10 @@ class ProFastBase(om.ExplicitComponent):
             Technology-specific ``capital_items.investment_tax_credit`` values are fractions
             of initial adjusted CapEx. Their dollar amounts are added to ProFAST's one-time
             capital incentive on every evaluation, excluding refurbishment costs.
-
+        
         Raises:
             ValueError: If a technology's investment tax credit is not a fraction from 0 to 1.
-
+            
         Returns:
             ProFAST: A fully configured ProFAST financial model object ready for execution.
         """
@@ -684,7 +684,7 @@ class ProFastBase(om.ExplicitComponent):
             profast_params["one time cap inct"]["value"] += (
                 investment_tax_credit * tech_capex_info["cost"]
             )
-
+            
             # see if any refurbishment information was input
             if "replacement_cost_percent" in tech_capex_info:
                 if "refurbishment_period_years" in tech_capex_info:

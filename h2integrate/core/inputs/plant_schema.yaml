@@ -159,4 +159,10 @@ properties:
         additionalProperties: false
     additionalProperties: false
     required: [finance_groups, cost_adjustment_parameters]
+  correlation_parameters:
+    type: object
+    properties:
+      techs_specific_outputs_profiles:
+        type: object
+        additionalProperties: true
 required: [name, description, plant]  # should plant be required?

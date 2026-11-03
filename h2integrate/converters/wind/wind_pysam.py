@@ -422,7 +422,7 @@ class PYSAMWindPlantPerformanceModel(WindPerformanceBaseClass):
 
         system_model.Turbine.calculate_powercurve(
             turbine_rating_kw,
-            int(rotor_diameter),
+            int(np.round(rotor_diameter)),
             self.power_curve_config.elevation,
             self.power_curve_config.wind_default_max_cp,
             self.power_curve_config.wind_default_max_tip_speed,
@@ -450,12 +450,12 @@ class PYSAMWindPlantPerformanceModel(WindPerformanceBaseClass):
         max_power_from_curve = max(system_model.value("wind_turbine_powercurve_powerout"))
         success = np.isclose(max_power_from_curve, float(turbine_rating_kw), rtol=1e-12, atol=1e-9)
 
-        return success
+        return success, max_power_from_curve
 
     def compute(self, inputs, outputs, discrete_inputs, discrete_outputs):
         rotor_diameter = inputs["rotor_diameter"][0]
         turbine_rating_kw = inputs["wind_turbine_rating"][0]
-        n_turbs = int(np.round(inputs["num_turbines"][0]))
+        n_turbs = np.round(inputs["num_turbines"][0])
 
         if turbine_rating_kw <= 0 or n_turbs <= 0:
             outputs["electricity_out"] = np.zeros(self.n_timesteps)
@@ -470,7 +470,6 @@ class PYSAMWindPlantPerformanceModel(WindPerformanceBaseClass):
             system_model = Windpower.default(self.config.config_name)
         elif self.config.create_model_from == "new":
             system_model = Windpower.new()
-
         design_dict = self.design_dict.copy()
 
         if "Lifetime" in design_dict and not hasattr(system_model, "Lifetime"):
@@ -487,13 +486,14 @@ class PYSAMWindPlantPerformanceModel(WindPerformanceBaseClass):
         # recalculate power curve based on rotor diameter and turbine rating
         success = True
         if self.config.run_recalculate_power_curve:
-            success = self.recalculate_power_curve(system_model, rotor_diameter, turbine_rating_kw)
+            success, max_pwer_adjusted = self.recalculate_power_curve(system_model, rotor_diameter, turbine_rating_kw)
 
         # if power-curve could not be adjusted to match input values
         if not success:
             msg = (
                 "Could not adjust turbine powercurve to match turbine rating of "
-                f"{turbine_rating_kw} kW with a rotor diameter of {rotor_diameter} meters"
+                f"{turbine_rating_kw} kW with a rotor diameter of {rotor_diameter} meters."
+                f"Got {max_pwer_adjusted} kW (difference of {max_pwer_adjusted - turbine_rating_kw} kW)"
             )
             raise ValueError(msg)
 

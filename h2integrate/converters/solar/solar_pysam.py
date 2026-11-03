@@ -451,7 +451,7 @@ class PYSAMSolarPlantPerformanceModel(SolarPerformanceBaseClass):
         system_model.assign(self.design_dict)
 
         if "tilt_angle" in inputs:
-            tilt_angle = inputs["tilt_angle"][0]
+            tilt_angle = np.max([inputs["tilt_angle"][0], 0.0]) # to handle negative values
         else:
             # calculate the tilt angle based on site latitude (use 0 if site latitude is not input)
             tilt = self.calc_tilt_angle(discrete_inputs["solar_resource_data"].get("site_lat", 0))
@@ -462,6 +462,8 @@ class PYSAMSolarPlantPerformanceModel(SolarPerformanceBaseClass):
 
         if "azimuth_angle" in inputs:
             azimuth = inputs["azimuth_angle"][0]
+            if azimuth < 0: # azimuth adjustment
+                azimuth = 360 + azimuth
         else:
             # calculate the azimuth angle based on site latitude or get user input azimuth angle
             azimuth = self.calc_azimuth_angle(

@@ -2,9 +2,9 @@ import numpy as np
 import pyomo.environ as pyo
 from attrs import field, define
 from pyomo.common.errors import ApplicationError
-
+from h2integrate.core.supported_models import register
 from h2integrate.core.utilities import BaseConfig, merge_shared_inputs
-from h2integrate.control.control_strategies.system_level.system_level_control_base import (
+from h2integrate.control.control_strategies.system_level.system_level_control_baseclass import (
     SystemLevelControlBase,
 )
 
@@ -63,7 +63,7 @@ class LPArbitrageControlConfig(BaseConfig):
     solver_name: str = field(default="glpk")
     solver_options: dict = field(default={})
 
-
+@register
 class LPArbitrageControl(SystemLevelControlBase):
     """System-level controller that co-optimizes dispatch with a linear program.
 
