@@ -2,8 +2,9 @@ import numpy as np
 import pyomo.environ as pyo
 from attrs import field, define
 from pyomo.common.errors import ApplicationError
-from h2integrate.core.supported_models import register
+
 from h2integrate.core.utilities import BaseConfig, merge_shared_inputs
+from h2integrate.core.supported_models import register
 from h2integrate.control.control_strategies.system_level.system_level_control_baseclass import (
     SystemLevelControlBase,
 )
@@ -62,6 +63,7 @@ class LPArbitrageControlConfig(BaseConfig):
     surplus_source_component: str | None = field(default=None)
     solver_name: str = field(default="glpk")
     solver_options: dict = field(default={})
+
 
 @register
 class LPArbitrageControl(SystemLevelControlBase):
@@ -560,6 +562,8 @@ class LPArbitrageControl(SystemLevelControlBase):
 
         model.charge = pyo.Var(model.S, model.T, bounds=_charge_bounds)
         model.discharge = pyo.Var(model.S, model.T, bounds=_discharge_bounds)
+        model.is_charging = pyo.Var(model.S, model.T, domain=pyo.Boolean)
+        model.is_discharging = pyo.Var(model.S, model.T, domain=pyo.Boolean)
         model.soc = pyo.Var(model.S, model.T, bounds=_soc_bounds)
         model.dispatch = pyo.Var(model.D, model.T, domain=pyo.NonNegativeReals)
         # Pyomo re-reads a mutable Param in a bound on every solve, so the
@@ -581,6 +585,12 @@ class LPArbitrageControl(SystemLevelControlBase):
             return supply == use
 
         model.balance = pyo.Constraint(model.T, rule=_balance_rule)
+
+        def _charge_discharge_rule(m, s, t):
+            """Prevent simultaneous charging and discharging for a storage technology."""
+            return m.is_charging[s, t] + m.is_discharging[s, t] <= 1
+
+        model.charge_discharge = pyo.Constraint(model.S, model.T, rule=_charge_discharge_rule)
 
         def _soc_rule(m, s, t):
             """Advance a storage technology's state of charge by its net flow, after losses."""
@@ -617,7 +627,9 @@ class LPArbitrageControl(SystemLevelControlBase):
             )
             unmet_cost = self.config.value_of_lost_load * sum(m.unmet[t] for t in m.T)
             cycle_cost = self.config.storage_cycle_cost * sum(
-                m.charge[s, t] + m.discharge[s, t] for s in m.S for t in m.T
+                m.charge[s, t] * m.is_charging[s, t] + m.discharge[s, t] * m.is_discharging[s, t]
+                for s in m.S
+                for t in m.T
             )
             return dt_h * (revenue - generation_cost - unmet_cost - cycle_cost)
 
