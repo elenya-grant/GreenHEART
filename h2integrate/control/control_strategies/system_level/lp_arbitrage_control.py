@@ -588,13 +588,13 @@ class LPArbitrageControl(SystemLevelControlBase):
 
         def _charge_limiting_rule(m, s, t):
             """Prevent charging beyond the storage technology's rated capacity."""
-            return m.charge[s, t] <= m.charge_rate[s] * m.is_charging[s, t]
+            return m.charge[s, t] <= m.max_charge[s] * m.is_charging[s, t]
 
         model.charge_limiting = pyo.Constraint(model.S, model.T, rule=_charge_limiting_rule)
 
         def _discharge_limiting_rule(m, s, t):
             """Prevent discharging beyond the storage technology's rated capacity."""
-            return m.discharge[s, t] <= m.discharge_rate[s] * m.is_discharging[s, t]
+            return m.discharge[s, t] <= m.max_discharge[s] * m.is_discharging[s, t]
 
         model.discharge_limiting = pyo.Constraint(model.S, model.T, rule=_discharge_limiting_rule)
 
