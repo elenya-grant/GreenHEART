@@ -295,7 +295,7 @@ class DemandFollowingControl(SystemLevelControlBase):
             tech_group_dispatched_cnt = [
                 tech_groups_dispatched.count(i) for i in tech_groups_dispatched
             ]
-            if any(tech_group_dispatched_cnt > 1):
+            if any(cnt > 1 for cnt in tech_group_dispatched_cnt):
                 weird_tech_groups = sorted(
                     {i for i in tech_groups_dispatched if tech_groups_dispatched.count(i) > 1}
                 )

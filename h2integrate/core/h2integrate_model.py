@@ -823,7 +823,7 @@ class H2IntegrateModel:
 
         if "converters" in slc_topology:
             converters_to_consumed = list(
-                {(tech, cmod_in) for _, tech, cmod_in in slc_topology["converters"]}
+                {(tech, cmod_in) for cmod_in, tech, _ in slc_topology["converters"]}
             )
             for tech_name, commodity_consumed in converters_to_consumed:
                 self.plant.connect(

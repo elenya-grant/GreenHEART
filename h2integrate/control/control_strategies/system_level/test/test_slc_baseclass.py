@@ -304,7 +304,8 @@ def test_find_converter_techs_fake_system(subtests):
     e_group_h2 = slc.get_techs_to_demand_from_recipe(recipe_name_h2)
     e_group_o2 = slc.get_techs_to_demand_from_recipe(recipe_name_o2)
     e_group_heat = slc.get_techs_to_demand_from_recipe(recipe_name_heat)
-
+    # when a converter produces multiple
+    # dict(slc.hchs_config.simple_graph.out_degree) -> fresh_water-3 has 3 and electricity-1 has 3
     with subtests.test("Electricity techs upstream from electrolyzer based on recipe"):
         assert e_group_h2 == e_group_o2
         assert e_group_o2 == e_group_heat

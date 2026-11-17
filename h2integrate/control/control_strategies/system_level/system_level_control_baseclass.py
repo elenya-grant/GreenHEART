@@ -678,7 +678,7 @@ class SystemLevelControlBase(om.ExplicitComponent):
 
     def _setup_consumption_category(self, converters):
         # TODO: Add doc-string and inline comments
-        converters_to_consumed = list({(tech, cmod_in) for _, tech, cmod_in in converters})
+        converters_to_consumed = list({(tech, cmod_in) for cmod_in, tech, _ in converters})
         for tech_name, commodity_consumed in converters_to_consumed:
             consumption_name = f"{tech_name}_{commodity_consumed}_consumed"
             if commodity_consumed in self.commodities_to_units:
